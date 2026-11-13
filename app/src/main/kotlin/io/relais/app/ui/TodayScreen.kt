@@ -483,6 +483,37 @@ private fun updatedLine(at: Long): String {
     return stringResource(R.string.today_updated, time)
 }
 
+/** "No new headlines since your last visit. The latest is from Thu 12 Nov." */
+@Composable
+internal fun NoNewHeadlines(latest: ReportEntity?) {
+    Text(
+        if (latest != null) stringResource(R.string.today_no_new_headlines, Display.weekdayDay(latest.dateCreated)) else stringResource(R.string.today_empty),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = Space.screen, vertical = Space.m).testTag("today_no_new_headlines"),
+    )
+}
+
+/** The headlines of Today's first block: the new ones, the large one, and the earlier ones. */
+internal data class HeadlineBlocks(
+    val new: List<ReportEntity>,
+    val hero: ReportEntity?,
+    val earlier: List<ReportEntity>,
+)
+
+/**
+ * Splits the week's headlines, newest first, for Today. New: posted since the last visit. The
+ * large one, with its photo: the first new one not read yet; failing that, the most recent of
+ * the week, read or not (P14 changed for v0.3.2, at the founder's request: a large headline on
+ * every visit, as in v0.2.3). Earlier: the others of the week, without the large one.
+ */
+internal fun headlineBlocks(headlines: List<ReportEntity>, since: Long, readIds: Set<Long>): HeadlineBlocks {
+    val new = headlines.filter { it.dateCreated > since }
+    val hero = new.firstOrNull { it.id !in readIds } ?: headlines.firstOrNull()
+    val earlier = headlines.filter { it.dateCreated <= since && it.id != hero?.id }
+    return HeadlineBlocks(new, hero, earlier)
+}
+
 /** "8 earlier headlines this week", which unfolds into their rows (P14 block 5). */
 @Composable
 private fun EarlierHeadlines(earlier: List<ReportEntity>, state: TodayState, vm: TodayViewModel, nav: Nav) {
@@ -580,26 +611,16 @@ private fun LazyListScope.allTab(
         }
     }
 
-    // 1. New headlines (P14): those posted since the last visit. The first unread one is shown
-    // large; without any, one line says so and gives the date of the latest.
-    val newHeadlines = state.headlines.filter { it.dateCreated > state.since }
-    val earlier = state.headlines.filter { it.dateCreated <= state.since }
-    val hero = newHeadlines.firstOrNull { it.id !in state.readIds }
+    // 1. New headlines (P14): those posted since the last visit; without any, one line says so and
+    // gives the date of the latest. A large headline with its photo on every visit (v0.3.2).
+    val (newHeadlines, hero, earlier) = headlineBlocks(state.headlines, state.since, state.readIds)
     item(key = "new_headlines") { SectionHeader(stringResource(R.string.today_new_headlines)) }
     if (newHeadlines.isEmpty()) {
-        item(key = "no_new_headlines") {
-            val latest = state.headlines.firstOrNull()
-            Text(
-                if (latest != null) stringResource(R.string.today_no_new_headlines, Display.weekdayDay(latest.dateCreated)) else stringResource(R.string.today_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = Space.screen, vertical = Space.m).testTag("today_no_new_headlines"),
-            )
-        }
+        item(key = "no_new_headlines") { NoNewHeadlines(latest = state.headlines.firstOrNull()) }
     }
     if (hero != null) {
         item(key = "hero") {
-            HeadlineHero(hero, isRead = false, onClick = { nav.report(hero.id) }, tag = headlineTag(hero, state)) { close ->
+            HeadlineHero(hero, isRead = hero.id in state.readIds, onClick = { nav.report(hero.id) }, tag = headlineTag(hero, state)) { close ->
                 HeadlineMenu(hero, state, vm, close)
             }
         }
