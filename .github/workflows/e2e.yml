@@ -47,6 +47,11 @@ jobs:
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          # A build with the appname carries it in BuildConfig. It must never land in the
+          # Actions cache, which pull requests can read on a public repository: read only.
+          # ci.yml, without any secret, keeps the cache filled.
+          cache-read-only: true
 
       # Hardware acceleration for the emulator (android-emulator-runner README).
       - name: Enable KVM
@@ -154,8 +159,11 @@ jobs:
             if [ -n "$RELIEFWEB_APPNAME" ]; then mkdir -p "$RUNNER_TEMP/a1"; maestro test -e APPNAME="$RELIEFWEB_APPNAME" .maestro/appname/a1-add-appname.yaml --test-output-dir "$RUNNER_TEMP/a1/out" > "$RUNNER_TEMP/a1/log.txt" 2>&1; echo $? > build/maestro/appname-exit-code; grep -v -i "input text\|inputtext" "$RUNNER_TEMP/a1/log.txt" | tail -40; rm -rf "$RUNNER_TEMP/a1"; adb logcat -c || true; fi
             e=$(cat build/maestro/exit-code); u=$(cat build/maestro/upgrade-exit-code 2>/dev/null || echo 0); a=$(cat build/maestro/appname-exit-code 2>/dev/null || echo 0); echo "Journeys: $e, upgrade check: $u, appname added: $a"; [ "$e" = 0 ] && [ "$u" = 0 ] && [ "$a" = 0 ]
 
+      # Artifacts of a public repository can be downloaded by anyone signed in to GitHub. A run
+      # with the appname uploads nothing, so that no file of it can show the appname; only the
+      # run without it (no secret at all) keeps its screenshots, videos and report.
       - name: Upload screenshots
-        if: always()
+        if: always() && inputs.without_appname
         # The artifact storage quota was hit on 12/11 and turned two green nights red: an
         # upload that fails no longer decides the result of the journeys.
         continue-on-error: true
@@ -172,7 +180,7 @@ jobs:
 
       # Videos weigh the most (1.5 GB on 13/11): only when a journey fails.
       - name: Upload videos
-        if: failure()
+        if: failure() && inputs.without_appname
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -184,7 +192,7 @@ jobs:
           retention-days: 7
 
       - name: Upload the Maestro report, logs and logcat
-        if: always()
+        if: always() && inputs.without_appname
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
