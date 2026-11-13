@@ -31,7 +31,7 @@ The [release notes](https://github.com/13w13/relief-reader/releases/latest) desc
 
 ## Install and update
 
-Re.L is not on Google Play. On your phone, download the `.apk` file under **Assets** in the [latest release](https://github.com/13w13/relief-reader/releases/latest) and open it. Your browser, Android or Google Play Protect may warn about an app they don't know. Download it only from this page.
+Re.L is not on Google Play. Its inclusion in F-Droid has been requested ([fdroid/rfp#4792](https://gitlab.com/fdroid/rfp/-/issues/4792)); until then, the APK is here. On your phone, download the `.apk` file under **Assets** in the [latest release](https://github.com/13w13/relief-reader/releases/latest) and open it. Your browser, Android or Google Play Protect may warn about an app they don't know. Download it only from this page.
 
 To update, install the new APK over the old one. Your countries, Library and settings stay. To hear about new versions, use **Watch > Custom > Releases** on this page.
 
