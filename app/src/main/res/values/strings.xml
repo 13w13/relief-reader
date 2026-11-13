@@ -558,5 +558,7 @@
     <string name="licences_intro">Re.L is free software under the GNU General Public License, version 3 or later. It uses the libraries and fonts below, each under its own licence.</string>
     <string name="about_source_code">Source code</string>
     <string name="about_send_feedback">Send feedback</string>
-    <string name="about_report_problem">Report a problem</string>
+    <string name="about_made_with">Made with ♥ in my free time.</string>
+    <string name="about_star">Like Re.L? Star it on GitHub</string>
+    <string name="about_open_issue">An idea or a problem? Open an issue</string>
 </resources>

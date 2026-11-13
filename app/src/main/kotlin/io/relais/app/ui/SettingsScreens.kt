@@ -217,7 +217,6 @@ fun SettingsScreen(nav: Nav) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state.settings
     val scope = rememberCoroutineScope()
-    val uriHandler = LocalUriHandler.current
     var checkResult by remember { mutableStateOf<AccessCheck?>(null) }
     var checking by remember { mutableStateOf(false) }
     var showAppnameDialog by remember { mutableStateOf(false) }
@@ -351,41 +350,7 @@ fun SettingsScreen(nav: Nav) {
             ) { Text(stringResource(R.string.settings_delete_pdfs)) }
             HorizontalDivider()
 
-            SectionHeader(stringResource(R.string.settings_about))
-            // "What's new" (theme-compose.md 13.4): the lines of the latest version that has some.
-            WhatsNew.latest(BuildConfig.VERSION_CODE)?.let { release ->
-                Column(
-                    Modifier.fillMaxWidth().clickable { showWhatsNew = release }
-                        .padding(horizontal = 16.dp, vertical = 8.dp).testTag("settings_whats_new"),
-                ) {
-                    Text(stringResource(R.string.whats_new_title), style = MaterialTheme.typography.bodyLarge)
-                    Text(stringResource(R.string.whats_new_version, release.label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            SettingText(stringResource(R.string.settings_about_text))
-            // T19: the licences always; the source code, feedback and issues once their link exists.
-            TextButton(onClick = nav::licences, modifier = Modifier.padding(horizontal = 8.dp).testTag("settings_licences")) {
-                Text(stringResource(R.string.licences_title))
-            }
-            if (BuildConfig.SOURCE_URL.isNotBlank()) {
-                TextButton(onClick = { safeOpen(uriHandler, BuildConfig.SOURCE_URL) }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                    Text(stringResource(R.string.about_source_code))
-                }
-            }
-            if (BuildConfig.FEEDBACK_URL.isNotBlank()) {
-                TextButton(onClick = { safeOpen(uriHandler, BuildConfig.FEEDBACK_URL) }, modifier = Modifier.padding(horizontal = 8.dp).testTag("settings_feedback")) {
-                    Text(stringResource(R.string.about_send_feedback))
-                }
-            }
-            if (BuildConfig.ISSUES_URL.isNotBlank()) {
-                TextButton(onClick = { safeOpen(uriHandler, BuildConfig.ISSUES_URL) }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                    Text(stringResource(R.string.about_report_problem))
-                }
-            }
-            TextButton(onClick = { safeOpen(uriHandler, TERMS_URL) }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                Text(stringResource(R.string.settings_terms))
-            }
-            SettingText(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), secondary = true)
+            AboutSection(onLicences = nav::licences, onWhatsNew = { showWhatsNew = it })
         }
     }
 
@@ -419,6 +384,58 @@ fun SettingsScreen(nav: Nav) {
             },
             dismissButton = { TextButton(onClick = { confirmPdfs = false }) { Text(stringResource(R.string.report_cancel)) } },
         )
+    }
+}
+
+/**
+ * Settings > About Re.L: what's new, what the app is, its licences and links, its version, then
+ * how to say thanks or report something, on GitHub (no server, no tracking).
+ */
+@Composable
+fun AboutSection(onLicences: () -> Unit, onWhatsNew: (WhatsNew.Release) -> Unit) {
+    val uriHandler = LocalUriHandler.current
+    SectionHeader(stringResource(R.string.settings_about))
+    // "What's new" (theme-compose.md 13.4): the lines of the latest version that has some.
+    WhatsNew.latest(BuildConfig.VERSION_CODE)?.let { release ->
+        Column(
+            Modifier.fillMaxWidth().clickable { onWhatsNew(release) }
+                .padding(horizontal = 16.dp, vertical = 8.dp).testTag("settings_whats_new"),
+        ) {
+            Text(stringResource(R.string.whats_new_title), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.whats_new_version, release.label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    SettingText(stringResource(R.string.settings_about_text))
+    // T19: the licences always; the source code and feedback once their link exists.
+    TextButton(onClick = onLicences, modifier = Modifier.padding(horizontal = 8.dp).testTag("settings_licences")) {
+        Text(stringResource(R.string.licences_title))
+    }
+    if (BuildConfig.SOURCE_URL.isNotBlank()) {
+        TextButton(onClick = { safeOpen(uriHandler, BuildConfig.SOURCE_URL) }, modifier = Modifier.padding(horizontal = 8.dp)) {
+            Text(stringResource(R.string.about_source_code))
+        }
+    }
+    if (BuildConfig.FEEDBACK_URL.isNotBlank()) {
+        TextButton(onClick = { safeOpen(uriHandler, BuildConfig.FEEDBACK_URL) }, modifier = Modifier.padding(horizontal = 8.dp).testTag("settings_feedback")) {
+            Text(stringResource(R.string.about_send_feedback))
+        }
+    }
+    TextButton(onClick = { safeOpen(uriHandler, TERMS_URL) }, modifier = Modifier.padding(horizontal = 8.dp)) {
+        Text(stringResource(R.string.settings_terms))
+    }
+    SettingText(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), secondary = true)
+    // The founder's request (v0.3.1): a way to say thanks and to give feedback without a server
+    // or any tracking. A star and an issue on GitHub; nothing that opens by itself, no reminder.
+    SettingText(stringResource(R.string.about_made_with), secondary = true)
+    if (BuildConfig.SOURCE_URL.isNotBlank()) {
+        TextButton(onClick = { safeOpen(uriHandler, BuildConfig.SOURCE_URL) }, modifier = Modifier.padding(horizontal = 8.dp).testTag("about_star")) {
+            Text(stringResource(R.string.about_star))
+        }
+    }
+    if (BuildConfig.ISSUES_URL.isNotBlank()) {
+        TextButton(onClick = { safeOpen(uriHandler, BuildConfig.ISSUES_URL) }, modifier = Modifier.padding(horizontal = 8.dp).testTag("about_issue")) {
+            Text(stringResource(R.string.about_open_issue))
+        }
     }
 }
 
