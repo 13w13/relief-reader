@@ -13,3 +13,9 @@ updates:
     groups:
       gradle:
         patterns: ["*"]
+    # Major versions change the build or the API (AGP 9 builds Kotlin in and refuses the
+    # kotlin-android plugin; Gradle 9; OkHttp 5; a new Compose BOM year). They are done on
+    # purpose, one at a time, not by the weekly batch.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
