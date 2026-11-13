@@ -1,0 +1,380 @@
+# Journey 1, the morning briefing, in direct mode:
+# real ReliefWeb API, so titles and counts change every day. The flow checks stable UI
+# texts and uses test tags (tab_*, doc_<id>, save_button) instead of daily titles.
+appId: org.relreader.app
+name: p1-briefing
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+# Fresh install. Notifications are left unset so that Android asks for them at step 1.4.
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+    permissions:
+      notifications: unset
+- startRecording: p1-briefing
+
+# 1.1 to 1.4: welcome, Lebanon and Sudan, "Turn on" then "Allow".
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p1
+      DIGEST: allow
+
+# 1.5 Today after the first sync. Since v0.3 the headlines carry headline_(un)read_<id> and
+# can fill the whole screen on a first launch: either kind of row will do.
+- extendedWaitUntil:
+    visible:
+      id: "(doc|headline_unread|headline_read)_.*"
+    timeout: 90000
+- assertVisible: "0 of \\d+ read"
+- takeScreenshot: p1-06-today
+# v0.3 (P14): Today opens on what is new. "New headlines" first; the other headlines of the
+# week are folded in one line ("8 earlier headlines this week"), unfolded here.
+- scrollUntilVisible:
+    element:
+      text: "New headlines"
+    direction: DOWN
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "today_earlier"
+    commands:
+      - tapOn:
+          id: "today_earlier"
+- takeScreenshot: p1-07-headlines
+- scrollUntilVisible:
+    element:
+      text: "\\d+ of \\d+ read"
+    direction: UP
+    timeout: 30000
+
+# 1.5b Pull to refresh (v0.1.2): the list comes back with its progress line.
+- swipe:
+    start: 50%, 40%
+    end: 50%, 85%
+- extendedWaitUntil:
+    visible:
+      id: "(doc|headline_unread|headline_read)_.*"
+    timeout: 60000
+- assertVisible: "\\d+ of \\d+ read"
+- takeScreenshot: p1-07b-pulled
+
+# 1.5c Swipe between rubrics (v0.1.2): All to Situation reports, then back. The swipe
+# crosses most of the screen (the pager snaps back under half a page) and starts away from
+# the edges, where Android has its back gesture.
+- swipe:
+    start: 85%, 55%
+    end: 10%, 55%
+    duration: 300
+- extendedWaitUntil:
+    visible:
+      id: "page_sitreps"
+    timeout: 15000
+- takeScreenshot: p1-07c-swiped-sitreps
+- swipe:
+    start: 15%, 55%
+    end: 90%, 55%
+    duration: 300
+- extendedWaitUntil:
+    visible:
+      id: "page_all"
+    timeout: 15000
+- assertVisible: "\\d+ of \\d+ read"
+
+# 1.6 Open a headline not read yet (tagged headline_unread_<id>).
+- scrollUntilVisible:
+    element:
+      id: "headline_unread_.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "headline_unread_.*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "save_button"
+    timeout: 30000
+# One line of dates since v0.2.2 (theme-compose.md 12.7): "Published 5 November 2026", with
+# the posting date only when it came more than two days later.
+- assertVisible: "(Published|Posted on ReliefWeb) .*"
+- takeScreenshot: p1-08-report
+
+# 1.7 Down to the details and the links. The origin link exists only if the report has one.
+- scrollUntilVisible:
+    element:
+      text: "Details"
+    direction: DOWN
+    timeout: 120000
+    speed: 60
+- takeScreenshot: p1-09-report-details
+- scrollUntilVisible:
+    element:
+      text: "Open on ReliefWeb"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "Read the original on .*"
+    direction: DOWN
+    timeout: 5000
+    optional: true
+- takeScreenshot: p1-10-report-links
+
+# 1.8 Back to Today: one headline read.
+- back
+- extendedWaitUntil:
+    visible: "1 of \\d+ read"
+    timeout: 15000
+- takeScreenshot: p1-11-one-read
+
+# 1.8b Most read on ReliefWeb: "See all" under the block of Today opens every line of the
+# file, grouped. The block is there only when the phone has the file (once a day, Wi-Fi).
+- scrollUntilVisible:
+    element:
+      text: "Most read on ReliefWeb"
+    direction: DOWN
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "most_read_all"
+    commands:
+      - tapOn:
+          id: "most_read_all"
+      - extendedWaitUntil:
+          visible:
+            id: "page_most_read"
+          timeout: 30000
+      - extendedWaitUntil:
+          visible: "(What ReliefWeb visitors read most in the last 4 weeks.*|ReliefWeb's most-read list isn't available right now\\.)"
+          timeout: 60000
+      # The phone's documents show at once; the others arrive by batches of 50.
+      - extendedWaitUntil:
+          notVisible: "Loading the documents that are not on your phone yet\\."
+          timeout: 90000
+      - takeScreenshot: p1-11b-most-read
+      - back
+- scrollUntilVisible:
+    element:
+      text: "\\d+ of \\d+ read"
+    direction: UP
+    timeout: 30000
+
+# 1.9 No swipe-to-mark-read in this version: the menu of the large headline (now the next
+# unread one) does it. Since v0.2.2 rows have no overflow icon: a long press opens the menu.
+- scrollUntilVisible:
+    element:
+      id: "headline_unread_.*"
+    direction: DOWN
+    timeout: 30000
+- longPressOn:
+    id: "headline_unread_.*"
+    index: 0
+- tapOn: "Mark as read"
+- scrollUntilVisible:
+    element:
+      text: "\\d+ of \\d+ read"
+    direction: UP
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "2 of \\d+ read"
+    timeout: 15000
+- takeScreenshot: p1-12-two-read
+
+# 1.10 Your countries. Following a country counts its reports of the last 7 days as new.
+# Every document counts, language twins once (v0.2.2): a line reads "Sudan · 6 new", and a
+# country with nothing new joins "Up to date: ...". "Most reports this week" above has lines
+# like "Sudan · 34 reports": the patterns leave them out.
+- scrollUntilVisible:
+    element:
+      text: "Your countries"
+    direction: DOWN
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: "Sudan · \\d+ new.*"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "(Lebanon · \\d+ new.*|Up to date: .*Lebanon.*)"
+    direction: DOWN
+    timeout: 15000
+- takeScreenshot: p1-13-your-countries
+
+# 1.11 The Sudan line opens the Sudan tab of Today; "Country page" opens the country.
+# The list keeps its scroll position when the tab changes: scroll back to the top.
+- tapOn: "Sudan · \\d+ new.*"
+- scrollUntilVisible:
+    element:
+      text: "Country page"
+    direction: UP
+    timeout: 30000
+- assertVisible: "New since your last visit"
+- takeScreenshot: p1-14-today-sudan
+- tapOn: "Country page"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- assertVisible: "Humanitarian situation"
+# Since v0.2.2 the page opens on All, one list under the row of filters; documents posted
+# since the last visit carry the dot described as "New".
+- assertVisible:
+    id: "page_all"
+- assertVisible: "New"
+- takeScreenshot: p1-15-country-sudan
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "key"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- takeScreenshot: p1-15b-country-sudan-key
+
+# 1.12 Back to the All tab, then open and close every headline left. Back leaves the
+# country page, then a second Back takes Today from the Sudan rubric to All.
+- back
+- runFlow:
+    when:
+      notVisible: "All"
+    commands:
+      - back
+- scrollUntilVisible:
+    element:
+      text: "\\d+ of \\d+ read"
+    direction: UP
+    timeout: 30000
+# "(\d+) of \1 read" matches "7 of 7 read": every headline of the week is read. The
+# headlines left are tagged headline_unread_<id>; "Earlier this week" stays unfolded.
+- repeat:
+    while:
+      notVisible: "(\\d+) of \\1 read"
+    times: 20
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "headline_unread_.*"
+          direction: DOWN
+          timeout: 30000
+      - tapOn:
+          id: "headline_unread_.*"
+          index: 0
+      - extendedWaitUntil:
+          visible:
+            id: "save_button"
+          timeout: 30000
+      - back
+      - extendedWaitUntil:
+          visible:
+            id: "tab_today"
+          timeout: 15000
+      - scrollUntilVisible:
+          element:
+            text: "\\d+ of \\d+ read"
+          direction: UP
+          timeout: 15000
+- assertVisible: "(\\d+) of \\1 read"
+- scrollUntilVisible:
+    element:
+      text: "You're up to date"
+    direction: DOWN
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: "You've read this week's \\d+ headlines\\."
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "All headlines"
+    direction: DOWN
+    timeout: 15000
+- takeScreenshot: p1-16-up-to-date
+
+# 1.13 Offline. Within 30 minutes of a sync, Today does not call the network on launch,
+# so the banner shows once Refresh tries and fails.
+- setAirplaneMode: enabled
+- launchApp:
+    appId: org.relreader.app
+- extendedWaitUntil:
+    visible:
+      id: "tab_today"
+    timeout: 30000
+- tapOn: "Refresh"
+# v0.3 (theme-compose.md 13.3): one discreet line, "Offline · saved at 08:02".
+- extendedWaitUntil:
+    visible: "(Offline · saved at .*|Offline\\. Showing what was saved at .*)"
+    timeout: 30000
+- takeScreenshot: p1-17-offline
+
+# 1.14 A Sudan report from the sync opens offline, with its text. The country tabs sit at
+# the end of the rubric row: swipe it until Sudan shows (the distance varies per swipe).
+- repeat:
+    while:
+      notVisible: "Sudan"
+    times: 5
+    commands:
+      - swipe:
+          from:
+            id: "today_tabs"
+          direction: LEFT
+- tapOn: "Sudan"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 15000
+- tapOn:
+    id: "doc_.*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "save_button"
+    timeout: 15000
+- assertNotVisible: "This report isn't saved on your phone. Connect to load it."
+- takeScreenshot: p1-18-offline-report
+- back
+
+# 1.15 Back online, the daily summary on command (debug build: relaisdebug://digest), then
+# the notification in the shade. The summary counts the last 24 hours: Sudan always has
+# reports in that window.
+# Not checked: the multi-country text ("Sudan 3, Lebanon 4", ecrans.md M13) has no string in
+# strings.xml yet (Work.kt builds it by hand); the fixed counts belong to the fixtures mode.
+# The notification first shows as a status bar icon ("Re.L notification: Daily summary");
+# the shade is opened only then, and again if the first swipe did not open it.
+- setAirplaneMode: disabled
+- openLink: relaisdebug://digest
+- extendedWaitUntil:
+    visible: ".*notification: Daily summary"
+    timeout: 90000
+# The status bar icon above already names the notification ("Daily summary"). The shade is
+# opened for the screenshot; on the CI emulator the swipe sometimes leaves it closed.
+- repeat:
+    while:
+      notVisible: "Daily summary"
+    times: 4
+    commands:
+      - swipe:
+          start: 50%, 1%
+          end: 50%, 85%
+          duration: 600
+      - waitForAnimationToEnd:
+          timeout: 3000
+- takeScreenshot: p1-19-daily-summary
+- runFlow:
+    when:
+      visible: "Daily summary"
+    commands:
+      - back
+
+- stopRecording

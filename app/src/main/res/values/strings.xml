@@ -1,0 +1,562 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The texts of the app, in English. -->
+<resources>
+    <string name="app_name">Re.L</string>
+
+    <!-- Navigation -->
+    <string name="tab_today">Today</string>
+    <string name="tab_following">Following</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_library">Library</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_back">Back</string>
+    <string name="action_more">More options</string>
+    <string name="action_refresh">Refresh</string>
+
+    <!-- Common states -->
+    <string name="state_offline_cached">Offline. Showing what was saved at %1$s.</string>
+    <string name="state_offline_empty">You\'re offline and this page isn\'t saved on your phone.</string>
+    <string name="state_error">Couldn\'t load this page. Check your connection and try again.</string>
+    <string name="state_denied">ReliefWeb refused access. Check ReliefWeb access in Settings.</string>
+    <string name="state_rate_limited">ReliefWeb is limiting requests right now. Saved content still works. Try again later.</string>
+    <string name="state_no_access">Country pages and search need ReliefWeb access. You can add it in Settings.</string>
+    <string name="action_try_again">Try again</string>
+    <string name="action_open_settings">Open Settings</string>
+
+    <!-- M1 Welcome -->
+    <string name="welcome_title">Read what humanitarian organizations publish</string>
+    <string name="welcome_text">Situation reports, analyses, maps and appeals from UN agencies, NGOs and governments, as posted on ReliefWeb.</string>
+    <string name="welcome_note">Unofficial app. Not affiliated with ReliefWeb or OCHA. No account, no tracking.</string>
+    <string name="welcome_button">Get started</string>
+
+    <!-- M2 Pick countries -->
+    <string name="pick_title">Which countries do you follow?</string>
+    <string name="pick_help">You\'ll see what\'s new for them in Today. You can change this anytime.</string>
+    <string name="pick_headlines_only">Their reports appear once you add an appname.</string>
+    <string name="pick_search">Search countries</string>
+    <string name="pick_section_following">Following</string>
+    <string name="pick_section_humanitarian">Countries with a humanitarian situation</string>
+    <string name="pick_section_all">All countries</string>
+    <string name="pick_no_result">No country called \"%1$s\". Country names are in English.</string>
+    <string name="pick_continue">Continue</string>
+    <string name="pick_skip">Skip for now</string>
+    <string name="pick_done">Done</string>
+    <string name="pick_loading_failed">Couldn\'t load the list of countries. Check your connection and try again.</string>
+
+    <!-- M3 ReliefWeb access -->
+    <string name="access_title">Connect to ReliefWeb</string>
+    <string name="access_what">An appname is a free app name from ReliefWeb. Ask for one with a short form and your work email. ReliefWeb replies by email within two working days.</string>
+    <string name="access_why">Re.L has no shared access. Each reader connects to ReliefWeb with their own appname.</string>
+    <string name="access_headlines_note">You\'ll see ReliefWeb\'s latest headlines with a short summary. Add an appname later in Settings to read full reports, country pages and search.</string>
+    <string name="access_field">ReliefWeb appname</string>
+    <string name="access_field_help">It stays on this phone.</string>
+    <string name="access_help_link">Request an appname</string>
+    <string name="access_check">Check and continue</string>
+    <string name="access_headlines_only">Continue with headlines only</string>
+    <string name="access_success">Access works.</string>
+    <string name="access_refused">ReliefWeb doesn\'t accept this appname. Check it and try again.</string>
+    <string name="access_no_network">Couldn\'t reach ReliefWeb. Check your connection and try again.</string>
+
+    <!-- M4 Daily summary -->
+    <string name="digest_title">One notification a day</string>
+    <string name="digest_text">Around the time you choose, a short summary of new headlines and new reports for your countries. Nothing is sent on days with nothing new.</string>
+    <string name="digest_other_time">Other time</string>
+    <string name="digest_turn_on">Turn on</string>
+    <string name="digest_not_now">Not now</string>
+    <string name="digest_refused">Notifications are off. You can turn them on in Settings.</string>
+
+    <!-- M5 Today -->
+    <string name="today_header">Today · %1$s</string>
+    <string name="today_progress">%1$d of %2$d read</string>
+    <string name="today_continue">Continue reading</string>
+    <string name="today_continue_percent">%1$d%% read</string>
+    <string name="today_see_all">See all</string>
+    <string name="today_from_countries">From your countries</string>
+    <string name="today_country_link">%1$s ›</string>
+    <string name="today_remove_continue">Remove from Continue reading</string>
+    <string name="today_headlines">Headlines</string>
+    <string name="today_headlines_subtitle">Chosen by ReliefWeb editors</string>
+    <string name="today_countries">Your countries</string>
+    <string name="today_up_to_date_countries">Up to date: %1$s</string>
+    <string name="today_invite">Follow a country to see its new reports here.</string>
+    <string name="today_choose_countries">Choose countries</string>
+    <string name="today_end">You\'ve read this week\'s %1$d headlines.</string>
+    <string name="today_up_to_date">You\'re up to date</string>
+    <string name="today_left_one">1 headline left this week</string>
+    <string name="today_left_many">%1$d headlines left this week</string>
+    <string name="today_left_hint">Read them and this becomes \"You\'re up to date\".</string>
+    <string name="today_updated">Updated %1$s</string>
+    <string name="today_all_headlines">All headlines</string>
+    <string name="today_empty">No headlines in the last 7 days. ReliefWeb editors usually publish one or two on weekdays.</string>
+    <string name="action_save">Save</string>
+    <string name="action_saved">Saved</string>
+    <string name="action_mark_unread">Mark as unread</string>
+    <string name="action_mark_read">Mark as read</string>
+
+    <!-- M6 Report -->
+    <string name="report_share">Share</string>
+    <string name="report_open_reliefweb">Open on ReliefWeb</string>
+    <string name="report_saved_snackbar">Saved to Library</string>
+    <string name="action_undo">Undo</string>
+    <string name="report_published">Published %1$s</string>
+    <string name="report_posted">Posted on ReliefWeb %1$s</string>
+    <string name="report_published_posted">Published %1$s, posted on ReliefWeb %2$s</string>
+    <string name="report_files">Files</string>
+    <string name="report_download">Download</string>
+    <string name="report_downloading">Downloading %1$d%%</string>
+    <string name="report_open">Open</string>
+    <string name="report_cancel">Cancel</string>
+    <string name="report_confirm_mobile">This file is %1$s. Download it on mobile data?</string>
+    <string name="report_not_now">Not now</string>
+    <string name="report_download_failed">Download failed.</string>
+    <string name="report_too_large">Over %1$s: too large to open in Re.L. ReliefWeb\'s page lets your browser download it.</string>
+    <string name="report_no_reader">No PDF reader on this phone.</string>
+    <string name="report_resumed">Picked up where you left off.</string>
+    <string name="report_back_to_top">Back to top</string>
+    <string name="report_details">Details</string>
+    <string name="report_countries">Countries</string>
+    <string name="report_themes">Themes</string>
+    <string name="report_format">Format</string>
+    <string name="report_language">Language</string>
+    <string name="report_original">Read the original on %1$s</string>
+    <string name="report_same_country">Same country</string>
+    <string name="report_footer">Content from %1$s, posted on ReliefWeb (OCHA). Re.L is an unofficial app.</string>
+    <string name="report_no_body">No text version. The content is in the attached file.</string>
+    <string name="report_rss_mode">Full text needs ReliefWeb access.</string>
+    <string name="report_read_on_reliefweb">Read on ReliefWeb</string>
+    <string name="report_not_saved_offline">This report isn\'t saved on your phone. Connect to load it.</string>
+    <string name="report_gone">This report is no longer on ReliefWeb. Your copy stays in Library.</string>
+    <string name="report_photo">Photo: %1$s</string>
+    <string name="report_file_line">%1$s · %2$s</string>
+    <string name="report_pages">%1$d pages</string>
+
+    <!-- M7 Following -->
+    <string name="following_title">Following</string>
+    <string name="following_humanitarian">Humanitarian situation</string>
+    <string name="following_new">%1$d new</string>
+    <string name="following_up_to_date">Up to date</string>
+    <string name="following_last_report">Last report %1$s</string>
+    <string name="following_add">Follow a country</string>
+    <string name="following_stop">Stop following</string>
+    <string name="following_empty">You\'re not following any country yet. Follow one to see its new reports here and in Today.</string>
+
+    <!-- M8 Country -->
+    <string name="country_follow">Follow</string>
+    <string name="country_following">Following</string>
+    <string name="tab_all">All</string>
+    <string name="tab_sitreps">Situation reports</string>
+    <string name="tab_analysis">Analysis</string>
+    <string name="tab_maps">Maps</string>
+    <string name="tab_news">News</string>
+    <string name="tab_appeals">Appeals</string>
+    <string name="country_seen_before">Seen before</string>
+    <string name="country_empty">No %1$s for %2$s yet.</string>
+    <string name="country_show_older">Show older</string>
+    <string name="country_end">That\'s everything for now.</string>
+    <string name="country_load_more_failed">Couldn\'t load more.</string>
+
+    <!-- M9 Search -->
+    <string name="search_field">Search ReliefWeb reports</string>
+    <string name="search_recent">Recent searches</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_tips">Search tips</string>
+    <string name="search_tips_examples">\"food security\" Sudan\ncholera OR AWD\nmeasles NOT vaccine\ntitle:sitrep</string>
+    <string name="search_tips_legend">Quotes find the exact phrase. OR finds either word. NOT leaves a word out.</string>
+    <string name="search_offline">You\'re offline. Search needs a connection. Reports you\'ve read or saved are searchable in Library.</string>
+
+    <!-- M10 Results -->
+    <string name="results_count">%1$s reports</string>
+    <string name="results_relevant">Most relevant</string>
+    <string name="results_newest">Newest</string>
+    <string name="results_filters">Filters</string>
+    <string name="results_filters_count">Filters (%1$d)</string>
+    <string name="filter_country">Country</string>
+    <string name="filter_format">Format</string>
+    <string name="filter_language">Language</string>
+    <string name="filter_posted">Posted</string>
+    <string name="posted_any">Any time</string>
+    <string name="posted_7">Past 7 days</string>
+    <string name="posted_30">Past 30 days</string>
+    <string name="posted_365">Past 12 months</string>
+    <string name="filter_clear_all">Clear all</string>
+    <string name="filter_show_results">Show results</string>
+    <string name="results_none">No reports for \"%1$s\". Try fewer words or check the spelling.</string>
+    <string name="results_clear_filters">Clear filters</string>
+    <string name="results_load_more">Load more</string>
+    <string name="results_headlines_title">All headlines</string>
+    <string name="format_appeal">Appeal</string>
+    <string name="format_other">Other</string>
+    <string name="language_english">English</string>
+    <string name="language_french">French</string>
+    <string name="language_spanish">Spanish</string>
+    <string name="language_arabic">Arabic</string>
+
+    <!-- M11 Library -->
+    <string name="library_saved">Saved</string>
+    <string name="library_history">History</string>
+    <string name="library_search">Search your library</string>
+    <string name="library_organization">Organization</string>
+    <string name="library_theme">Theme</string>
+    <string name="library_group_by">Group by: %1$s</string>
+    <string name="group_date">Date</string>
+    <string name="library_saved_on">Saved %1$s</string>
+    <string name="library_offline">Available offline</string>
+    <string name="library_pdf_on_phone">PDF on phone</string>
+    <string name="library_remove_saved">Remove from Saved</string>
+    <string name="library_remove_history">Remove from history</string>
+    <string name="library_read_percent">%1$d%% read</string>
+    <string name="library_finished">Finished</string>
+    <string name="library_pdf_opened">PDF opened</string>
+    <string name="library_saved_empty">Nothing saved yet. Tap Save on a report to keep it here. Saved reports stay readable offline.</string>
+    <string name="library_history_empty">Nothing here yet. Reports you open will appear here, with how far you read.</string>
+    <string name="library_filters_none">No reports match these filters.</string>
+    <string name="library_search_none">Nothing in your library matches \"%1$s\".</string>
+    <string name="library_value_count">%1$s %2$d</string>
+
+    <!-- M12 Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_access">ReliefWeb access</string>
+    <string name="settings_builtin">Built-in access</string>
+    <string name="settings_own">Your own appname</string>
+    <string name="settings_none">No access: headlines only</string>
+    <string name="settings_check">Check access</string>
+    <string name="settings_use_own">Use your own appname</string>
+    <string name="settings_remove_own">Remove your appname</string>
+    <string name="settings_countries">Countries</string>
+    <string name="settings_countries_you_follow">Countries you follow · %1$d</string>
+    <string name="settings_digest">Daily summary</string>
+    <string name="settings_digest_around">Around %1$s</string>
+    <string name="settings_library">Library</string>
+    <string name="settings_keep_history">Keep history for</string>
+    <string name="keep_90">90 days</string>
+    <string name="keep_365">1 year</string>
+    <string name="keep_forever">Forever</string>
+    <string name="settings_clear_history">Clear history</string>
+    <string name="settings_clear_history_confirm">Clear your reading history? Saved reports stay in Saved. This can\'t be undone.</string>
+    <string name="settings_storage">Storage</string>
+    <string name="settings_pdfs">Downloaded PDFs · %1$s</string>
+    <string name="settings_delete_pdfs">Delete downloaded PDFs</string>
+    <string name="settings_delete_pdfs_confirm">Delete %1$d PDFs (%2$s)? PDFs of saved reports are kept.</string>
+    <string name="settings_delete">Delete</string>
+    <string name="settings_about">About Re.L</string>
+    <string name="settings_about_text">Re.L is an unofficial app. It is not affiliated with ReliefWeb or OCHA. Reports come from the ReliefWeb API and belong to the organizations that published them. No account, no tracking: what you follow, save and read stays on this phone.</string>
+    <string name="settings_terms">ReliefWeb terms and conditions</string>
+    <string name="settings_version">Version %1$s</string>
+
+    <!-- M13 Notification -->
+    <string name="notif_channel">Daily summary</string>
+    <string name="notif_title">Daily summary</string>
+    <string name="notif_headlines_one">1 new headline</string>
+    <string name="notif_headlines_many">%1$d new headlines</string>
+    <string name="notif_one_country">%1$d new for %2$s</string>
+    <!-- Common labels -->
+    <string name="label_new">New</string>
+    <string name="label_read">Read</string>
+
+    <!-- Built-in PDF reader -->
+    <string name="report_read">Read</string>
+    <string name="report_full_report">Full report</string>
+    <string name="pdf_close">Close</string>
+    <string name="pdf_failed">This PDF can\'t be shown here.</string>
+    <string name="pdf_page">Page %1$d of %2$d</string>
+    <string name="pdf_page_description">Page %1$d</string>
+    <string name="pdf_zoom_in">Zoom in</string>
+    <string name="pdf_zoom_out">Zoom out</string>
+
+    <!-- Highlights -->
+    <string name="highlight_action">Highlight</string>
+    <string name="highlight_hint">Tap a paragraph to highlight a passage.</string>
+    <string name="highlight_select">Select the passage to highlight</string>
+    <string name="highlight_note">Note (optional)</string>
+    <string name="highlight_remove">Remove highlight</string>
+    <string name="highlight_note_line">Note: %1$s</string>
+    <string name="highlight_on">highlighted %1$s</string>
+    <string name="tab_overview">Overview</string>
+    <string name="settings_alerts">Alerts for new appeals and flash updates</string>
+    <string name="settings_alerts_help">Off by default. At most one alert a day for each country or crisis you follow.</string>
+    <string name="alert_channel">Alerts</string>
+    <string name="alert_appeal">New appeal for %1$s</string>
+    <string name="alert_flash">Flash update for %1$s</string>
+    <plurals name="alert_grouped">
+        <item quantity="one">%d new appeal or flash update in what you follow</item>
+        <item quantity="other">%d new appeals and flash updates in what you follow</item>
+    </plurals>
+    <string name="library_crisis">Crisis</string>
+    <string name="library_period">Period</string>
+    <string name="highlight_page">p. %1$d</string>
+    <plurals name="library_highlight_count">
+        <item quantity="one">%d highlight</item>
+        <item quantity="other">%d highlights</item>
+    </plurals>
+    <string name="export_action">Export as Markdown</string>
+    <string name="export_title">Export highlights</string>
+    <string name="export_counts">%1$s, %2$s</string>
+    <plurals name="export_reports">
+        <item quantity="one">%d report</item>
+        <item quantity="other">%d reports</item>
+    </plurals>
+    <plurals name="export_highlights">
+        <item quantity="one">%d highlight</item>
+        <item quantity="other">%d highlights</item>
+    </plurals>
+    <string name="export_share">Share</string>
+    <string name="export_none">No highlights to export with these filters.</string>
+    <string name="today_new_disasters">New disasters this week</string>
+    <string name="today_new_disasters_note">Alert or ongoing, recorded in the last 7 days</string>
+    <string name="today_new_disasters_none">No new disasters recorded on ReliefWeb this week.</string>
+    <string name="report_crises">Crises</string>
+    <string name="following_crises">Crises</string>
+    <string name="following_crises_empty">Follow a crisis to group its reports across countries. Long conflicts, such as in Sudan, are not crises on ReliefWeb: follow them as countries.</string>
+    <string name="following_add_crisis">Follow a crisis</string>
+    <string name="pick_crises_title">Follow a crisis</string>
+    <string name="pick_crises_help">Disasters tracked by ReliefWeb: floods, epidemics, earthquakes and storms. Conflicts are listed by country.</string>
+    <string name="pick_crises_search">Search crises or countries</string>
+    <string name="pick_crises_section">Ongoing · Alert</string>
+    <string name="pick_crises_none">No crisis listed as alert or ongoing.</string>
+    <string name="crisis_status_alert">Alert</string>
+    <string name="crisis_status_ongoing">Ongoing</string>
+    <string name="crisis_status_past">Past</string>
+    <string name="crisis_since">since %1$s</string>
+    <string name="crisis_event">Event %1$s</string>
+    <string name="crisis_listed">Listed on ReliefWeb %1$s</string>
+    <string name="crisis_description_by">Description by ReliefWeb editors</string>
+    <string name="crisis_description_more">Read the full description</string>
+    <string name="crisis_description_less">Show less</string>
+    <plurals name="crisis_new">
+        <item quantity="one">%d new report</item>
+        <item quantity="other">%d new reports</item>
+    </plurals>
+    <plurals name="crisis_new_key">
+        <item quantity="one">%d new key document</item>
+        <item quantity="other">%d new key documents</item>
+    </plurals>
+    <string name="also_in">Also in %1$s</string>
+    <string name="also_in_prefix">Also in</string>
+    <string name="today_crisis_page">Crisis page</string>
+    <string name="overview_no_reports_tagged">No report tagged with this disaster on your phone yet.</string>
+    <string name="action_more_options">More options</string>
+    <string name="following_kind_country">Country</string>
+    <string name="following_kind_disaster">Disaster</string>
+    <string name="pinned_hide_a11y">Hide: %1$s</string>
+    <string name="crisis_since_long">Since %1$s</string>
+    <string name="overview_disasters">Disasters</string>
+    <string name="pinned_ocha">Latest from OCHA</string>
+    <string name="pinned_flash">Latest flash update</string>
+    <string name="pinned_appeal">New appeal</string>
+    <string name="pinned_hide">Hide</string>
+    <string name="pinned_a11y">Pinned: %1$s</string>
+    <string name="crisis_tagging_note">Reports tagged with this disaster by ReliefWeb. Tagging is broad.</string>
+    <string name="overview_pace_none">No reports in the last 14 days.</string>
+    <string name="overview_no_analysis_crisis">No analysis or assessment yet.</string>
+    <string name="pick_crises_conflicts">ReliefWeb doesn\'t list conflicts as disasters. Follow the countries instead.</string>
+    <string name="pick_crises_countries">Follow countries</string>
+    <string name="following_crisis_line">%1$d new · %2$d in all</string>
+    <string name="overview_situation">Situation</string>
+    <string name="overview_situation_note">Latest situation report</string>
+    <string name="overview_no_sitrep">No situation report for %1$s among the latest documents.</string>
+    <string name="overview_no_sitrep_crisis">No situation report tagged with this disaster yet.</string>
+    <string name="overview_countries">Affected countries</string>
+    <plurals name="overview_reports_here">
+        <item quantity="one">%d report here</item>
+        <item quantity="other">%d reports here</item>
+    </plurals>
+    <string name="overview_needs">Needs and response</string>
+    <string name="overview_needs_profile">Current appeals and plans, chosen by ReliefWeb editors</string>
+    <string name="overview_needs_latest">Latest appeals</string>
+    <string name="overview_appeal_kicker">Appeal or plan</string>
+    <string name="overview_no_appeal">No appeal or response plan listed for %1$s.</string>
+    <string name="overview_no_appeal_crisis">No appeal or response plan listed for this disaster.</string>
+    <string name="overview_analysis">Analysis</string>
+    <string name="overview_no_analysis">No analysis or assessment for %1$s among the latest documents.</string>
+    <string name="overview_pace">Reports posted</string>
+    <string name="overview_pace_note">Reports with %1$s as main country</string>
+    <plurals name="overview_pace_line">
+        <item quantity="one">%1$d report in the last 7 days, %2$d in the 7 days before.</item>
+        <item quantity="other">%1$d reports in the last 7 days, %2$d in the 7 days before.</item>
+    </plurals>
+    <string name="overview_related">Disasters in %1$s</string>
+    <string name="overview_related_crisis">Other disasters in these countries</string>
+    <string name="overview_related_note">Alert or ongoing on ReliefWeb</string>
+    <string name="overview_no_related">No disaster listed for %1$s on ReliefWeb right now. ReliefWeb lists conflicts by country, not as disasters.</string>
+    <string name="overview_orgs">Who\'s publishing</string>
+    <string name="overview_orgs_note">Most active organizations, last 30 days</string>
+    <plurals name="overview_org_reports">
+        <item quantity="one">%d report</item>
+        <item quantity="other">%d reports</item>
+    </plurals>
+    <string name="selection_copy_citation">Copy with citation</string>
+    <string name="selection_translate">Translate</string>
+    <string name="selection_close">Close</string>
+    <string name="selection_clip_label">Passage with citation</string>
+    <string name="selection_copied">Copied with citation.</string>
+    <string name="selection_highlighted">Highlighted. Saved in Library.</string>
+    <string name="selection_add_note">Add a note</string>
+    <string name="library_highlights">Highlights</string>
+    <string name="library_search_highlights">Search your highlights</string>
+    <string name="library_highlights_empty">No highlights yet. In a report, tap the highlighter, then a paragraph, and select a passage.</string>
+    <string name="label_unofficial">Unofficial</string>
+    <string name="today_country_page">Country page</string>
+    <string name="today_new_since">New since your last visit</string>
+    <string name="today_format_empty">Nothing of this type in the last 7 days, among headlines and your countries.</string>
+    <string name="today_add_country">Add a country</string>
+    <string name="report_document_title">Document title</string>
+    <string name="text_size">Text size</string>
+    <string name="text_size_sample">Text from the report appears at this size.</string>
+    <string name="text_size_reset">Reset</string>
+    <string name="text_size_current">%1$s · %2$d sp</string>
+    <string name="text_step_smaller">Smaller</string>
+    <string name="text_step_small">Small</string>
+    <string name="text_step_default">Default</string>
+    <string name="text_step_large">Large</string>
+    <string name="text_step_larger">Larger</string>
+    <string name="settings_reading">Reading</string>
+    <string name="most_read_title">Most read on ReliefWeb</string>
+    <string name="most_read_subtitle">What ReliefWeb visitors read most since yesterday.</string>
+    <string name="most_covered_title">Most reports this week</string>
+    <string name="most_covered_subtitle">This counts reports, not needs.</string>
+    <plurals name="most_covered_line">
+        <item quantity="one">%1$s · %2$d report</item>
+        <item quantity="other">%1$s · %2$d reports</item>
+    </plurals>
+    <string name="most_covered_limits">A report posted in two languages counts twice, and a few organizations post a lot.</string>
+    <string name="tab_key">Key documents</string>
+    <string name="country_more_in_all">%1$d more in All: %2$s.</string>
+    <plurals name="format_news_count">
+        <item quantity="one">%d news release</item>
+        <item quantity="other">%d news releases</item>
+    </plurals>
+    <plurals name="format_other_count">
+        <item quantity="one">%d other</item>
+        <item quantity="other">%d other</item>
+    </plurals>
+    <plurals name="format_guideline_count">
+        <item quantity="one">%d guideline</item>
+        <item quantity="other">%d guidelines</item>
+    </plurals>
+    <plurals name="format_un_count">
+        <item quantity="one">%d UN document</item>
+        <item quantity="other">%d UN documents</item>
+    </plurals>
+    <string name="country_show_all">Show all</string>
+    <string name="country_key_help_link">What counts as key?</string>
+    <string name="country_key_help">Situation reports, analyses, assessments, evaluations, appeals, maps and infographics, plus any report that ReliefWeb editors chose as a headline. News releases, guidelines, UN documents and other documents stay in All.</string>
+    <string name="country_filter_title">Filter %1$s</string>
+    <string name="country_filters_stay">Filters stay on for %1$s until you clear them.</string>
+    <string name="country_filters_none">No documents match these filters.</string>
+    <string name="filter_remove">Remove filter: %1$s</string>
+    <string name="today_more_on_country_page">%1$d more in All, on the country page.</string>
+    <string name="settings_country_view">Open country pages on</string>
+    <string name="settings_view_key">Key documents</string>
+    <string name="settings_view_all">All documents</string>
+    <string name="settings_country_view_help">Applies to every country you follow. You can change it on each country page.</string>
+    <plurals name="notif_one_country_key">
+        <item quantity="one">%1$d key document for %2$s</item>
+        <item quantity="other">%1$d key documents for %2$s</item>
+    </plurals>
+    <string name="filter_show_all_count">Show all (%1$d)</string>
+    <string name="refresh_up_to_date">Up to date. Last checked %1$s.</string>
+    <string name="count_in_all">%1$d in all</string>
+    <string name="count_no_new_key">No new key documents</string>
+    <!-- T13 (theme-compose.md 12): one list, a row of filters, density -->
+    <string name="filter_most_read">Most read</string>
+    <string name="most_read_none">ReliefWeb\'s most-read list isn\'t available right now.</string>
+    <string name="most_read_header">What ReliefWeb visitors read most in the last 4 weeks, by country and by disaster. ReliefWeb does not rank the countries against each other. Updated by ReliefWeb at %1$s.</string>
+    <string name="most_read_header_day">What ReliefWeb visitors read most in the last 4 weeks, by country and by disaster. ReliefWeb does not rank the countries against each other. Updated by ReliefWeb on %1$s.</string>
+    <string name="most_read_resolving">Loading the documents that are not on your phone yet.</string>
+    <string name="most_read_front">Across ReliefWeb</string>
+    <string name="most_read_search">Search countries and disasters</string>
+    <string name="most_read_no_match">No country or disaster matches.</string>
+    <string name="overview_screen_title">Overview of %1$s</string>
+    <string name="crisis_about">About this disaster</string>
+    <string name="crisis_about_note">Written by ReliefWeb editors when the disaster was recorded. Figures may be out of date.</string>
+    <string name="state_expanded">Expanded</string>
+    <string name="state_collapsed">Collapsed</string>
+    <string name="display_title">Display</string>
+    <string name="display_help">Size of lists, titles and spacing across the app. Report text has its own steps in Aa.</string>
+    <string name="display_compact">Compact</string>
+    <string name="display_default">Default</string>
+    <string name="display_large">Large</string>
+    <string name="report_text">Report text</string>
+    <string name="following_manage">Manage</string>
+    <string name="following_feed_empty">Follow a country, a crisis or an organization to see its reports here.</string>
+    <string name="following_more">+%1$d</string>
+    <string name="following_manage_title">Countries and crises</string>
+    <string name="following_feed_none">No %1$s on your phone yet for what you follow. Pull down to refresh.</string>
+    <string name="following_feed_nothing">Nothing on your phone yet for what you follow. Pull down to refresh.</string>
+    <string name="action_close">Close</string>
+    <string name="most_read_more">Show more countries and disasters</string>
+    <string name="display_preview_format">Situation report</string>
+    <string name="display_preview_source">OCHA · Yesterday</string>
+    <string name="display_preview_1">Sudan: Humanitarian Situation Report No. 14</string>
+    <string name="display_preview_2">Lebanon: Flash Update No. 3</string>
+    <!-- v0.3, Today renewed (produit/today-fraicheur.md 5, through unslop) -->
+    <string name="today_new_headlines">New headlines</string>
+    <string name="today_no_new_headlines">No new headlines since your last visit. The latest is from %1$s.</string>
+    <string name="today_latest_follow">Latest from what you follow</string>
+    <plurals name="today_more_in_following">
+        <item quantity="one">1 more in Following</item>
+        <item quantity="other">%d more in Following</item>
+    </plurals>
+    <string name="today_latest_reports">Latest reports on ReliefWeb</string>
+    <string name="today_latest_reports_note">Situation reports, analyses, assessments and appeals from all countries</string>
+    <plurals name="today_earlier_headlines">
+        <item quantity="one">1 earlier headline this week</item>
+        <item quantity="other">%d earlier headlines this week</item>
+    </plurals>
+    <!-- v0.3, organizations (produit/suivre-organisation.md 7, theme-compose.md 13.1 and 13.2) -->
+    <string name="kicker_with">With %1$s</string>
+    <plurals name="source_rhythm">
+        <item quantity="one">About 1 document a week on ReliefWeb</item>
+        <item quantity="other">About %d documents a week on ReliefWeb</item>
+    </plurals>
+    <string name="source_rhythm_fewer">Fewer than 1 document a week on ReliefWeb</string>
+    <string name="source_latest">Latest: %1$s</string>
+    <string name="source_mostly_on_1">Mostly on %1$s</string>
+    <string name="source_mostly_on_2">Mostly on %1$s and %2$s</string>
+    <string name="source_mostly_on_3">Mostly on %1$s, %2$s and %3$s</string>
+    <string name="source_based_in">Based in %1$s</string>
+    <string name="source_website">Website</string>
+    <string name="source_show_more">Show more</string>
+    <string name="source_sheet_title">%1$s publishes about %2$d documents a week</string>
+    <string name="source_reports_only">Reports only</string>
+    <string name="source_reports_only_note">About %1$d a week: situation reports, analyses, assessments, appeals and evaluations.</string>
+    <string name="source_everything">Everything</string>
+    <string name="source_everything_note">About %1$d a week, with news, maps and infographics.</string>
+    <string name="source_follow_title">Follow an organization</string>
+    <string name="source_search">Search organizations</string>
+    <string name="source_suggestions">Analysis on your countries</string>
+    <plurals name="source_suggestion_line">
+        <item quantity="one">1 analysis on your countries in 3 months</item>
+        <item quantity="other">%d analyses on your countries in 3 months</item>
+    </plurals>
+    <string name="source_no_match">No organization on ReliefWeb matches \"%1$s\".</string>
+    <string name="source_line_reports">%1$s · Reports only</string>
+    <string name="source_line_everything">%1$s · Everything</string>
+    <string name="source_empty">No documents from %1$s on ReliefWeb.</string>
+    <string name="following_organizations">Organizations</string>
+    <!-- v0.3, state messages (theme-compose.md 13.3) -->
+    <string name="state_offline_line">Offline · saved at %1$s</string>
+    <string name="state_couldnt_update">Couldn\'t update. Showing what was saved at %1$s.</string>
+    <string name="state_denied_short">ReliefWeb refused access.</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_dismiss">Dismiss</string>
+    <!-- What's new (theme-compose.md 13.4); the lines of each version through unslop -->
+    <string name="whats_new_title">What\'s new</string>
+    <string name="whats_new_version">Version %1$s</string>
+    <string name="whats_new_got_it">Got it</string>
+    <string name="whats_new_03_lead_1">Follow organizations.</string>
+    <string name="whats_new_03_text_1">Tap an organization\'s name on any report.</string>
+    <string name="whats_new_03_lead_2">Today starts with what you haven\'t seen.</string>
+    <string name="whats_new_03_text_2">New headlines, then the latest reports.</string>
+    <string name="whats_new_03_lead_3">A new icon.</string>
+    <string name="whats_new_03_text_3">A black r and a red dot, on your home screen.</string>
+    <string name="whats_new_03_lead_4">Swipe messages away.</string>
+    <string name="whats_new_03_text_4">Slide a message sideways to close it.</string>
+    <string name="today_headlines_only">Headlines only. Add an appname in Settings to read full reports, country pages and search.</string>
+    <!-- T19, open source (GPL-3.0-or-later) -->
+    <string name="licences_title">Open source licences</string>
+    <string name="licences_intro">Re.L is free software under the GNU General Public License, version 3 or later. It uses the libraries and fonts below, each under its own licence.</string>
+    <string name="about_source_code">Source code</string>
+    <string name="about_send_feedback">Send feedback</string>
+    <string name="about_report_problem">Report a problem</string>
+</resources>

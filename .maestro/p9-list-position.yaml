@@ -1,0 +1,130 @@
+# Journey 9, the list keeps its place (founder, 13/11; PLAN.md 0sexies): scroll a list, open a
+# document, come back, and the same document is still on screen, not the top of the list.
+# On Following, then on a country page. Direct mode: titles change every day, so the journey
+# opens the second row on screen, keeps the report's title, comes back, opens the second row
+# again and checks it is the same report.
+appId: org.relreader.app
+name: p9-list-position
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p9-list-position
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p9
+      DIGEST: skip
+
+# 9.1 Following: down the feed, past the line of what is followed.
+- tapOn:
+    id: "tab_following"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 90000
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 30%
+          duration: 500
+      - waitForAnimationToEnd:
+          timeout: 2000
+- assertNotVisible:
+    id: "following_line"
+- takeScreenshot: p9-01-following-scrolled
+- tapOn:
+    id: "doc_.*"
+    index: 1
+- extendedWaitUntil:
+    visible:
+      id: "report_title"
+    timeout: 30000
+- copyTextFrom:
+    id: "report_title"
+- runScript: common/keep-title.js
+- back
+- extendedWaitUntil:
+    visible:
+      id: "page_following"
+    timeout: 15000
+# Not back at the top, and the second row on screen is the same report.
+- assertNotVisible:
+    id: "following_line"
+- takeScreenshot: p9-02-following-back
+- tapOn:
+    id: "doc_.*"
+    index: 1
+- extendedWaitUntil:
+    visible:
+      id: "report_title"
+    timeout: 30000
+- copyTextFrom:
+    id: "report_title"
+- assertTrue: ${maestro.copiedText.length > 5 && maestro.copiedText == output.firstTitle}
+- back
+
+# 9.2 The Sudan page, from "Manage": the same.
+- scrollUntilVisible:
+    element:
+      id: "following_manage"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: "following_manage"
+- tapOn: "Sudan"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 30%
+          duration: 500
+      - waitForAnimationToEnd:
+          timeout: 2000
+- assertNotVisible:
+    id: "open_overview"
+- takeScreenshot: p9-03-country-scrolled
+- tapOn:
+    id: "doc_.*"
+    index: 1
+- extendedWaitUntil:
+    visible:
+      id: "report_title"
+    timeout: 30000
+- copyTextFrom:
+    id: "report_title"
+- runScript: common/keep-title.js
+- back
+- extendedWaitUntil:
+    visible:
+      id: "page_all"
+    timeout: 15000
+# Not back at the top, and the second row on screen is the same report.
+- assertNotVisible:
+    id: "open_overview"
+- takeScreenshot: p9-04-country-back
+- tapOn:
+    id: "doc_.*"
+    index: 1
+- extendedWaitUntil:
+    visible:
+      id: "report_title"
+    timeout: 30000
+- copyTextFrom:
+    id: "report_title"
+- assertTrue: ${maestro.copiedText.length > 5 && maestro.copiedText == output.firstTitle}
+- back
+
+- stopRecording

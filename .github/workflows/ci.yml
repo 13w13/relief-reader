@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Test the API module
+        run: ./gradlew --no-daemon :api:test
+
+      # No appname here (securite-open-source.md, section 9): the debug APK below is uploaded on
+      # every run, pull requests included, and must not carry it. The tests do not need it; only
+      # e2e.yml (which uploads no APK) and release.yml use the secret.
+      - name: Build the app and run its tests
+        if: hashFiles('app/build.gradle.kts') != ''
+        # recordRoborazziDebug runs the unit tests and writes the screenshots.
+        run: ./gradlew --no-daemon :app:recordRoborazziDebug :app:assembleDebug
+
+      - name: Upload the Room schemas
+        if: always() && hashFiles('app/schemas/**') != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: room-schemas
+          path: app/schemas/
+          retention-days: 14
+
+      # Runs even when the tests fail, and prints the schema in full: with the artifact storage
+      # quota hit (12/11), the log is where a new schema can be read and committed.
+      - name: Check that the Room schemas are committed
+        if: always() && hashFiles('app/schemas/**') != ''
+        run: |
+          git add -N app/schemas
+          if ! git diff --exit-code --stat -- app/schemas; then
+            git --no-pager diff -- app/schemas
+            echo "::error::The Room schema differs from app/schemas. Commit the files of the room-schemas artifact, or the diff above."
+            exit 1
+          fi
+
+      - name: Upload the debug APK
+        if: hashFiles('app/build/outputs/apk/debug/*.apk') != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rel-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          # 19 MB a run: kept 3 days (artifact storage quota hit on 12/11).
+          retention-days: 3
+
+      - name: Upload screenshots
+        if: always() && hashFiles('app/build/outputs/roborazzi/**') != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots
+          path: app/build/outputs/roborazzi/
+          retention-days: 7
+
+      - name: Upload test reports
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+          retention-days: 7

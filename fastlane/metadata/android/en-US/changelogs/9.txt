@@ -1,0 +1,6 @@
+First public release.
+- Follow an organization: its page, and its documents in your feed.
+- Today opens on what is new since your last visit.
+- Calmer messages, and fewer requests to ReliefWeb.
+- No appname built in: request your own from ReliefWeb and enter it in Settings.
+- The licences of the app and its libraries, in Settings.

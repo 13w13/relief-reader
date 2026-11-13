@@ -1,0 +1,139 @@
+# Journey 5, keep a passage and find it again (tests-parcours.md), direct mode, on the
+# fixed MSF report (id 4237046) opened by its deep link. The steps follow the code: tap
+# the highlighter, then a paragraph; a sheet shows the paragraph, a note field and the
+# "Highlight" button.
+appId: org.relreader.app
+name: p5-highlight
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p5-highlight
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p5
+      DIGEST: skip
+
+# 5.1 The report, then the highlighter (shown once the text is loaded).
+- openLink: relais://report/4237046
+- extendedWaitUntil:
+    visible:
+      id: "highlighter"
+    timeout: 60000
+- tapOn:
+    id: "highlighter"
+- extendedWaitUntil:
+    visible: "Tap a paragraph to highlight a passage."
+    timeout: 5000
+- takeScreenshot: p5-06-highlighter-on
+
+# 5.2 The paragraph with "75 per cent of the patients treated for measles".
+- scrollUntilVisible:
+    element:
+      text: ".*75 per cent of the patients treated for measles.*"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn: ".*75 per cent of the patients treated for measles.*"
+- extendedWaitUntil:
+    visible: "Select the passage to highlight"
+    timeout: 15000
+- takeScreenshot: p5-07-highlight-sheet
+
+# 5.3 Not automated: Maestro cannot long-press one word inside a text field. The sheet
+# selects the whole paragraph by default, which is what gets highlighted here.
+
+# 5.4 The note is typed in the same sheet, before saving. The sheet's button is picked
+# below the sheet's title: the highlighter icon above is also described as "Highlight".
+- tapOn: "Note (optional)"
+- inputText: "for the health note"
+- hideKeyboard
+- tapOn:
+    text: "Highlight"
+    below:
+      text: "Select the passage to highlight"
+- extendedWaitUntil:
+    visible: "Note: for the health note"
+    timeout: 15000
+- takeScreenshot: p5-08-highlighted
+
+# 5.5 Library, Highlights, search "measles".
+- back
+- tapOn:
+    id: "tab_library"
+- tapOn: "Highlights"
+- tapOn: "Search your highlights"
+- inputText: "measles"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Note: for the health note"
+    timeout: 15000
+- assertVisible: ".*highlighted Today.*"
+- assertVisible: ".*Sudan.*Vaccine-preventable disease outbreaks in Darfur.*"
+- takeScreenshot: p5-09-library-highlights
+
+# 5.6 The card opens the report on the passage.
+- tapOn: "Note: for the health note"
+- extendedWaitUntil:
+    visible:
+      id: "save_button"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: ".*75 per cent of the patients treated for measles.*"
+    timeout: 15000
+- assertVisible: "Note: for the health note"
+- takeScreenshot: p5-10-report-on-passage
+
+# 5.7 "Copy with source": to write once the feature exists (no such text in strings.xml).
+
+# 5.8 Offline, after a cold start: 5.5 and 5.6 again.
+- setAirplaneMode: enabled
+- launchApp:
+    appId: org.relreader.app
+- tapOn:
+    id: "tab_library"
+- tapOn: "Highlights"
+- tapOn: "Search your highlights"
+- inputText: "measles"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Note: for the health note"
+    timeout: 15000
+- takeScreenshot: p5-11-library-highlights-offline
+- tapOn: "Note: for the health note"
+- extendedWaitUntil:
+    visible: ".*75 per cent of the patients treated for measles.*"
+    timeout: 15000
+- assertVisible: "Note: for the health note"
+- takeScreenshot: p5-12-report-on-passage-offline
+
+# 5.9 Remove the highlight from the report (highlighter, paragraph, "Remove highlight" in
+# the sheet), then Library, Highlights is empty.
+- tapOn:
+    id: "highlighter"
+- tapOn: ".*75 per cent of the patients treated for measles.*"
+- extendedWaitUntil:
+    visible: "Select the passage to highlight"
+    timeout: 15000
+- tapOn: "Remove highlight"
+- takeScreenshot: p5-13-highlight-removed
+# Close the sheet, then leave the report.
+- back
+- extendedWaitUntil:
+    notVisible: "Select the passage to highlight"
+    timeout: 10000
+- back
+- extendedWaitUntil:
+    visible: "No highlights yet. In a report, tap the highlighter, then a paragraph, and select a passage."
+    timeout: 15000
+- takeScreenshot: p5-14-highlights-empty
+
+- stopRecording

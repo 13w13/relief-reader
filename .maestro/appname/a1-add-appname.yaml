@@ -1,0 +1,69 @@
+# An appname added in Settings works at once (first launch review, 13/11): no restart. Run by
+# e2e.yml with "without_appname" on, after the other flows, with the RELIEFWEB_APPNAME secret
+# passed as APPNAME. Its output goes to a folder that is deleted and never uploaded, and it
+# takes no screenshot or video: nothing of this run may keep the appname.
+appId: org.relreader.app
+name: a1-add-appname
+onFlowStart:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- runFlow:
+    file: ../common/onboarding.yaml
+    env:
+      PREFIX: a1
+      DIGEST: skip
+- extendedWaitUntil:
+    visible: "Headlines only\\. Add an appname in Settings to read full reports, country pages and search\\."
+    timeout: 90000
+
+# Settings, from a country page that says it needs access.
+- openLink: relais://country/220
+- extendedWaitUntil:
+    visible: "Country pages and search need ReliefWeb access.*"
+    timeout: 30000
+- tapOn: "Open Settings"
+- extendedWaitUntil:
+    visible: "Use your own appname"
+    timeout: 15000
+- tapOn: "Use your own appname"
+- tapOn: "ReliefWeb appname"
+- inputText: ${APPNAME}
+- hideKeyboard
+- tapOn: "Check and continue"
+- extendedWaitUntil:
+    visible: "Your own appname"
+    timeout: 30000
+- back
+- back
+
+# Today leaves headlines mode, and Search opens, without a restart.
+- extendedWaitUntil:
+    visible:
+      id: "tab_today"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible: "Headlines only\\. Add an appname in Settings to read full reports, country pages and search\\."
+    timeout: 30000
+- tapOn:
+    id: "tab_search"
+- assertNotVisible: "Country pages and search need ReliefWeb access.*"
+
+# The sync started at once: Following shows the documents of Lebanon and Sudan, followed before
+# the appname.
+- tapOn:
+    id: "tab_following"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 90000
+
+# A country page works.
+- openLink: relais://country/220
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 90000
+- assertNotVisible: "Country pages and search need ReliefWeb access.*"

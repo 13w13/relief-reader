@@ -1,0 +1,292 @@
+# Journey 2, follow a country and see what happens there (tests-parcours.md), direct mode.
+# Precondition "end of journey 1" (Sudan and Lebanon followed) is rebuilt by the onboarding.
+appId: org.relreader.app
+name: p2-following
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p2-following
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p2
+      DIGEST: skip
+
+# 2.1 Following (v0.2.2, theme-compose.md 12.3): what is followed on one line, "Manage",
+# the row of filters, then one feed of the documents of Sudan and Lebanon.
+- tapOn:
+    id: "tab_following"
+- extendedWaitUntil:
+    visible:
+      id: "following_line"
+    timeout: 30000
+- assertVisible: "(.*Sudan.*Lebanon.*|.*Lebanon.*Sudan.*)"
+- assertVisible:
+    id: "filter_all"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 90000
+- takeScreenshot: p2-06-following
+
+# 2.1b "Manage": the list, each country with "Humanitarian situation".
+- tapOn:
+    id: "following_manage"
+- extendedWaitUntil:
+    visible: "Sudan"
+    timeout: 15000
+- assertVisible: "Lebanon"
+- assertVisible: "Humanitarian situation · .*"
+- takeScreenshot: p2-06b-manage
+
+# 2.2 Add Chad. The search field keeps the typed name, so the row is picked below the
+# section title rather than by its text alone.
+- tapOn:
+    id: "follow_country"
+- extendedWaitUntil:
+    visible: "Which countries do you follow?"
+    timeout: 15000
+- tapOn: "Search countries"
+- inputText: "Chad"
+- hideKeyboard
+- tapOn:
+    text: "Chad"
+    below:
+      text: "Countries with a humanitarian situation"
+- takeScreenshot: p2-07-chad-picked
+- tapOn: "Done"
+- extendedWaitUntil:
+    visible: "Follow a country"
+    timeout: 15000
+- assertVisible: "Chad"
+- takeScreenshot: p2-08-following-chad
+
+# 2.3 The Chad page (v0.2.2): status, "Overview", the row of filters with All on, one list.
+- tapOn: "Chad"
+- extendedWaitUntil:
+    visible:
+      id: "page_all"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- assertVisible: "Humanitarian situation"
+- assertVisible:
+    id: "open_overview"
+- assertVisible:
+    id: "country_filters"
+- takeScreenshot: p2-09-country-chad
+
+# 2.3b "Overview" opens the overview on its own screen, then Back.
+- tapOn:
+    id: "open_overview"
+- extendedWaitUntil:
+    visible:
+      id: "page_overview"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Situation"
+    timeout: 60000
+- takeScreenshot: p2-09a-country-chad-overview
+- back
+- extendedWaitUntil:
+    visible:
+      id: "page_all"
+    timeout: 15000
+
+# 2.3c Key documents, the filter before Most read.
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "key"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- takeScreenshot: p2-09b-country-chad-key
+
+# 2.4 The three latest documents. Their order against the site (oracle O3) is checked
+# in fixtures mode, not here.
+- assertVisible:
+    id: "doc_.*"
+    index: 2
+- takeScreenshot: p2-10-chad-latest
+
+# 2.5 Situation reports.
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "sitreps"
+- extendedWaitUntil:
+    visible: "Situation report"
+    timeout: 60000
+- takeScreenshot: p2-11-chad-sitreps
+
+# 2.6 The first situation report and its PDF in the built-in reader. Not every report has
+# a file in direct mode: the PDF part runs only when the report has one (journey 4 checks
+# a PDF on a fixed report).
+- tapOn:
+    id: "doc_.*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "save_button"
+    timeout: 30000
+- takeScreenshot: p2-12-sitrep
+- scrollUntilVisible:
+    element:
+      id: "file_row"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "file_row"
+    commands:
+      - tapOn:
+          text: "Read"
+          childOf:
+            id: "file_row"
+      # Only on a metered network, for files over 5 MB.
+      - runFlow:
+          when:
+            visible: "This file is .*"
+          commands:
+            - tapOn: "Download"
+      - extendedWaitUntil:
+          visible: "Page \\d+ of \\d+"
+          timeout: 120000
+      - takeScreenshot: p2-13-sitrep-pdf
+      - tapOn: "Close"
+- back
+
+# 2.7 Appeals: a list, or the empty state. The kicker of an appeal reads "APPEAL".
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "appeals"
+- extendedWaitUntil:
+    visible: "(Appeal|No appeals for Chad yet\\.)"
+    timeout: 60000
+- takeScreenshot: p2-14-chad-appeals
+
+# 2.8 Maps, then the first one. A map usually has no text: the large preview and
+# "No text version." are shown instead. Maps sits before Appeals: the helper swipes the row
+# back if needed.
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "maps"
+- extendedWaitUntil:
+    visible: "(Map|Infographic|Interactive|No maps for Chad yet\\.)"
+    timeout: 60000
+- takeScreenshot: p2-15-chad-maps
+- runFlow:
+    when:
+      visible:
+        id: "doc_.*"
+    commands:
+      - tapOn:
+          id: "doc_.*"
+          index: 0
+      - extendedWaitUntil:
+          visible:
+            id: "save_button"
+          timeout: 30000
+      - runFlow:
+          when:
+            visible: "No text version. The content is in the attached file."
+          commands:
+            - takeScreenshot: p2-16-map-no-text
+      - takeScreenshot: p2-17-map
+      - back
+
+# 2.9 Sudan's situation reports, from the list behind "Manage". The first card's exact text
+# belongs to the fixtures mode.
+- back
+- tapOn: "Sudan"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "sitreps"
+- extendedWaitUntil:
+    visible: "Situation report"
+    timeout: 60000
+- takeScreenshot: p2-18-sudan-sitreps
+
+# 2.10 Offline, Chad again: the list comes from the phone. The offline banner shows only
+# when the cached list is older than 30 minutes (Repository.loadCountryTab), so it is not
+# expected here. A document never opened and not synced shows "This report isn't saved on
+# your phone": that holds for an appeal older than 7 days, not for a recent one.
+- back
+- setAirplaneMode: enabled
+- tapOn: "Chad"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 15000
+- takeScreenshot: p2-19-chad-offline
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "appeals"
+- runFlow:
+    when:
+      visible:
+        id: "doc_.*"
+    commands:
+      - tapOn:
+          id: "doc_.*"
+          index: 0
+      - extendedWaitUntil:
+          visible:
+            id: "save_button"
+          timeout: 15000
+      - runFlow:
+          when:
+            visible: "This report isn't saved on your phone. Connect to load it."
+          commands:
+            - takeScreenshot: p2-20-not-saved-offline
+      - takeScreenshot: p2-21-appeal-offline
+      - back
+
+# 2.11 Not automated: it needs the clock moved one day ahead and a sync that adds Chad
+# documents (fixtures mode with a fixed clock).
+
+# 2.12 Display (theme-compose.md 12.6): Settings > Reading, Large then back to Compact.
+- back
+- setAirplaneMode: disabled
+- back
+- extendedWaitUntil:
+    visible:
+      id: "following_manage"
+    timeout: 15000
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "display_sizes"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "display_large"
+- takeScreenshot: p2-22-display-large
+- tapOn:
+    id: "display_compact"
+- takeScreenshot: p2-23-display-compact
+- back
+
+- stopRecording

@@ -1,0 +1,2058 @@
+{
+  "time": 12,
+  "took": 4,
+  "totalCount": 350,
+  "count": 50,
+  "data": [
+    {
+      "id": 990101,
+      "fields": {
+        "id": 990101,
+        "name": "Sudan: Test complex emergency - 2026",
+        "status": "alert",
+        "glide": "CE-2026-990101-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990101",
+        "date": {
+          "created": "2026-11-10T16:00:00+00:00",
+          "event": "2026-11-09T16:00:00+00:00",
+          "changed": "2026-11-11T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990102,
+      "fields": {
+        "id": 990102,
+        "name": "Chad: Test floods - Sep 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990102-AGO",
+        "primary_country": {
+          "id": 19,
+          "name": "Angola",
+          "shortname": "Angola",
+          "iso3": "ago"
+        },
+        "country": [
+          {
+            "id": 19,
+            "name": "Angola",
+            "shortname": "Angola",
+            "iso3": "ago",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990102",
+        "date": {
+          "created": "2026-11-07T16:00:00+00:00",
+          "event": "2026-11-06T16:00:00+00:00",
+          "changed": "2026-11-08T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990103,
+      "fields": {
+        "id": 990103,
+        "name": "Test region: Test epidemic - Oct 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990103-BGD",
+        "primary_country": {
+          "id": 31,
+          "name": "Bangladesh",
+          "shortname": "Bangladesh",
+          "iso3": "bgd"
+        },
+        "country": [
+          {
+            "id": 31,
+            "name": "Bangladesh",
+            "shortname": "Bangladesh",
+            "iso3": "bgd",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990103",
+        "date": {
+          "created": "2026-11-04T16:00:00+00:00",
+          "event": "2026-11-03T16:00:00+00:00",
+          "changed": "2026-11-05T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990203,
+      "fields": {
+        "id": 990203,
+        "name": "Sudan: Test complex emergency - Nov 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990203-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990203",
+        "date": {
+          "created": "2026-11-01T16:00:00+00:00",
+          "event": "2026-10-31T16:00:00+00:00",
+          "changed": "2026-11-02T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990204,
+      "fields": {
+        "id": 990204,
+        "name": "Burundi: Test flood - Oct 2026",
+        "status": "alert",
+        "glide": "FL-2026-990204-BDI",
+        "primary_country": {
+          "id": 47,
+          "name": "Burundi",
+          "shortname": "Burundi",
+          "iso3": "bdi"
+        },
+        "country": [
+          {
+            "id": 47,
+            "name": "Burundi",
+            "shortname": "Burundi",
+            "iso3": "bdi",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990204",
+        "date": {
+          "created": "2026-10-29T16:00:00+00:00",
+          "event": "2026-10-28T16:00:00+00:00",
+          "changed": "2026-10-30T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990205,
+      "fields": {
+        "id": 990205,
+        "name": "Cameroon: Test epidemic - Oct 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990205-CMR",
+        "primary_country": {
+          "id": 49,
+          "name": "Cameroon",
+          "shortname": "Cameroon",
+          "iso3": "cmr"
+        },
+        "country": [
+          {
+            "id": 49,
+            "name": "Cameroon",
+            "shortname": "Cameroon",
+            "iso3": "cmr",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990205",
+        "date": {
+          "created": "2026-10-26T16:00:00+00:00",
+          "event": "2026-10-25T16:00:00+00:00",
+          "changed": "2026-10-27T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990206,
+      "fields": {
+        "id": 990206,
+        "name": "Sudan: Test complex emergency - Oct 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990206-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990206",
+        "date": {
+          "created": "2026-10-23T16:00:00+00:00",
+          "event": "2026-10-22T16:00:00+00:00",
+          "changed": "2026-10-24T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990207,
+      "fields": {
+        "id": 990207,
+        "name": "Chad: Test flood - Oct 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990207-TCD",
+        "primary_country": {
+          "id": 55,
+          "name": "Chad",
+          "shortname": "Chad",
+          "iso3": "tcd"
+        },
+        "country": [
+          {
+            "id": 55,
+            "name": "Chad",
+            "shortname": "Chad",
+            "iso3": "tcd",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990207",
+        "date": {
+          "created": "2026-10-20T16:00:00+00:00",
+          "event": "2026-10-19T16:00:00+00:00",
+          "changed": "2026-10-21T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990208,
+      "fields": {
+        "id": 990208,
+        "name": "Colombia: Test epidemic - Oct 2026",
+        "status": "alert",
+        "glide": "EP-2026-990208-COL",
+        "primary_country": {
+          "id": 64,
+          "name": "Colombia",
+          "shortname": "Colombia",
+          "iso3": "col"
+        },
+        "country": [
+          {
+            "id": 64,
+            "name": "Colombia",
+            "shortname": "Colombia",
+            "iso3": "col",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990208",
+        "date": {
+          "created": "2026-10-17T16:00:00+00:00",
+          "event": "2026-10-16T16:00:00+00:00",
+          "changed": "2026-10-18T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990209,
+      "fields": {
+        "id": 990209,
+        "name": "Sudan: Test complex emergency - Oct 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990209-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990209",
+        "date": {
+          "created": "2026-10-14T16:00:00+00:00",
+          "event": "2026-10-13T16:00:00+00:00",
+          "changed": "2026-10-15T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990210,
+      "fields": {
+        "id": 990210,
+        "name": "DR Congo: Test flood - Oct 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990210-COD",
+        "primary_country": {
+          "id": 75,
+          "name": "Democratic Republic of the Congo",
+          "shortname": "DR Congo",
+          "iso3": "cod"
+        },
+        "country": [
+          {
+            "id": 75,
+            "name": "Democratic Republic of the Congo",
+            "shortname": "DR Congo",
+            "iso3": "cod",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990210",
+        "date": {
+          "created": "2026-10-11T16:00:00+00:00",
+          "event": "2026-10-10T16:00:00+00:00",
+          "changed": "2026-10-12T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990211,
+      "fields": {
+        "id": 990211,
+        "name": "Egypt: Test epidemic - Oct 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990211-EGY",
+        "primary_country": {
+          "id": 82,
+          "name": "Egypt",
+          "shortname": "Egypt",
+          "iso3": "egy"
+        },
+        "country": [
+          {
+            "id": 82,
+            "name": "Egypt",
+            "shortname": "Egypt",
+            "iso3": "egy",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990211",
+        "date": {
+          "created": "2026-10-08T16:00:00+00:00",
+          "event": "2026-10-07T16:00:00+00:00",
+          "changed": "2026-10-09T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990212,
+      "fields": {
+        "id": 990212,
+        "name": "Sudan: Test complex emergency - Oct 2026",
+        "status": "alert",
+        "glide": "CE-2026-990212-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990212",
+        "date": {
+          "created": "2026-10-05T16:00:00+00:00",
+          "event": "2026-10-04T16:00:00+00:00",
+          "changed": "2026-10-06T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990213,
+      "fields": {
+        "id": 990213,
+        "name": "Angola: Test flood - Oct 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990213-AGO",
+        "primary_country": {
+          "id": 19,
+          "name": "Angola",
+          "shortname": "Angola",
+          "iso3": "ago"
+        },
+        "country": [
+          {
+            "id": 19,
+            "name": "Angola",
+            "shortname": "Angola",
+            "iso3": "ago",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990213",
+        "date": {
+          "created": "2026-10-02T16:00:00+00:00",
+          "event": "2026-10-01T16:00:00+00:00",
+          "changed": "2026-10-03T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990214,
+      "fields": {
+        "id": 990214,
+        "name": "Bangladesh: Test epidemic - Sep 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990214-BGD",
+        "primary_country": {
+          "id": 31,
+          "name": "Bangladesh",
+          "shortname": "Bangladesh",
+          "iso3": "bgd"
+        },
+        "country": [
+          {
+            "id": 31,
+            "name": "Bangladesh",
+            "shortname": "Bangladesh",
+            "iso3": "bgd",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990214",
+        "date": {
+          "created": "2026-09-29T16:00:00+00:00",
+          "event": "2026-09-28T16:00:00+00:00",
+          "changed": "2026-09-30T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990215,
+      "fields": {
+        "id": 990215,
+        "name": "Sudan: Test complex emergency - Sep 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990215-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990215",
+        "date": {
+          "created": "2026-09-26T16:00:00+00:00",
+          "event": "2026-09-25T16:00:00+00:00",
+          "changed": "2026-09-27T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990216,
+      "fields": {
+        "id": 990216,
+        "name": "Burundi: Test flood - Sep 2026",
+        "status": "alert",
+        "glide": "FL-2026-990216-BDI",
+        "primary_country": {
+          "id": 47,
+          "name": "Burundi",
+          "shortname": "Burundi",
+          "iso3": "bdi"
+        },
+        "country": [
+          {
+            "id": 47,
+            "name": "Burundi",
+            "shortname": "Burundi",
+            "iso3": "bdi",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990216",
+        "date": {
+          "created": "2026-09-23T16:00:00+00:00",
+          "event": "2026-09-22T16:00:00+00:00",
+          "changed": "2026-09-24T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990217,
+      "fields": {
+        "id": 990217,
+        "name": "Cameroon: Test epidemic - Sep 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990217-CMR",
+        "primary_country": {
+          "id": 49,
+          "name": "Cameroon",
+          "shortname": "Cameroon",
+          "iso3": "cmr"
+        },
+        "country": [
+          {
+            "id": 49,
+            "name": "Cameroon",
+            "shortname": "Cameroon",
+            "iso3": "cmr",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990217",
+        "date": {
+          "created": "2026-09-20T16:00:00+00:00",
+          "event": "2026-09-19T16:00:00+00:00",
+          "changed": "2026-09-21T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990218,
+      "fields": {
+        "id": 990218,
+        "name": "Sudan: Test complex emergency - Sep 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990218-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990218",
+        "date": {
+          "created": "2026-09-17T16:00:00+00:00",
+          "event": "2026-09-16T16:00:00+00:00",
+          "changed": "2026-09-18T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990219,
+      "fields": {
+        "id": 990219,
+        "name": "Chad: Test flood - Sep 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990219-TCD",
+        "primary_country": {
+          "id": 55,
+          "name": "Chad",
+          "shortname": "Chad",
+          "iso3": "tcd"
+        },
+        "country": [
+          {
+            "id": 55,
+            "name": "Chad",
+            "shortname": "Chad",
+            "iso3": "tcd",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990219",
+        "date": {
+          "created": "2026-09-14T16:00:00+00:00",
+          "event": "2026-09-13T16:00:00+00:00",
+          "changed": "2026-09-15T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990220,
+      "fields": {
+        "id": 990220,
+        "name": "Colombia: Test epidemic - Sep 2026",
+        "status": "alert",
+        "glide": "EP-2026-990220-COL",
+        "primary_country": {
+          "id": 64,
+          "name": "Colombia",
+          "shortname": "Colombia",
+          "iso3": "col"
+        },
+        "country": [
+          {
+            "id": 64,
+            "name": "Colombia",
+            "shortname": "Colombia",
+            "iso3": "col",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990220",
+        "date": {
+          "created": "2026-09-11T16:00:00+00:00",
+          "event": "2026-09-10T16:00:00+00:00",
+          "changed": "2026-09-12T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990221,
+      "fields": {
+        "id": 990221,
+        "name": "Sudan: Test complex emergency - Sep 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990221-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990221",
+        "date": {
+          "created": "2026-09-08T16:00:00+00:00",
+          "event": "2026-09-07T16:00:00+00:00",
+          "changed": "2026-09-09T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990222,
+      "fields": {
+        "id": 990222,
+        "name": "DR Congo: Test flood - Sep 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990222-COD",
+        "primary_country": {
+          "id": 75,
+          "name": "Democratic Republic of the Congo",
+          "shortname": "DR Congo",
+          "iso3": "cod"
+        },
+        "country": [
+          {
+            "id": 75,
+            "name": "Democratic Republic of the Congo",
+            "shortname": "DR Congo",
+            "iso3": "cod",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990222",
+        "date": {
+          "created": "2026-09-05T16:00:00+00:00",
+          "event": "2026-09-04T16:00:00+00:00",
+          "changed": "2026-09-06T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990223,
+      "fields": {
+        "id": 990223,
+        "name": "Egypt: Test epidemic - Sep 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990223-EGY",
+        "primary_country": {
+          "id": 82,
+          "name": "Egypt",
+          "shortname": "Egypt",
+          "iso3": "egy"
+        },
+        "country": [
+          {
+            "id": 82,
+            "name": "Egypt",
+            "shortname": "Egypt",
+            "iso3": "egy",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990223",
+        "date": {
+          "created": "2026-09-02T16:00:00+00:00",
+          "event": "2026-09-01T16:00:00+00:00",
+          "changed": "2026-09-03T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990224,
+      "fields": {
+        "id": 990224,
+        "name": "Sudan: Test complex emergency - Aug 2026",
+        "status": "alert",
+        "glide": "CE-2026-990224-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990224",
+        "date": {
+          "created": "2026-08-30T16:00:00+00:00",
+          "event": "2026-08-29T16:00:00+00:00",
+          "changed": "2026-08-31T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990225,
+      "fields": {
+        "id": 990225,
+        "name": "Angola: Test flood - Aug 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990225-AGO",
+        "primary_country": {
+          "id": 19,
+          "name": "Angola",
+          "shortname": "Angola",
+          "iso3": "ago"
+        },
+        "country": [
+          {
+            "id": 19,
+            "name": "Angola",
+            "shortname": "Angola",
+            "iso3": "ago",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990225",
+        "date": {
+          "created": "2026-08-27T16:00:00+00:00",
+          "event": "2026-08-26T16:00:00+00:00",
+          "changed": "2026-08-28T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990226,
+      "fields": {
+        "id": 990226,
+        "name": "Bangladesh: Test epidemic - Aug 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990226-BGD",
+        "primary_country": {
+          "id": 31,
+          "name": "Bangladesh",
+          "shortname": "Bangladesh",
+          "iso3": "bgd"
+        },
+        "country": [
+          {
+            "id": 31,
+            "name": "Bangladesh",
+            "shortname": "Bangladesh",
+            "iso3": "bgd",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990226",
+        "date": {
+          "created": "2026-08-24T16:00:00+00:00",
+          "event": "2026-08-23T16:00:00+00:00",
+          "changed": "2026-08-25T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990227,
+      "fields": {
+        "id": 990227,
+        "name": "Sudan: Test complex emergency - Aug 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990227-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990227",
+        "date": {
+          "created": "2026-08-21T16:00:00+00:00",
+          "event": "2026-08-20T16:00:00+00:00",
+          "changed": "2026-08-22T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990228,
+      "fields": {
+        "id": 990228,
+        "name": "Burundi: Test flood - Aug 2026",
+        "status": "alert",
+        "glide": "FL-2026-990228-BDI",
+        "primary_country": {
+          "id": 47,
+          "name": "Burundi",
+          "shortname": "Burundi",
+          "iso3": "bdi"
+        },
+        "country": [
+          {
+            "id": 47,
+            "name": "Burundi",
+            "shortname": "Burundi",
+            "iso3": "bdi",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990228",
+        "date": {
+          "created": "2026-08-18T16:00:00+00:00",
+          "event": "2026-08-17T16:00:00+00:00",
+          "changed": "2026-08-19T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990229,
+      "fields": {
+        "id": 990229,
+        "name": "Cameroon: Test epidemic - Aug 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990229-CMR",
+        "primary_country": {
+          "id": 49,
+          "name": "Cameroon",
+          "shortname": "Cameroon",
+          "iso3": "cmr"
+        },
+        "country": [
+          {
+            "id": 49,
+            "name": "Cameroon",
+            "shortname": "Cameroon",
+            "iso3": "cmr",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990229",
+        "date": {
+          "created": "2026-08-15T16:00:00+00:00",
+          "event": "2026-08-14T16:00:00+00:00",
+          "changed": "2026-08-16T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990230,
+      "fields": {
+        "id": 990230,
+        "name": "Sudan: Test complex emergency - Aug 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990230-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990230",
+        "date": {
+          "created": "2026-08-12T16:00:00+00:00",
+          "event": "2026-08-11T16:00:00+00:00",
+          "changed": "2026-08-13T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990231,
+      "fields": {
+        "id": 990231,
+        "name": "Chad: Test flood - Aug 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990231-TCD",
+        "primary_country": {
+          "id": 55,
+          "name": "Chad",
+          "shortname": "Chad",
+          "iso3": "tcd"
+        },
+        "country": [
+          {
+            "id": 55,
+            "name": "Chad",
+            "shortname": "Chad",
+            "iso3": "tcd",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990231",
+        "date": {
+          "created": "2026-08-09T16:00:00+00:00",
+          "event": "2026-08-08T16:00:00+00:00",
+          "changed": "2026-08-10T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990232,
+      "fields": {
+        "id": 990232,
+        "name": "Colombia: Test epidemic - Aug 2026",
+        "status": "alert",
+        "glide": "EP-2026-990232-COL",
+        "primary_country": {
+          "id": 64,
+          "name": "Colombia",
+          "shortname": "Colombia",
+          "iso3": "col"
+        },
+        "country": [
+          {
+            "id": 64,
+            "name": "Colombia",
+            "shortname": "Colombia",
+            "iso3": "col",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990232",
+        "date": {
+          "created": "2026-08-06T16:00:00+00:00",
+          "event": "2026-08-05T16:00:00+00:00",
+          "changed": "2026-08-07T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990233,
+      "fields": {
+        "id": 990233,
+        "name": "Sudan: Test complex emergency - Aug 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990233-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990233",
+        "date": {
+          "created": "2026-08-03T16:00:00+00:00",
+          "event": "2026-08-02T16:00:00+00:00",
+          "changed": "2026-08-04T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990234,
+      "fields": {
+        "id": 990234,
+        "name": "DR Congo: Test flood - Jul 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990234-COD",
+        "primary_country": {
+          "id": 75,
+          "name": "Democratic Republic of the Congo",
+          "shortname": "DR Congo",
+          "iso3": "cod"
+        },
+        "country": [
+          {
+            "id": 75,
+            "name": "Democratic Republic of the Congo",
+            "shortname": "DR Congo",
+            "iso3": "cod",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990234",
+        "date": {
+          "created": "2026-07-31T16:00:00+00:00",
+          "event": "2026-07-30T16:00:00+00:00",
+          "changed": "2026-08-01T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990235,
+      "fields": {
+        "id": 990235,
+        "name": "Egypt: Test epidemic - Jul 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990235-EGY",
+        "primary_country": {
+          "id": 82,
+          "name": "Egypt",
+          "shortname": "Egypt",
+          "iso3": "egy"
+        },
+        "country": [
+          {
+            "id": 82,
+            "name": "Egypt",
+            "shortname": "Egypt",
+            "iso3": "egy",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990235",
+        "date": {
+          "created": "2026-07-28T16:00:00+00:00",
+          "event": "2026-07-27T16:00:00+00:00",
+          "changed": "2026-07-29T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990236,
+      "fields": {
+        "id": 990236,
+        "name": "Sudan: Test complex emergency - Jul 2026",
+        "status": "alert",
+        "glide": "CE-2026-990236-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990236",
+        "date": {
+          "created": "2026-07-25T16:00:00+00:00",
+          "event": "2026-07-24T16:00:00+00:00",
+          "changed": "2026-07-26T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990237,
+      "fields": {
+        "id": 990237,
+        "name": "Angola: Test flood - Jul 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990237-AGO",
+        "primary_country": {
+          "id": 19,
+          "name": "Angola",
+          "shortname": "Angola",
+          "iso3": "ago"
+        },
+        "country": [
+          {
+            "id": 19,
+            "name": "Angola",
+            "shortname": "Angola",
+            "iso3": "ago",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990237",
+        "date": {
+          "created": "2026-07-22T16:00:00+00:00",
+          "event": "2026-07-21T16:00:00+00:00",
+          "changed": "2026-07-23T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990238,
+      "fields": {
+        "id": 990238,
+        "name": "Bangladesh: Test epidemic - Jul 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990238-BGD",
+        "primary_country": {
+          "id": 31,
+          "name": "Bangladesh",
+          "shortname": "Bangladesh",
+          "iso3": "bgd"
+        },
+        "country": [
+          {
+            "id": 31,
+            "name": "Bangladesh",
+            "shortname": "Bangladesh",
+            "iso3": "bgd",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990238",
+        "date": {
+          "created": "2026-07-19T16:00:00+00:00",
+          "event": "2026-07-18T16:00:00+00:00",
+          "changed": "2026-07-20T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990239,
+      "fields": {
+        "id": 990239,
+        "name": "Sudan: Test complex emergency - Jul 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990239-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990239",
+        "date": {
+          "created": "2026-07-16T16:00:00+00:00",
+          "event": "2026-07-15T16:00:00+00:00",
+          "changed": "2026-07-17T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990240,
+      "fields": {
+        "id": 990240,
+        "name": "Burundi: Test flood - Jul 2026",
+        "status": "alert",
+        "glide": "FL-2026-990240-BDI",
+        "primary_country": {
+          "id": 47,
+          "name": "Burundi",
+          "shortname": "Burundi",
+          "iso3": "bdi"
+        },
+        "country": [
+          {
+            "id": 47,
+            "name": "Burundi",
+            "shortname": "Burundi",
+            "iso3": "bdi",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990240",
+        "date": {
+          "created": "2026-07-13T16:00:00+00:00",
+          "event": "2026-07-12T16:00:00+00:00",
+          "changed": "2026-07-14T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990241,
+      "fields": {
+        "id": 990241,
+        "name": "Cameroon: Test epidemic - Jul 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990241-CMR",
+        "primary_country": {
+          "id": 49,
+          "name": "Cameroon",
+          "shortname": "Cameroon",
+          "iso3": "cmr"
+        },
+        "country": [
+          {
+            "id": 49,
+            "name": "Cameroon",
+            "shortname": "Cameroon",
+            "iso3": "cmr",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990241",
+        "date": {
+          "created": "2026-07-10T16:00:00+00:00",
+          "event": "2026-07-09T16:00:00+00:00",
+          "changed": "2026-07-11T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990242,
+      "fields": {
+        "id": 990242,
+        "name": "Sudan: Test complex emergency - Jul 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990242-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990242",
+        "date": {
+          "created": "2026-07-07T16:00:00+00:00",
+          "event": "2026-07-06T16:00:00+00:00",
+          "changed": "2026-07-08T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990243,
+      "fields": {
+        "id": 990243,
+        "name": "Chad: Test flood - Jul 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990243-TCD",
+        "primary_country": {
+          "id": 55,
+          "name": "Chad",
+          "shortname": "Chad",
+          "iso3": "tcd"
+        },
+        "country": [
+          {
+            "id": 55,
+            "name": "Chad",
+            "shortname": "Chad",
+            "iso3": "tcd",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990243",
+        "date": {
+          "created": "2026-07-04T16:00:00+00:00",
+          "event": "2026-07-03T16:00:00+00:00",
+          "changed": "2026-07-05T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990244,
+      "fields": {
+        "id": 990244,
+        "name": "Colombia: Test epidemic - Jul 2026",
+        "status": "alert",
+        "glide": "EP-2026-990244-COL",
+        "primary_country": {
+          "id": 64,
+          "name": "Colombia",
+          "shortname": "Colombia",
+          "iso3": "col"
+        },
+        "country": [
+          {
+            "id": 64,
+            "name": "Colombia",
+            "shortname": "Colombia",
+            "iso3": "col",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990244",
+        "date": {
+          "created": "2026-07-01T16:00:00+00:00",
+          "event": "2026-06-30T16:00:00+00:00",
+          "changed": "2026-07-02T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990245,
+      "fields": {
+        "id": 990245,
+        "name": "Sudan: Test complex emergency - Jun 2026",
+        "status": "ongoing",
+        "glide": "CE-2026-990245-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990245",
+        "date": {
+          "created": "2026-06-28T16:00:00+00:00",
+          "event": "2026-06-27T16:00:00+00:00",
+          "changed": "2026-06-29T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990246,
+      "fields": {
+        "id": 990246,
+        "name": "DR Congo: Test flood - Jun 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990246-COD",
+        "primary_country": {
+          "id": 75,
+          "name": "Democratic Republic of the Congo",
+          "shortname": "DR Congo",
+          "iso3": "cod"
+        },
+        "country": [
+          {
+            "id": 75,
+            "name": "Democratic Republic of the Congo",
+            "shortname": "DR Congo",
+            "iso3": "cod",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990246",
+        "date": {
+          "created": "2026-06-25T16:00:00+00:00",
+          "event": "2026-06-24T16:00:00+00:00",
+          "changed": "2026-06-26T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990247,
+      "fields": {
+        "id": 990247,
+        "name": "Egypt: Test epidemic - Jun 2026",
+        "status": "ongoing",
+        "glide": "EP-2026-990247-EGY",
+        "primary_country": {
+          "id": 82,
+          "name": "Egypt",
+          "shortname": "Egypt",
+          "iso3": "egy"
+        },
+        "country": [
+          {
+            "id": 82,
+            "name": "Egypt",
+            "shortname": "Egypt",
+            "iso3": "egy",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4642,
+          "name": "Epidemic"
+        },
+        "type": [
+          {
+            "id": 4642,
+            "name": "Epidemic"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990247",
+        "date": {
+          "created": "2026-06-22T16:00:00+00:00",
+          "event": "2026-06-21T16:00:00+00:00",
+          "changed": "2026-06-23T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990248,
+      "fields": {
+        "id": 990248,
+        "name": "Sudan: Test complex emergency - Jun 2026",
+        "status": "alert",
+        "glide": "CE-2026-990248-SDN",
+        "primary_country": {
+          "id": 220,
+          "name": "Sudan",
+          "shortname": "Sudan",
+          "iso3": "sdn"
+        },
+        "country": [
+          {
+            "id": 220,
+            "name": "Sudan",
+            "shortname": "Sudan",
+            "iso3": "sdn",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 41764,
+          "name": "Complex Emergency"
+        },
+        "type": [
+          {
+            "id": 41764,
+            "name": "Complex Emergency"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990248",
+        "date": {
+          "created": "2026-06-19T16:00:00+00:00",
+          "event": "2026-06-18T16:00:00+00:00",
+          "changed": "2026-06-20T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    },
+    {
+      "id": 990249,
+      "fields": {
+        "id": 990249,
+        "name": "Angola: Test flood - Jun 2026",
+        "status": "ongoing",
+        "glide": "FL-2026-990249-AGO",
+        "primary_country": {
+          "id": 19,
+          "name": "Angola",
+          "shortname": "Angola",
+          "iso3": "ago"
+        },
+        "country": [
+          {
+            "id": 19,
+            "name": "Angola",
+            "shortname": "Angola",
+            "iso3": "ago",
+            "primary": true
+          }
+        ],
+        "primary_type": {
+          "id": 4611,
+          "name": "Flood"
+        },
+        "type": [
+          {
+            "id": 4611,
+            "name": "Flood"
+          }
+        ],
+        "url_alias": "https://reliefweb.int/disaster/test-990249",
+        "date": {
+          "created": "2026-06-16T16:00:00+00:00",
+          "event": "2026-06-15T16:00:00+00:00",
+          "changed": "2026-06-17T16:00:00+00:00"
+        },
+        "description-html": "<p>Invented description of an invented crisis, for the tests of Re.L.</p>"
+      }
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+# A build without the ReliefWeb appname stays usable (audit S1, 9.6). Run by e2e.yml with
+# "without_appname" on: the APK is built without the secret. Headlines come from ReliefWeb's
+# RSS feed; country pages and search say they need access and point to Settings, where the
+# reader can add an appname; Library works. Not run with the other journeys: Maestro runs
+# only the flows at the top of the folder it is given.
+appId: org.relreader.app
+name: p0-no-appname
+onFlowStart:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p0-no-appname
+- runFlow:
+    file: ../common/onboarding.yaml
+    env:
+      PREFIX: p0
+      DIGEST: skip
+
+# Today (v0.3): the headlines of the RSS feed under "New headlines", and on each visit one line
+# that says what needs an appname, with Settings.
+- extendedWaitUntil:
+    visible: "Headlines only\\. Add an appname in Settings to read full reports, country pages and search\\."
+    timeout: 90000
+- scrollUntilVisible:
+    element:
+      text: "New headlines"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: p0-05-today
+
+# A country page (debug deep link to Sudan): the banner says why, and opens Settings.
+- openLink: relais://country/220
+- extendedWaitUntil:
+    visible: "Country pages and search need ReliefWeb access.*"
+    timeout: 30000
+- takeScreenshot: p0-06-country
+- tapOn: "Open Settings"
+- extendedWaitUntil:
+    visible: "No access: headlines only"
+    timeout: 15000
+- assertVisible: "Use your own appname"
+- takeScreenshot: p0-07-settings
+- back
+- back
+
+# Search: the field is off and says why.
+- tapOn:
+    id: "tab_search"
+- extendedWaitUntil:
+    visible: "Country pages and search need ReliefWeb access.*"
+    timeout: 15000
+- takeScreenshot: p0-08-search
+
+# Library opens.
+- tapOn:
+    id: "tab_library"
+- extendedWaitUntil:
+    visible:
+      id: "tab_library"
+    timeout: 15000
+- takeScreenshot: p0-09-library
+- stopRecording

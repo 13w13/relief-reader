@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The text view of a PDF. Kept apart from strings.xml so that the PDF branch and main do
+     not edit the same file. -->
+<resources>
+    <string name="pdf_view_text">Text</string>
+    <string name="pdf_view_pdf">PDF</string>
+    <string name="pdf_text_banner">Text taken from the PDF on your phone. Tables, charts and maps stay in the PDF.</string>
+    <string name="pdf_open_pdf">Open PDF</string>
+    <string name="pdf_page_marker">Page %1$d</string>
+    <string name="pdf_figure_table">Table on page %1$d</string>
+    <string name="pdf_figure_figure">Figure on page %1$d</string>
+    <string name="pdf_view_in_pdf">View in PDF</string>
+    <string name="pdf_text_loading">Getting the text from the PDF…</string>
+    <string name="pdf_no_text">This PDF has no text layer. You can only read it as pages.</string>
+    <string name="pdf_text_failed">Re.L couldn\'t read the text of this PDF. You can still read it as pages.</string>
+    <string name="pdf_text_too_large">This PDF is too large to read as text on this phone. You can still read it as pages.</string>
+    <!-- End of the Text view when the reading stopped at a limit (page count, time, memory); "View in PDF" opens the next page. -->
+    <string name="pdf_text_stops">Text stops at page %1$d of %2$d</string>
+    <string name="pdf_search">Search in this PDF</string>
+    <string name="pdf_search_count">%1$d of %2$d</string>
+    <string name="pdf_search_none">No results</string>
+    <string name="pdf_search_previous">Previous result</string>
+    <string name="pdf_search_next">Next result</string>
+    <string name="pdf_search_close">Close search</string>
+    <string name="pdf_text_size_short">Aa</string>
+    <string name="pdf_search_no_result">No result for \"%1$s\" in the text of this PDF.</string>
+    <plurals name="pdf_search_results">
+        <item quantity="one">%1$d result for \"%2$s\"</item>
+        <item quantity="other">%1$d results for \"%2$s\"</item>
+    </plurals>
+    <plurals name="pdf_search_more">
+        <item quantity="one">%1$d more in the text</item>
+        <item quantity="other">%1$d more in the text</item>
+    </plurals>
+    <!-- theme-compose.md 10.9: above the first lines of a PDF in a list row. -->
+    <string name="pdf_preview_label">From the PDF</string>
+    <!-- theme-compose.md 10.12: Library search, results found in the text of PDFs. -->
+    <string name="library_found_in_pdfs">Found in PDFs on your phone</string>
+</resources>

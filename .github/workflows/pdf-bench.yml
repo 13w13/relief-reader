@@ -1,0 +1,89 @@
+name: PDF text benchmark
+
+# Compares two ways to read the text of PDFs (PdfBox-Android, Android's own API) on an
+# Android 15 emulator (PdfExtractorBenchmark), and the weight PdfBox-Android adds to the
+# debug APK compared with main. Generated test PDFs only: nothing is downloaded from
+# ReliefWeb. No secret.
+# Run by hand only (audit S1, 9.6).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pdf-bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build the debug APK and the instrumented tests
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+
+      - name: Weight added to the APK, compared with main
+        run: |
+          mkdir -p build/bench
+          git worktree add ../main-build origin/main
+          (cd ../main-build && ./gradlew --no-daemon :app:assembleDebug)
+          branch=$(stat -c %s app/build/outputs/apk/debug/app-debug.apk)
+          main=$(stat -c %s ../main-build/app/build/outputs/apk/debug/app-debug.apk)
+          {
+            echo "Debug APK, this branch: $branch bytes"
+            echo "Debug APK, main:        $main bytes"
+            echo "Difference:             $((branch - main)) bytes"
+            echo
+            echo "PdfBox-Android files in the APK (assets and resources):"
+            unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -i "tom_roush\|pdfbox" | awk '{s+=$1} END {print s " bytes in " NR " files"}'
+            echo
+            echo "Dex files:"
+            unzip -l app/build/outputs/apk/debug/app-debug.apk | grep "\.dex$"
+            echo "Dex files on main:"
+            unzip -l ../main-build/app/build/outputs/apk/debug/app-debug.apk | grep "\.dex$"
+          } | tee build/bench/apk-size.txt
+
+      - name: Run the benchmark on an Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          script: |
+            mkdir -p build/bench
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb logcat -c
+            adb shell am instrument -w -e class io.relais.app.pdf.PdfExtractorBenchmark org.relreader.app.test/androidx.test.runner.AndroidJUnitRunner | tee build/bench/instrument.txt
+            adb logcat -d -s RelaisBench:I | tee build/bench/results.txt
+            grep -q "OK (1 test)" build/bench/instrument.txt
+
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pdf-bench
+          path: build/bench/
+          if-no-files-found: warn
+          retention-days: 14

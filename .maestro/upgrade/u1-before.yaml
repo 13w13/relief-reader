@@ -1,0 +1,28 @@
+# Upgrade check, part 1 (v0.3.1): the previous release, built with the appname, as the founder
+# has it. First launch, Lebanon and Sudan followed, their documents on the phone. Run by
+# tools/e2e-upgrade.sh before the public APK is installed over it.
+appId: org.relreader.app
+name: u1-before
+onFlowStart:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- runFlow:
+    file: ../common/onboarding.yaml
+    env:
+      PREFIX: u1
+      DIGEST: skip
+- tapOn:
+    id: "tab_following"
+- extendedWaitUntil:
+    visible:
+      id: "following_line"
+    timeout: 30000
+- assertVisible: "(.*Sudan.*Lebanon.*|.*Lebanon.*Sudan.*)"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 90000
+- takeScreenshot: u1-01-following

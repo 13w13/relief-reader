@@ -1,0 +1,214 @@
+# Journey 3, find a report or a PDF (tests-parcours.md), direct mode. Result counts and
+# titles change every day: the flow checks labels, states and that results exist.
+appId: org.relreader.app
+name: p3-search
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p3-search
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p3
+      DIGEST: skip
+
+# 3.1 Sudan's appeals: Following, "Manage", Sudan, then the Appeals filter. The row of
+# filters is wider than the screen: the subflow swipes it to Appeals.
+- tapOn:
+    id: "tab_following"
+- tapOn:
+    id: "following_manage"
+- tapOn: "Sudan"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "appeals"
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "Appeal"
+    timeout: 60000
+- takeScreenshot: p3-06-sudan-appeals
+
+# 3.2 Not automated in direct mode: the response plan sits at a position that changes with
+# each new appeal, often past the first page (fixtures mode).
+
+# 3.3 Search "cholera": a count, sorted by relevance, limited by default to the past 12
+# months (a removable filter, so the button reads "Filters (1)").
+- tapOn:
+    id: "tab_search"
+- tapOn: "Search ReliefWeb reports"
+- inputText: "cholera"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- assertVisible: "[1-9][\\d,]* reports"
+- assertVisible: "Most relevant"
+- assertVisible: "Past 12 months"
+- assertVisible: "Filters \\(1\\)"
+- takeScreenshot: p3-07-cholera-relevant
+
+# 3.4 Newest first, with no period: three results at least.
+- tapOn: "Newest"
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+      index: 2
+    timeout: 60000
+- assertVisible: "Filters"
+- takeScreenshot: p3-08-cholera-newest
+
+# 3.5 Filter: posted in the past 7 days. The sheet opens half way, its first title
+# ("Country") in view: swipe it up first.
+- tapOn: "Filters"
+- extendedWaitUntil:
+    visible: "Country"
+    timeout: 15000
+- swipe:
+    start: 50%, 90%
+    end: 50%, 25%
+- scrollUntilVisible:
+    element:
+      text: "Past 7 days"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Past 7 days"
+- scrollUntilVisible:
+    element:
+      text: "Show results"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Show results"
+- extendedWaitUntil:
+    visible: "Filters \\(1\\)"
+    timeout: 60000
+- assertVisible: "[\\d,]+ reports"
+- takeScreenshot: p3-09-cholera-past-7-days
+
+# 3.6 Clear all, then the Appeal format. The chip reads "Appeal 12" when the current results
+# hold appeals (their cards then read "APPEAL" behind the sheet, hence the count in the
+# pattern), "Appeal" alone otherwise.
+- tapOn: "Filters \\(1\\)"
+- extendedWaitUntil:
+    visible: "Country"
+    timeout: 15000
+- swipe:
+    start: 50%, 90%
+    end: 50%, 25%
+- scrollUntilVisible:
+    element:
+      text: "Clear all"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Clear all"
+- scrollUntilVisible:
+    element:
+      text: "Format"
+    direction: UP
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Appeal \\d+"
+    commands:
+      - tapOn: "Appeal \\d+"
+- runFlow:
+    when:
+      notVisible: "Appeal \\d+"
+    commands:
+      - tapOn: "Appeal"
+- scrollUntilVisible:
+    element:
+      text: "Show results"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Show results"
+- extendedWaitUntil:
+    visible: "Filters \\(1\\)"
+    timeout: 60000
+# One filter, and it is no longer the date: the "Past 7 days" chip above the results is gone.
+- assertNotVisible: "Past 7 days"
+- takeScreenshot: p3-10-cholera-appeals
+
+# 3.7 A search with no result. The results screen has no field: start again from Search
+# (a relaunch clears the field). "Clear filters" shows only when filters are on, which
+# is not the case for a new search, so it is not checked.
+- launchApp:
+    appId: org.relreader.app
+- tapOn:
+    id: "tab_search"
+- tapOn: "Search ReliefWeb reports"
+- inputText: "zzqxw"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: 'No reports for "zzqxw". Try fewer words or check the spelling.'
+    timeout: 60000
+- takeScreenshot: p3-11-no-result
+
+# 3.8 Search the library. Precondition: the MSF report of journey 4 was opened. It is a
+# fixed report (id 4237046); "measles" is only in its body, not in its title.
+- openLink: relais://report/4237046
+- extendedWaitUntil:
+    visible:
+      id: "save_button"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
+    timeout: 30000
+- back
+- tapOn:
+    id: "tab_library"
+- tapOn: "History"
+- tapOn: "Search your library"
+- inputText: "measles"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
+    timeout: 15000
+- takeScreenshot: p3-12-library-measles
+
+# 3.9 The same, offline, after a cold start.
+- setAirplaneMode: enabled
+- launchApp:
+    appId: org.relreader.app
+- tapOn:
+    id: "tab_library"
+- tapOn: "History"
+- tapOn: "Search your library"
+- inputText: "measles"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
+    timeout: 15000
+- takeScreenshot: p3-13-library-measles-offline
+
+# 3.10 Search offline. The expected text ("You're offline. Search needs a connection.
+# Reports you've read or saved are searchable in Library.") is in strings.xml
+# (search_offline) but no screen uses it yet: the results screen shows the generic
+# offline state, checked here instead.
+- tapOn:
+    id: "tab_search"
+- tapOn: "Search ReliefWeb reports"
+- inputText: "cholera"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "You're offline and this page isn't saved on your phone."
+    timeout: 30000
+- takeScreenshot: p3-14-search-offline
+
+- stopRecording

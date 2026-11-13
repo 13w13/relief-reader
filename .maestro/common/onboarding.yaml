@@ -1,0 +1,94 @@
+# First launch, steps 1.1 to 1.4 of tests-parcours.md: welcome, pick Lebanon and Sudan,
+# then the daily summary. Called by every journey with runFlow, right after
+# `launchApp: { clearState: true }`. Not run on its own: Maestro only runs the flows at
+# the top of .maestro/, not those in subfolders.
+#
+# Parameters (runFlow env):
+#   PREFIX  screenshot prefix of the calling journey (p1, p2...)
+#   DIGEST  "allow": "Turn on", then Android's "Allow" if the dialog shows
+#           "skip":  "Not now"
+appId: org.relreader.app
+---
+# A system dialog of the CI emulator can cover the app: dismiss it first.
+- runFlow:
+    when:
+      visible: "System UI isn't responding|.* isn't responding"
+    commands:
+      - tapOn: "Wait"
+# 1.1 Welcome
+- extendedWaitUntil:
+    visible: "Read what humanitarian organizations publish"
+    timeout: 30000
+- assertVisible: "Unofficial app. Not affiliated with ReliefWeb or OCHA. No account, no tracking."
+- takeScreenshot: ${PREFIX}-01-welcome
+- tapOn: "Get started"
+
+# A build without the appname (journey p0) asks for one first, before the countries: headlines
+# only. The countries screen then says when their reports appear.
+- runFlow:
+    when:
+      visible: "Connect to ReliefWeb"
+    commands:
+      - takeScreenshot: ${PREFIX}-01b-connect
+      - tapOn: "Continue with headlines only"
+      - extendedWaitUntil:
+          visible: "Their reports appear once you add an appname\\."
+          timeout: 30000
+
+# 1.2 Countries. Section titles are drawn in capitals; Maestro matches text without case.
+- extendedWaitUntil:
+    visible: "Which countries do you follow?"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Countries with a humanitarian situation"
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-02-countries
+# Lebanon comes before Sudan in the alphabetical list: pick it first, then keep scrolling down.
+# The first match while scrolling down is the row of the humanitarian section.
+- scrollUntilVisible:
+    element:
+      text: "Lebanon"
+    direction: DOWN
+    timeout: 60000
+- tapOn: "Lebanon"
+- scrollUntilVisible:
+    element:
+      text: "Sudan"
+    direction: DOWN
+    timeout: 60000
+- tapOn: "Sudan"
+- takeScreenshot: ${PREFIX}-03-countries-picked
+- tapOn: "Continue"
+
+
+# 1.3 and 1.4 Daily summary
+- extendedWaitUntil:
+    visible: "One notification a day"
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-04-daily-summary
+- runFlow:
+    when:
+      true: ${DIGEST == 'allow'}
+    commands:
+      - tapOn: "Turn on"
+      # The Android 13+ permission dialog, its button matched by id without the package
+      # prefix (which can vary between system images). No dialog if already granted.
+      - runFlow:
+          when:
+            visible:
+              id: ".*permission_allow_button"
+          commands:
+            - takeScreenshot: ${PREFIX}-05-allow-notifications
+            - tapOn:
+                id: ".*permission_allow_button"
+- runFlow:
+    when:
+      true: ${DIGEST != 'allow'}
+    commands:
+      - tapOn: "Not now"
+
+# Today
+- extendedWaitUntil:
+    visible:
+      id: "tab_today"
+    timeout: 30000

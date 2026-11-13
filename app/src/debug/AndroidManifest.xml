@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merged into debug builds only. The release APK has no test trigger. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Test deep links relais://report/{id}, country/{id}, crisis/{id} and source/{id}, for the
+             Maestro flows. Debug only. Each host needs its line here, besides its deep link in
+             Navigation.kt: without it, Android opens nothing (p10 on 13/11). -->
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="relais" android:host="report" />
+                <data android:scheme="relais" android:host="country" />
+                <data android:scheme="relais" android:host="crisis" />
+                <data android:scheme="relais" android:host="source" />
+            </intent-filter>
+        </activity>
+        <!-- relaisdebug://sync and relaisdebug://digest, see DebugTriggerActivity. -->
+        <activity
+            android:name=".debug.DebugTriggerActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="relaisdebug" />
+            </intent-filter>
+        </activity>
+        <!-- relaispdf://sample/<name>: a generated test PDF put on the phone, for the PDF text flow (pdf/PdfSampleActivity). -->
+        <activity
+            android:name=".pdf.PdfSampleActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="relaispdf" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -1,0 +1,122 @@
+# Journey 10, follow an organization (v0.3; produit/suivre-organisation.md, theme-compose.md
+# 13.1 and 13.2), direct mode. ACAPS publishes about 1 document a week: it is followed at once.
+# UNHCR publishes about 88: "Follow" asks first, "Reports only" by default.
+appId: org.relreader.app
+name: p10-organization
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p10-organization
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p10
+      DIGEST: skip
+
+# 10.1 The ACAPS page (debug deep link): its head, its rhythm, its list.
+- openLink: relais://source/9417
+- extendedWaitUntil:
+    visible:
+      id: "source_rhythm"
+    timeout: 60000
+- assertVisible: "ACAPS"
+- assertVisible:
+    id: "filter_all"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- takeScreenshot: p10-01-acaps
+
+# 10.2 Follow: ACAPS is small, no sheet.
+- tapOn:
+    id: "follow_button"
+- extendedWaitUntil:
+    visible: "Following"
+    timeout: 15000
+- assertNotVisible:
+    id: "follow_source_sheet"
+- takeScreenshot: p10-02-acaps-followed
+
+# 10.3 Following: ACAPS on the line of what is followed; Manage: the Organizations section.
+- back
+- tapOn:
+    id: "tab_following"
+- extendedWaitUntil:
+    visible:
+      id: "following_line"
+    timeout: 30000
+- assertVisible: ".*ACAPS.*"
+- tapOn:
+    id: "following_manage"
+- scrollUntilVisible:
+    element:
+      id: "followed_source_9417"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "ACAPS · Everything"
+- takeScreenshot: p10-03-manage-organizations
+
+# 10.4 "Follow an organization": a search by name.
+- scrollUntilVisible:
+    element:
+      id: "follow_source"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "follow_source"
+- tapOn:
+    id: "source_search"
+- inputText: "International Rescue"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: "pick_source_.*"
+    timeout: 30000
+- takeScreenshot: p10-04-search
+- back
+- runFlow:
+    when:
+      visible:
+        id: "pick_sources"
+    commands:
+      - back
+
+# 10.5 UNHCR: more than 10 documents a week, the sheet with "Reports only" chosen.
+- openLink: relais://source/2868
+- extendedWaitUntil:
+    visible:
+      id: "source_rhythm"
+    timeout: 60000
+- tapOn:
+    id: "follow_button"
+- extendedWaitUntil:
+    visible:
+      id: "follow_source_sheet"
+    timeout: 15000
+- assertVisible: "UNHCR publishes about \\d+ documents a week"
+- takeScreenshot: p10-05-unhcr-sheet
+- tapOn:
+    id: "source_sheet_follow"
+- extendedWaitUntil:
+    visible: "Following"
+    timeout: 15000
+- back
+- tapOn:
+    id: "tab_following"
+- tapOn:
+    id: "following_manage"
+- scrollUntilVisible:
+    element:
+      text: "UNHCR · Reports only"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: p10-06-manage-unhcr
+
+- stopRecording

@@ -1,0 +1,197 @@
+name: E2E
+
+# The reader's journeys (briefing, following, search, reading...), as Maestro flows
+# (.maestro/) on an Android emulator, in direct mode: the debug APK reads the real ReliefWeb
+# API with the RELIEFWEB_APPNAME secret, so content changes every day. Screenshots, one
+# video per journey, the Maestro report and logcat are uploaded, pass or fail.
+on:
+  workflow_dispatch:
+    inputs:
+      flows:
+        description: 'Flows to run: .maestro/ for all, or files separated by spaces, such as .maestro/p1-briefing.yaml .maestro/p10-organization.yaml'
+        required: false
+        default: '.maestro/'
+      without_appname:
+        description: 'Build without the appname and run .maestro/no-appname/ instead (audit S1, 9.6)'
+        type: boolean
+        required: false
+        default: false
+      upgrade_from:
+        description: 'With "without_appname": first install this release (tag or SHA) built with the appname, then the public APK over it (.maestro/upgrade/)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      MAESTRO_VERSION: 2.12.1
+      # No usage analytics from the Maestro CLI.
+      MAESTRO_CLI_NO_ANALYTICS: '1'
+      # The emulator is slow to start Maestro's driver on a shared runner.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      # Hardware acceleration for the emulator (android-emulator-runner README).
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Without the appname the app falls back to headlines only and every journey fails at
+      # onboarding: stop here with a clear message instead (the value is never printed).
+      - name: Check that the ReliefWeb appname is set
+        if: ${{ !inputs.without_appname }}
+        env:
+          RELIEFWEB_APPNAME: ${{ secrets.RELIEFWEB_APPNAME }}
+        run: |
+          if [ -z "$RELIEFWEB_APPNAME" ]; then
+            echo "::error::The RELIEFWEB_APPNAME secret is empty: the journeys run against the real API and need it."
+            exit 1
+          fi
+
+      - name: Build the debug APK
+        if: ${{ !inputs.without_appname }}
+        env:
+          # Injected into BuildConfig. GitHub masks it in logs; it is never written to a file here.
+          RELIEFWEB_APPNAME: ${{ secrets.RELIEFWEB_APPNAME }}
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      # The same APK as the one CI publishes: no appname at all.
+      - name: Build the debug APK without the appname
+        if: ${{ inputs.without_appname }}
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      # The upgrade check (v0.3.1): the previous release as the founder has it, with the appname,
+      # to install before the public APK. Skipped when the secret is absent (public copies).
+      - name: Build the previous release with the appname, for the upgrade check
+        if: ${{ inputs.without_appname && inputs.upgrade_from != '' }}
+        env:
+          RELIEFWEB_APPNAME: ${{ secrets.RELIEFWEB_APPNAME }}
+          UPGRADE_FROM: ${{ inputs.upgrade_from }}
+        run: |
+          if [ -z "$RELIEFWEB_APPNAME" ]; then
+            echo "::notice::No RELIEFWEB_APPNAME secret: no upgrade check."
+            exit 0
+          fi
+          # A tag or a commit SHA.
+          git fetch --no-tags --depth=1 origin "$UPGRADE_FROM"
+          git worktree add --detach "$RUNNER_TEMP/before" FETCH_HEAD
+          (cd "$RUNNER_TEMP/before" && ./gradlew --no-daemon :app:assembleDebug)
+          mkdir -p build/upgrade
+          cp "$RUNNER_TEMP/before/app/build/outputs/apk/debug/app-debug.apk" build/upgrade/before.apk
+          git worktree remove --force "$RUNNER_TEMP/before"
+
+      - name: Install Maestro ${{ env.MAESTRO_VERSION }}
+        # The download sometimes fails (HTTP 504 on 8/11) while the installer exits 0: retry,
+        # then fail here with a clear message rather than at "maestro: not found".
+        run: |
+          for attempt in 1 2 3; do
+            curl -fsSL "https://get.maestro.mobile.dev" | bash && [ -x "$HOME/.maestro/bin/maestro" ] && break
+            echo "Maestro download failed (attempt $attempt), retrying in 30 s"
+            sleep 30
+          done
+          if [ ! -x "$HOME/.maestro/bin/maestro" ]; then
+            echo "::error::Maestro could not be installed"
+            exit 1
+          fi
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      # Each line of `script` runs on its own (sh -c). The Maestro exit code is kept in a
+      # file so that logcat is dumped before the step fails.
+      - name: Run the journeys on an emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          # All flows by default; a manual run can pick one file (input "flows"), or the
+          # journey of a build without the appname.
+          FLOWS: ${{ inputs.without_appname && '.maestro/no-appname/' || inputs.flows || '.maestro/' }}
+          # Without the built-in appname, a1-add-appname types the secret in Settings. GitHub
+          # masks it in the log; the lines of Maestro that echo typed text are dropped too.
+          RELIEFWEB_APPNAME: ${{ inputs.without_appname && secrets.RELIEFWEB_APPNAME || '' }}
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          script: |
+            mkdir -p build/maestro
+            maestro --version
+            adb root && sleep 5 && adb wait-for-device
+            # The CI emulator sometimes shows "System UI isn't responding" over the app:
+            # hide system error dialogs and let the system settle before the journeys.
+            adb shell settings put global hide_error_dialogs 1
+            adb shell input keyevent 82 || true
+            sleep 20
+            adb shell setprop persist.sys.locale en-US
+            adb shell settings put global auto_time_zone 0
+            adb shell setprop persist.sys.timezone UTC
+            adb shell 'echo "Locale: $(getprop persist.sys.locale), time zone: $(getprop persist.sys.timezone), now: $(date)"'
+            adb logcat -G 16M || true
+            adb logcat -c
+            if [ -f build/upgrade/before.apk ]; then sh tools/e2e-upgrade.sh build/upgrade/before.apk app/build/outputs/apk/debug/app-debug.apk build/maestro/upgrade; echo $? > build/maestro/upgrade-exit-code; fi
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            maestro test $FLOWS --format junit --output build/maestro/report.xml --test-output-dir build/maestro; echo $? > build/maestro/exit-code
+            adb logcat -d -v threadtime > build/maestro/logcat.txt || true
+            if [ -n "$RELIEFWEB_APPNAME" ]; then mkdir -p "$RUNNER_TEMP/a1"; maestro test -e APPNAME="$RELIEFWEB_APPNAME" .maestro/appname/a1-add-appname.yaml --test-output-dir "$RUNNER_TEMP/a1/out" > "$RUNNER_TEMP/a1/log.txt" 2>&1; echo $? > build/maestro/appname-exit-code; grep -v -i "input text\|inputtext" "$RUNNER_TEMP/a1/log.txt" | tail -40; rm -rf "$RUNNER_TEMP/a1"; adb logcat -c || true; fi
+            e=$(cat build/maestro/exit-code); u=$(cat build/maestro/upgrade-exit-code 2>/dev/null || echo 0); a=$(cat build/maestro/appname-exit-code 2>/dev/null || echo 0); echo "Journeys: $e, upgrade check: $u, appname added: $a"; [ "$e" = 0 ] && [ "$u" = 0 ] && [ "$a" = 0 ]
+
+      - name: Upload screenshots
+        if: always()
+        # The artifact storage quota was hit on 12/11 and turned two green nights red: an
+        # upload that fails no longer decides the result of the journeys.
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-screenshots
+          # Maestro writes them under --test-output-dir; the second pattern catches them if a
+          # version writes them next to the working directory instead.
+          path: |
+            build/maestro/**/*.png
+            p[0-9]-*.png
+          if-no-files-found: warn
+          retention-days: 7
+
+      # Videos weigh the most (1.5 GB on 13/11): only when a journey fails.
+      - name: Upload videos
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-videos
+          path: |
+            build/maestro/**/*.mp4
+            p[0-9]-*.mp4
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload the Maestro report, logs and logcat
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report
+          path: |
+            build/maestro/
+            !build/maestro/**/*.png
+            !build/maestro/**/*.mp4
+          if-no-files-found: warn
+          retention-days: 14

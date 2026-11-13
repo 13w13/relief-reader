@@ -1,0 +1,49 @@
+# Upgrade check, part 2 (v0.3.1): the public APK, without an appname, installed over the
+# previous release. The data stay (followed countries and their documents), and "Connect to
+# ReliefWeb" is asked once, cleanly: headlines only, then never again.
+appId: org.relreader.app
+name: u2-after
+onFlowStart:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: false
+- extendedWaitUntil:
+    visible: "Connect to ReliefWeb"
+    timeout: 30000
+- assertVisible: "Re.L has no shared access. Each reader connects to ReliefWeb with their own appname."
+- takeScreenshot: u2-01-connect
+- tapOn: "Continue with headlines only"
+
+# Today in headlines mode, with the line that says what needs an appname.
+- extendedWaitUntil:
+    visible: "Headlines only\\. Add an appname in Settings to read full reports, country pages and search\\."
+    timeout: 60000
+- takeScreenshot: u2-02-today
+
+# The followed countries and their documents are still on the phone.
+- tapOn:
+    id: "tab_following"
+- extendedWaitUntil:
+    visible:
+      id: "following_line"
+    timeout: 30000
+- assertVisible: "(.*Sudan.*Lebanon.*|.*Lebanon.*Sudan.*)"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 30000
+- takeScreenshot: u2-03-following
+
+# Asked once: the next launch opens Today directly.
+- stopApp: org.relreader.app
+- launchApp:
+    appId: org.relreader.app
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "tab_today"
+    timeout: 30000
+- assertNotVisible: "Connect to ReliefWeb"
+- takeScreenshot: u2-04-relaunch

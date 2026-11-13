@@ -1,0 +1,85 @@
+name: Release
+
+# Builds a release APK signed with the founder's key (RELEASE_* secrets). Without the
+# key the run fails: the debug key is public, an APK signed with it is not a release.
+# A tag v* publishes a GitHub Release; a manual run only uploads the APK as an artifact.
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Decode the release key
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ] || [ -z "$RELEASE_KEYSTORE_PASSWORD" ] || [ -z "$RELEASE_KEY_ALIAS" ] || [ -z "$RELEASE_KEY_PASSWORD" ]; then
+            echo "::error::A RELEASE_* secret is missing: no release without the founder's key."
+            exit 1
+          fi
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          echo "Release key found."
+
+      # Since v0.3.1 the release APK carries no appname: each reader brings their own, entered
+      # in the app ("Connect to ReliefWeb"). Debug builds for the journeys still get one.
+      - name: Build the release APK
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+      - name: Name the APK and its checksum
+        run: |
+          VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"(.*)".*/\1/')
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/rel-$VERSION.apk"
+          (cd dist && sha256sum "rel-$VERSION.apk" > "rel-$VERSION.apk.sha256")
+          rm -f "$RUNNER_TEMP/release.keystore"
+
+      # A manual run keeps the APK as an artifact; a tag publishes it as a release asset,
+      # which does not count against the artifact storage quota (hit on 12/11).
+      - name: Upload the APK (manual runs only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rel-release-apk
+          path: dist/
+          retention-days: 7
+
+      - name: Publish a GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A tag with a dash (v0.1.0-alpha) is published as a pre-release.
+          PRE=""
+          case "$GITHUB_REF_NAME" in *-*) PRE="--prerelease" ;; esac
+          # Notes come from release-notes/<tag>.md when the file exists.
+          NOTES="release-notes/$GITHUB_REF_NAME.md"
+          if [ -f "$NOTES" ]; then
+            set -- --notes-file "$NOTES"
+          else
+            set -- --notes "Test build of Re.L, an unofficial ReliefWeb reader. Signed APK, install on Android 8.0 or later."
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/* $PRE --title "Re.L $GITHUB_REF_NAME" "$@"

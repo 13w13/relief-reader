@@ -1,0 +1,130 @@
+# Journey 6, follow a crisis (produit/passe-v0.2.md, 7.2), direct mode. A crisis is a
+# ReliefWeb disaster: the list changes every week, so the journey searches "Ebola" and falls
+# back on the first crisis of the list.
+appId: org.relreader.app
+name: p6-crisis
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p6-crisis
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p6
+      DIGEST: skip
+
+# 6.1 Following, "Manage", then "Follow a crisis", under the countries.
+- tapOn:
+    id: "tab_following"
+- tapOn:
+    id: "following_manage"
+- scrollUntilVisible:
+    element:
+      id: "follow_crisis"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "follow_crisis"
+- extendedWaitUntil:
+    visible: "Disasters tracked by ReliefWeb: floods, epidemics, earthquakes and storms. Conflicts are listed by country."
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "pick_crisis_.*"
+    timeout: 60000
+- assertVisible: "Ongoing · Alert"
+- takeScreenshot: p6-01-follow-a-crisis
+
+# 6.7 A conflict is not a disaster on ReliefWeb (passe-v0.2.md 1.1).
+- tapOn: "Search crises or countries"
+- inputText: "Sudan war"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "ReliefWeb doesn't list conflicts as disasters. Follow the countries instead."
+    timeout: 10000
+- assertVisible: "Follow countries"
+- takeScreenshot: p6-02-conflicts
+
+# 6.2 Ebola, else the first crisis of the list.
+- tapOn: "Sudan war"
+- eraseText: 20
+- inputText: "Ebola"
+- hideKeyboard
+- runFlow:
+    when:
+      notVisible:
+        id: "pick_crisis_.*"
+    commands:
+      - tapOn: "Ebola"
+      - eraseText: 20
+      - hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: "pick_crisis_.*"
+    timeout: 10000
+- takeScreenshot: p6-03-search
+
+# 6.3 Follow it; back in the list behind "Manage", the crisis is listed under the countries.
+- tapOn:
+    id: "pick_crisis_.*"
+    index: 0
+- takeScreenshot: p6-04-followed
+- tapOn: "Done"
+- scrollUntilVisible:
+    element:
+      id: "crisis_.*"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: p6-05-following-crises
+
+# 6.4 The light crisis page (v0.2.2, theme-compose.md 12.5): its head, "About this disaster"
+# folded, the row of filters on All, and the note on top of the list. No overview blocks.
+- tapOn:
+    id: "crisis_.*"
+- extendedWaitUntil:
+    visible:
+      id: "page_all"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Reports tagged with this disaster by ReliefWeb. Tagging is broad."
+    timeout: 60000
+- assertVisible: "Following"
+- assertNotVisible: "Needs and response"
+- assertNotVisible: "Who's publishing"
+- takeScreenshot: p6-06-crisis-page
+
+# 6.5 "About this disaster" unfolds the editors' description, when the crisis has one.
+- runFlow:
+    when:
+      visible:
+        id: "crisis_about"
+    commands:
+      - tapOn:
+          id: "crisis_about"
+      # The note comes first, above the description, which can run to ten screens.
+      - extendedWaitUntil:
+          visible: "Written by ReliefWeb editors when the disaster was recorded. Figures may be out of date."
+          timeout: 10000
+      - takeScreenshot: p6-07-crisis-about
+      - tapOn:
+          id: "crisis_about"
+
+# 6.6 Situation reports tagged with the crisis: a list, or the empty state.
+- runFlow:
+    file: common/filter.yaml
+    env:
+      FILTER: "sitreps"
+- extendedWaitUntil:
+    visible: "(Situation report|No situation reports for .* yet\\.)"
+    timeout: 60000
+- takeScreenshot: p6-08-crisis-sitreps
+
+- stopRecording

@@ -1,0 +1,113 @@
+# Journeys 8 and 9 (produit/passe-v0.2.md, 7.4 and 7.5), direct mode, on the fixed MSF report
+# (id 4237046) opened by its deep link: select a passage, highlight it, copy it with its
+# citation, paste it, then export the highlights as Markdown. The PDF steps (8.4, 9.5) come
+# with the Text view of PDFs and its generated test PDFs.
+appId: org.relreader.app
+name: p8-cite-export
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p8-cite-export
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p8
+      DIGEST: skip
+
+# 8.1 A long press in the text selects a word and shows the selection bar.
+- openLink: relais://report/4237046
+- extendedWaitUntil:
+    visible:
+      id: "highlighter"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: ".*75 per cent of the patients treated for measles.*"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- longPressOn: ".*75 per cent of the patients treated for measles.*"
+- extendedWaitUntil:
+    visible:
+      id: "selection_bar"
+    timeout: 10000
+- assertVisible: "Copy with citation"
+- assertVisible:
+    id: "selection_highlight"
+- takeScreenshot: p8-01-selection-bar
+
+# 9.1 Precondition of the export: highlight the passage from the bar.
+- tapOn:
+    id: "selection_highlight"
+- extendedWaitUntil:
+    visible: "Highlighted. Saved in Library."
+    timeout: 10000
+- takeScreenshot: p8-02-highlighted
+
+# 8.2 Copy with citation. The app confirms with "Copied with citation.", but Android 14's
+# clipboard preview covers it for Maestro: the paste below checks the copy instead.
+- longPressOn: ".*75 per cent of the patients treated for measles.*"
+- extendedWaitUntil:
+    visible:
+      id: "selection_bar"
+    timeout: 10000
+- tapOn: "Copy with citation"
+- extendedWaitUntil:
+    notVisible:
+      id: "selection_bar"
+    timeout: 10000
+
+# 8.3 Paste into the search field: the passage, then the organization and the dates. Back
+# may first clear the text's focus: press it until the bottom bar shows again.
+- repeat:
+    while:
+      notVisible:
+        id: "tab_search"
+    times: 3
+    commands:
+      - back
+      - waitForAnimationToEnd:
+          timeout: 3000
+- tapOn:
+    id: "tab_search"
+- longPressOn: "Search ReliefWeb reports"
+- tapOn: "Paste"
+- extendedWaitUntil:
+    visible: "(?s).*Médecins Sans Frontières.*posted on ReliefWeb.*"
+    timeout: 10000
+- takeScreenshot: p8-03-pasted-citation
+- hideKeyboard
+
+# 9.2 and 9.3 Library, Highlights, Export as Markdown: the counts and the preview.
+- tapOn:
+    id: "tab_library"
+- tapOn: "Highlights"
+- extendedWaitUntil:
+    visible:
+      id: "highlights_more"
+    timeout: 15000
+- tapOn:
+    id: "highlights_more"
+- tapOn: "Export as Markdown"
+- extendedWaitUntil:
+    visible: "Export highlights"
+    timeout: 10000
+- assertVisible: "1 report, 1 highlight"
+- assertVisible: "(?s)# Highlights.*- Organization: Médecins Sans Frontières.*- Link: https://reliefweb.int/report/sudan/.*"
+- takeScreenshot: p8-04-export-preview
+
+# 9.4 Share opens Android's share sheet.
+- tapOn:
+    id: "export_share"
+- takeScreenshot: p8-05-share-sheet
+- back
+
+- stopRecording

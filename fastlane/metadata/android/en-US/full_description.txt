@@ -1,0 +1,20 @@
+Follow countries and crises, and read their humanitarian reports on your phone: situation reports, flash updates, appeals, assessments and maps. Reports you have opened stay readable offline.
+
+Re.L is an unofficial app. It uses the ReliefWeb API and is not affiliated with OCHA or ReliefWeb.
+
+<b>What it does</b>
+<ul>
+<li>Follow countries, crises and organizations. Their new reports land in one list.</li>
+<li>Today shows the headlines chosen by ReliefWeb's editors, and what is new in what you follow.</li>
+<li>Country and crisis pages open on an overview: the latest situation report, appeals, analyses, and who publishes most.</li>
+<li>Reports and their PDFs open in the app. Once a PDF is on your phone, you can read it as text, search it and highlight passages.</li>
+<li>The Library keeps what you saved, read and highlighted, with "Copy with citation" and a Markdown export.</li>
+</ul>
+
+<b>You need a ReliefWeb appname</b>
+ReliefWeb asks every app that reads its API to use an approved name, called an appname. Re.L has none built in. Each reader requests their own from ReliefWeb, with a work email, and enters it in Settings. Without one, Re.L shows ReliefWeb's latest headlines with a short summary.
+
+<b>Privacy</b>
+No account, no ads, no analytics, no crash reporting. The app only talks to ReliefWeb. What you follow, read and highlight stays on your phone, and so does your appname.
+
+Re.L is free software under the GPL-3.0. Reports, PDFs and images belong to ReliefWeb and to the organizations that publish them.
