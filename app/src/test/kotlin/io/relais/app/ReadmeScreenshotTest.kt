@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -26,6 +28,7 @@ import io.relais.api.Display
 import io.relais.api.RelaisJson
 import io.relais.api.ReportFields
 import io.relais.app.data.toEntity
+import io.relais.app.ui.AboutSection
 import io.relais.app.ui.ConnectContent
 import io.relais.app.ui.DocumentRow
 import io.relais.app.ui.HeadlineHero
@@ -45,9 +48,10 @@ import java.io.File
 import java.time.LocalDate
 
 /**
- * The two screenshots of the public README (first launch review, 13/11): "Connect to ReliefWeb",
- * and Today. Today reads fixtures/headlines.json: readme-shots.yml first replaces the fixtures
- * with made-up ones (tools/make_fixtures.py), so that no organization's content is shown.
+ * The screenshots of the public README (first launch review, 13/11), "Connect to ReliefWeb" and
+ * Today, and Settings > About. Today reads fixtures/headlines.json: readme-shots.yml first
+ * replaces the fixtures with made-up ones (tools/make_fixtures.py), so that no organization's
+ * content is shown.
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -70,6 +74,14 @@ class ReadmeScreenshotTest {
     fun connect() = shoot("connect") {
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             ConnectContent(onDone = {})
+        }
+    }
+
+    /** Settings > About Re.L, with "Made with ♥", "Star it on GitHub" and "Open an issue" (v0.3.1). */
+    @Test
+    fun about() = shoot("about") {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            AboutSection(onLicences = {}, onWhatsNew = {})
         }
     }
 
