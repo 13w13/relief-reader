@@ -19,7 +19,7 @@ Re.L is a preview, built in the open in my free time, to stay closer to the huma
 - **Works offline.** Reports from what you follow are stored on your phone.
 - **Keeps what you read.** Save, highlight, copy with a citation, and export your highlights.
 - **No AI in the app.** No generated summaries, no scores. You read what the organizations wrote.
-- **No ads, no account, no tracking.** Re.L collects no data and talks only to ReliefWeb.
+- **No ads, no account, no tracking.** Re.L collects no data.
 
 ## Get it
 
@@ -62,7 +62,7 @@ Keep your appname to yourself. Don't publish it, don't paste it in an issue, and
 
 ## Privacy
 
-Re.L has no account, no ads, no analytics and no crash reporting. It talks only to `api.reliefweb.int` and `reliefweb.int`. What you follow, what you read, your highlights and your appname stay on your phone. It asks for internet access and, if you want the daily summary or alerts, for notifications.
+Re.L has no account, no ads, no analytics and no crash reporting. It talks to `api.reliefweb.int` and `reliefweb.int`. When a report includes an image hosted on another site, the app loads that image from there. What you follow, what you read, your highlights and your appname stay on your phone. It asks for internet access and, if you want the daily summary or alerts, for notifications.
 
 ## Whose content this is
 
