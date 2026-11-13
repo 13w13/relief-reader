@@ -21,6 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import io.relais.app.ui.NoNewHeadlines
+import io.relais.app.ui.headlineBlocks
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import io.relais.api.ApiResponse
@@ -82,6 +86,47 @@ class ReadmeScreenshotTest {
     fun about() = shoot("about") {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             AboutSection(onLicences = {}, onWhatsNew = {})
+        }
+    }
+
+    /**
+     * Today with no headline new since the last visit (v0.3.2): the line that says so, then the most
+     * recent headline of the week, large with its photo, then the earlier ones folded.
+     */
+    @Test
+    fun todayNoNewHeadline() {
+        val response = RelaisJson.decodeFromString(ApiResponse.serializer(ReportFields.serializer()), File("../fixtures/headlines.json").readText())
+        val now = System.currentTimeMillis()
+        val week = response.data.map { it.toEntity(existing = null, now = now, full = true) }.take(5)
+        val blocks = headlineBlocks(week, since = now, readIds = emptySet())
+        shoot("today-no-new") {
+            ScreenScaffold(title = "Re.L", onSettings = {}, titleContent = { TodayTitle() }, actions = { TodayRefresh {} }) { padding ->
+                Column(Modifier.padding(padding)) {
+                    PrimaryScrollableTabRow(selectedTabIndex = 0, edgePadding = 8.dp) {
+                        listOf("All", "Situation reports", "Analysis", "Maps", "Appeals", "Sudan").forEachIndexed { i, label ->
+                            RubricTab(label, active = i == 0, onClick = {})
+                        }
+                    }
+                    LazyColumn {
+                        item {
+                            Column(Modifier.padding(horizontal = Space.screen, vertical = Space.m)) {
+                                Text(Display.longDate(LocalDate.now()), style = MaterialTheme.typography.titleSmall)
+                                Text("Updated 16:05", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        item { SectionHeader(stringResource(R.string.today_new_headlines)) }
+                        item { NoNewHeadlines(latest = week.firstOrNull()) }
+                        blocks.hero?.let { hero -> item { HeadlineHero(hero, isRead = false, onClick = {}) } }
+                        item {
+                            Text(
+                                pluralStringResource(R.plurals.today_earlier_headlines, blocks.earlier.size, blocks.earlier.size),
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(horizontal = Space.screen, vertical = Space.m),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
