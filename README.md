@@ -21,11 +21,13 @@ Re.L is a preview, built in the open in my free time, to stay closer to the huma
 - **No AI in the app.** No generated summaries, no scores. You read what the organizations wrote.
 - **No ads, no account, no tracking.** Re.L collects no data and talks only to ReliefWeb.
 
-## Get started
+## Get it
 
-1. **Install** the APK from the [latest release](https://github.com/13w13/relief-reader/releases/latest). Re.L needs Android 8.0 or later.
+1. **Download the APK** from the [latest release](https://github.com/13w13/relief-reader/releases/latest) and open it on your phone (Android 8.0 or later).
 2. **Open Re.L** and tap **Continue with headlines only**. You can read ReliefWeb's latest headlines straight away.
 3. **[Ask ReliefWeb for a free appname](https://docs.google.com/forms/d/e/1FAIpQLScR5EE_SBhweLLg_2xMCnXNbT6md4zxqIB00OL0yZWyrqX_Nw/viewform)** with your work email. ReliefWeb replies within two business days. Enter the appname in the app to unlock full reports, country pages and search.
+
+The [release notes](https://github.com/13w13/relief-reader/releases/latest) describe everything the app does.
 
 ## Install and update
 
