@@ -213,6 +213,11 @@
     <string name="settings_check">Check access</string>
     <string name="settings_use_own">Use your own appname</string>
     <string name="settings_save">Save</string>
+    <string name="settings_remove">Remove</string>
+    <plurals name="settings_history_shorten">
+        <item quantity="one">Remove reading history older than %2$d days? %1$d report.</item>
+        <item quantity="other">Remove reading history older than %2$d days? %1$d reports.</item>
+    </plurals>
     <string name="settings_appname_saved">Appname saved. Re.L now reads ReliefWeb with it.</string>
     <string name="settings_remove_own">Remove your appname</string>
     <string name="settings_digest">Daily summary</string>

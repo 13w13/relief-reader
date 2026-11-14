@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.text.input.ImeAction
@@ -222,7 +223,13 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
         Work.scheduleDigest(context, enabled, hour, minute)
     }
 
-    fun setHistoryDays(days: Int) = viewModelScope.launch { c.settings.setHistoryDays(days) }
+    suspend fun historyToRemove(days: Int): Int = c.repository.historyOlderThan(days)
+
+    /** The keep applies at once: History loses what is older right away (Produit, 14/11). */
+    fun setHistoryDays(days: Int) = viewModelScope.launch {
+        c.settings.setHistoryDays(days)
+        c.repository.expireHistoryOlderThan(days)
+    }
     fun setReadingSize(index: Int) = viewModelScope.launch { c.settings.setReadingSize(index) }
     fun setDisplay(d: DisplaySize) = viewModelScope.launch { c.settings.setDisplay(d.name, d.reportStep.ordinal) }
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
@@ -244,6 +251,7 @@ fun SettingsScreen(nav: Nav) {
     val snackbar = remember { SnackbarHostState() }
     val appnameSaved = stringResource(R.string.settings_appname_saved)
     var confirmClear by remember { mutableStateOf(false) }
+    var shortenHistory by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -367,7 +375,13 @@ fun SettingsScreen(nav: Nav) {
             SettingText(stringResource(R.string.settings_keep_history))
             FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(90 to R.string.keep_90, 365 to R.string.keep_365, -1 to R.string.keep_forever).forEach { (days, label) ->
-                    FilterChip(selected = s.historyDays == days, onClick = { vm.setHistoryDays(days) }, label = { Text(stringResource(label)) })
+                    FilterChip(selected = s.historyDays == days, onClick = {
+                        // A shorter keep that removes reports asks first, with their number.
+                        scope.launch {
+                            val removed = vm.historyToRemove(days)
+                            if (removed > 0) shortenHistory = days to removed else vm.setHistoryDays(days)
+                        }
+                    }, label = { Text(stringResource(label)) }, modifier = Modifier.testTag("keep_history_$days"))
                 }
             }
             TextButton(onClick = { confirmClear = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
@@ -390,6 +404,18 @@ fun SettingsScreen(nav: Nav) {
 
     showWhatsNew?.let { release -> WhatsNewSheet(release, onDismiss = { showWhatsNew = null }) }
 
+    shortenHistory?.let { (days, removed) ->
+        AlertDialog(
+            onDismissRequest = { shortenHistory = null },
+            text = { Text(pluralStringResource(R.plurals.settings_history_shorten, removed, removed, days)) },
+            confirmButton = {
+                TextButton(onClick = { vm.setHistoryDays(days); shortenHistory = null }, modifier = Modifier.testTag("keep_history_confirm")) {
+                    Text(stringResource(R.string.settings_remove))
+                }
+            },
+            dismissButton = { TextButton(onClick = { shortenHistory = null }) { Text(stringResource(R.string.report_cancel)) } },
+        )
+    }
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },

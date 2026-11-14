@@ -221,35 +221,30 @@ onFlowComplete:
 - assertVisible:
     id: "pdf_preview"
 - takeScreenshot: p7-13-history-preview
-# Since v0.4 the field shows from ten items in the view, or while a search is on: with fewer,
-# this step is skipped (art director asked, 14/11).
-- runFlow:
-    when:
-      visible:
-        id: "library_search"
-    commands:
-      - tapOn: "Search your library"
-      - inputText: "trucking"
-      - hideKeyboard
-      - extendedWaitUntil:
-          visible: "Found in PDFs on your phone"
-          timeout: 15000
-      - scrollUntilVisible:
-          element:
-            id: "pdf_hit_99000005"
-          direction: DOWN
-          timeout: 15000
-      - takeScreenshot: p7-14-library-search
-      # The result opens the Text view on the passage, with the search open.
-      - tapOn:
-          id: "pdf_hit_99000005"
-      - extendedWaitUntil:
-          visible: "1 of 2"
-          timeout: 30000
-      - takeScreenshot: p7-14b-opened-on-result
-      - tapOn: "Close search"
-      - tapOn:
-          id: "pdf_close"
+# Since v0.4 the field shows in History as soon as a PDF read is on the phone (art director,
+# 14/11), whatever the length of the list.
+- tapOn: "Search your library"
+- inputText: "trucking"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Found in PDFs on your phone"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "pdf_hit_99000005"
+    direction: DOWN
+    timeout: 15000
+- takeScreenshot: p7-14-library-search
+# The result opens the Text view on the passage, with the search open.
+- tapOn:
+    id: "pdf_hit_99000005"
+- extendedWaitUntil:
+    visible: "1 of 2"
+    timeout: 30000
+- takeScreenshot: p7-14b-opened-on-result
+- tapOn: "Close search"
+- tapOn:
+    id: "pdf_close"
 
 # 7.11 A report whose PDF is a scan: the PDF view only, no switch, a short line.
 - openLink: relaispdf://sample/test-scan

@@ -155,15 +155,17 @@ onFlowComplete:
 - assertVisible: "Saved Today · Available offline · PDF on phone"
 - takeScreenshot: p4-14-library-saved
 
-# 4.7 History. Since v0.4 search and filters show from ten items on (revue-densite-v0.3.md,
-# change 9): with the one report of this flow, History is the list alone. The filter sheet
-# (facets, Group by) is drawn by the screenshot tests.
+# 4.7 History (v0.4, revue-densite-v0.3.md, change 9). Its PDF is on the phone since 4.4, so
+# the search field shows; the filter icon waits for ten items. The filter sheet (facets,
+# Group by) is drawn by the screenshot tests.
 - tapOn: "History"
 - extendedWaitUntil:
     visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
     timeout: 15000
-- assertNotVisible:
+- assertVisible:
     id: "library_search"
+- assertNotVisible:
+    id: "library_filters"
 - takeScreenshot: p4-15-history
 
 # 4.9 Settings, Clear history: the confirmation.

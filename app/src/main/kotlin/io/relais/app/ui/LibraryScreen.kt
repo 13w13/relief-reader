@@ -358,11 +358,17 @@ fun LibraryScreen(nav: Nav) {
                     )
                 }
             }
-            // Search and filters from ten items on, or while some are on (change 9); the facets
-            // and "Group by" sit in a sheet behind the icon at the end of the field.
+            // Search and filters (change 9, art director 14/11). The field: from ten items, or in
+            // Saved and History as soon as a PDF read is on the phone, since the list shows titles
+            // and not the PDFs' text. The filter icon: from ten items. Both stay while a search or
+            // a filter is on, so that the reader can always undo it. The facets and "Group by" sit
+            // in a sheet behind the icon at the end of the field.
             val count = if (state.view == LibraryView.HIGHLIGHTS) state.allHighlights.size else state.list(state.view).all.size
             val active = state.filters.values.count { it.isNotEmpty() } + if (state.groupBy != GroupBy.DATE && state.view != LibraryView.HIGHLIGHTS) 1 else 0
-            if (count >= SEARCH_FROM || queryText.isNotBlank() || active > 0) {
+            val busy = queryText.isNotBlank() || active > 0
+            val pdfs = state.view != LibraryView.HIGHLIGHTS && state.list(state.view).all.any { it.pdfOnPhone }
+            val showFilters = busy || count >= SEARCH_FROM
+            if (showFilters || pdfs) {
                 // The field keeps its own text: bound to the view model's state, which lags, fast
                 // typing lost or swapped letters ("measles" became "mealess" in an e2e run).
                 OutlinedTextField(
@@ -372,14 +378,14 @@ fun LibraryScreen(nav: Nav) {
                         Text(stringResource(if (state.view == LibraryView.HIGHLIGHTS) R.string.library_search_highlights else R.string.library_search))
                     },
                     leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                    trailingIcon = {
+                    trailingIcon = if (!showFilters) null else { {
                         val label = if (active > 0) stringResource(R.string.results_filters_count, active) else stringResource(R.string.results_filters)
                         IconButton(onClick = { filterSheet = true }, modifier = Modifier.testTag("library_filters")) {
                             BadgedBox(badge = { if (active > 0) Badge(containerColor = cs.primary) { Text(active.toString()) } }) {
                                 Icon(Icons.Outlined.FilterList, contentDescription = label)
                             }
                         }
-                    },
+                    } },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("library_search"),
