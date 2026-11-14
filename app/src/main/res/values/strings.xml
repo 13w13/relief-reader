@@ -554,7 +554,15 @@
     </plurals>
     <string name="pile_end_left">· %1$d left</string>
     <string name="pile_older">Older headlines</string>
+    <plurals name="pile_more_this_week">
+        <item quantity="one">%d more this week</item>
+        <item quantity="other">%d more this week</item>
+    </plurals>
     <string name="headline_nav_next">Next</string>
-    <string name="older_all_read">You\'ve read the %1$d latest headlines.</string>
-    <string name="older_feed_limit">That\'s every headline on your phone. ReliefWeb\'s feed keeps the 20 latest.</string>
+    <plurals name="older_all_read">
+        <item quantity="one">You\'ve read the only headline on your phone.</item>
+        <item quantity="other">You\'ve read all %1$d headlines on your phone.</item>
+    </plurals>
+    <string name="older_every_one">That\'s every headline on your phone.</string>
+    <string name="older_feed_limit">ReliefWeb\'s feed keeps only the 20 latest. Add an appname to see older ones.</string>
 </resources>

@@ -67,6 +67,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.takeOrElse
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -240,8 +241,11 @@ private fun HeadlineCard(
             // Room for a kicker, three lines of title and two of summary on every card; what a
             // shorter card leaves stays at the bottom, as in the sketch.
             val type = MaterialTheme.typography
+            // The theme sets every line height; takeOrElse keeps toDp() safe in a context that would not.
             val bodyHeight = with(LocalDensity.current) {
-                type.labelSmall.lineHeight.toDp() + type.displaySmall.lineHeight.toDp() * 3 + type.bodyMedium.lineHeight.toDp() * 2
+                type.labelSmall.lineHeight.takeOrElse { 16.sp }.toDp() +
+                    type.displaySmall.lineHeight.takeOrElse { 30.sp }.toDp() * 3 +
+                    type.bodyMedium.lineHeight.takeOrElse { 22.sp }.toDp() * 2
             } + 16.dp + Space.screen * 2
             Column(
                 Modifier.fillMaxWidth().heightIn(min = bodyHeight).padding(Space.screen),
@@ -269,10 +273,17 @@ private fun HeadlineCard(
     }
 }
 
+/** The end card lists this many titles at most: it keeps the height of a card (art director, 14/11). */
+internal const val END_LINES = 6
+
+/** The pile's strokes stop beyond this many headlines: the text "12 of 25" stays alone. */
+internal const val MAX_STROKES = 20
+
 /**
  * After the last card: the week's titles on one line each (ink if not read, ink 2 if read), each
  * reopening its headline, then "Older headlines". A pile shows one headline at a time; the end
- * gives back the overview (condition of the product review).
+ * gives back the overview (condition of the product review). From 7 headlines, the first 6, then
+ * "9 more this week", which opens the same list as "Older headlines" and takes its place.
  */
 @Composable
 private fun PileEnd(
@@ -302,7 +313,7 @@ private fun PileEnd(
                 Text(stringResource(R.string.pile_end_left, left), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
             }
         }
-        headlines.forEachIndexed { i, report ->
+        headlines.take(END_LINES).forEachIndexed { i, report ->
             val read = report.id in readIds
             HorizontalDivider(thickness = Hairline, color = cs.outlineVariant)
             Row(
@@ -328,19 +339,20 @@ private fun PileEnd(
             }
         }
         HorizontalDivider(thickness = Hairline, color = cs.outlineVariant)
-        OlderHeadlinesLink(onOlder)
+        val more = headlines.size - END_LINES
+        OlderHeadlinesLink(onOlder, label = if (more > 0) pluralStringResource(R.plurals.pile_more_this_week, more, more) else null)
     }
 }
 
-/** "Older headlines ›", at the end of the pile and when the week has none. */
+/** "Older headlines ›" (or [label]), at the end of the pile and when the week has none. */
 @Composable
-internal fun OlderHeadlinesLink(onOlder: () -> Unit, modifier: Modifier = Modifier) {
+internal fun OlderHeadlinesLink(onOlder: () -> Unit, modifier: Modifier = Modifier, label: String? = null) {
     val cs = MaterialTheme.colorScheme
     Row(
         modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onOlder).testTag("pile_older"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(stringResource(R.string.pile_older), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = cs.primary)
+        Text(label ?: stringResource(R.string.pile_older), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = cs.primary)
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = cs.primary, modifier = Modifier.size(20.dp))
     }
 }
@@ -371,18 +383,19 @@ private fun PileBar(current: Int, headlines: List<ReportEntity>, readIds: Set<Lo
                 horizontalArrangement = Arrangement.spacedBy(Space.xs, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                headlines.forEachIndexed { i, report ->
+                // 18 dp each, narrower from 9 headlines on to fit, 6 dp at least; none beyond 20.
+                if (total <= MAX_STROKES) headlines.forEachIndexed { i, report ->
                     val color = when {
                         i == current -> cs.onSurface
                         report.id in readIds -> cs.outline
                         else -> cs.primary.copy(alpha = 0.45f)
                     }
                     Box(
-                        Modifier.weight(1f, fill = false).widthIn(max = 18.dp).fillMaxWidth()
+                        Modifier.weight(1f, fill = false).widthIn(min = 6.dp, max = 18.dp).fillMaxWidth()
                             .height(if (i == current) 4.dp else 3.dp).background(color, RoundedCornerShape(2.dp)),
                     )
                 }
-                Box(
+                if (total <= MAX_STROKES) Box(
                     Modifier.width(6.dp).height(if (current >= total) 4.dp else 3.dp)
                         .background(if (current >= total) cs.onSurface else cs.outline, RoundedCornerShape(2.dp)),
                 )

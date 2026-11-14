@@ -126,6 +126,13 @@ class ScreenshotTest {
         shoot("today-pile-end") { TodayPile(headlines, readIds = headlines.take(3).map { it.id }.toSet(), page = headlines.size) }
     }
 
+    /** A week of more than 6 headlines: the end card lists the first 6, then "N more this week". */
+    @Test
+    fun todayPileEndMore() {
+        val headlines = reports("headlines.json")
+        shoot("today-pile-end-more") { TodayPile(headlines, readIds = headlines.take(2).map { it.id }.toSet(), page = headlines.size) }
+    }
+
     /** The end of a report opened from the pile: "Headline 2 of 6", Next, Previous headline. */
     @Test
     fun headlineNav() {
