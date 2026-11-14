@@ -37,6 +37,11 @@ import io.relais.app.ui.headlinesNote
 import io.relais.app.ui.RelaisTheme
 import io.relais.app.ui.FilesSection
 import io.relais.app.ui.FileLines
+import io.relais.app.ui.GroupBy
+import io.relais.app.ui.LibraryFacet
+import io.relais.app.ui.LibraryFilterSheet
+import io.relais.app.ui.LibraryState
+import io.relais.app.ui.LibraryView
 import io.relais.app.ui.SourceHeader
 import io.relais.app.data.SourceInfo
 import io.relais.app.ui.Photo
@@ -172,6 +177,19 @@ class ScreenshotTest {
                 item { FilterRow(PageFilter.FEEDS, PageFilter.ALL, onSelect = {}) }
                 items(docs) { DocumentRow(it, onClick = {}) }
             }
+        }
+    }
+
+    /** Library's filter sheet (v0.4): the facets of Saved, two countries on, then Group by. */
+    @Test
+    fun libraryFilterSheet() {
+        val state = LibraryState(
+            view = LibraryView.SAVED,
+            filters = mapOf(LibraryFacet.COUNTRY to setOf("Noravia", "Kestrova")),
+            groupBy = GroupBy.FORMAT,
+        )
+        shoot("library-filter-sheet") {
+            Column { LibraryFilterSheet(state, onFacet = {}, onGroupBy = {}, onClear = {}) }
         }
     }
 
