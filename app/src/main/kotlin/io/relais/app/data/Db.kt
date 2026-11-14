@@ -288,7 +288,7 @@ interface RelaisDao {
 
     /** Cards of a restored Library: a report already on the phone keeps its full copy. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertReportsIfAbsent(reports: List<ReportEntity>)
+    suspend fun insertReportsIfAbsent(reports: List<ReportEntity>): List<Long>
 
     @Query("SELECT * FROM report WHERE id = :id")
     fun observeReport(id: Long): Flow<ReportEntity?>

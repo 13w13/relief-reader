@@ -242,7 +242,9 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
         io.relais.app.data.LibraryBackupFormat.fileName(now) to io.relais.app.data.LibraryBackupFormat.encode(c.libraryBackup.export(now))
     }
 
-    suspend fun restore(backup: io.relais.app.data.LibraryBackup) = c.libraryBackup.restore(backup, System.currentTimeMillis())
+    /** Merges the file, with History kept as long as the phone keeps it. */
+    suspend fun restore(backup: io.relais.app.data.LibraryBackup) =
+        c.libraryBackup.restore(backup, System.currentTimeMillis(), c.settings.current().historyDays)
     fun deletePdfs(keep: Set<Long>) = viewModelScope.launch { c.pdfs.deleteAll(keep) }
 }
 
@@ -264,12 +266,17 @@ fun SettingsScreen(nav: Nav) {
     val notBackup = stringResource(R.string.restore_not_backup)
     val newerBackup = stringResource(R.string.restore_newer)
     val restored = stringResource(R.string.restore_done)
+    val failed = stringResource(R.string.state_error)
     val backupChooser = stringResource(R.string.settings_backup)
     val pickBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val text = readBackupFile(context, uri)
-            when (val parsed = text?.let { io.relais.app.data.LibraryBackupFormat.parse(it) } ?: io.relais.app.data.LibraryBackupFormat.Parsed.NotBackup) {
+            // Reading and parsing off the main thread (review of PR 17).
+            val parsed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                readBackupFile(context, uri)?.let { io.relais.app.data.LibraryBackupFormat.parse(it) }
+                    ?: io.relais.app.data.LibraryBackupFormat.Parsed.NotBackup
+            }
+            when (parsed) {
                 is io.relais.app.data.LibraryBackupFormat.Parsed.Ok -> pendingRestore = parsed.backup
                 io.relais.app.data.LibraryBackupFormat.Parsed.Newer -> snackbar.showSnackbar(newerBackup)
                 io.relais.app.data.LibraryBackupFormat.Parsed.NotBackup -> snackbar.showSnackbar(notBackup)
@@ -418,8 +425,10 @@ fun SettingsScreen(nav: Nav) {
             TextButton(
                 onClick = {
                     scope.launch {
-                        val (name, json) = vm.backup()
-                        shareBackup(context, name, json, backupChooser)
+                        runCatching {
+                            val (name, json) = vm.backup()
+                            shareBackup(context, name, json, backupChooser)
+                        }.onFailure { snackbar.showSnackbar(failed) }
                     }
                 },
                 modifier = Modifier.padding(horizontal = 8.dp).testTag("library_backup"),
@@ -448,7 +457,7 @@ fun SettingsScreen(nav: Nav) {
     showWhatsNew?.let { release -> WhatsNewSheet(release, onDismiss = { showWhatsNew = null }) }
 
     pendingRestore?.let { backup ->
-        val n = backup.counts
+        val n = backup.counts(System.currentTimeMillis(), s.historyDays)
         AlertDialog(
             onDismissRequest = { pendingRestore = null },
             title = { Text(stringResource(R.string.restore_title)) },
@@ -457,8 +466,8 @@ fun SettingsScreen(nav: Nav) {
                 TextButton(onClick = {
                     pendingRestore = null
                     scope.launch {
-                        vm.restore(backup)
-                        snackbar.showSnackbar(restored)
+                        val done = runCatching { vm.restore(backup) }.isSuccess
+                        snackbar.showSnackbar(if (done) restored else failed)
                     }
                 }, modifier = Modifier.testTag("restore_confirm")) { Text(stringResource(R.string.restore_action)) }
             },
@@ -682,11 +691,13 @@ private suspend fun readBackupFile(context: android.content.Context, uri: androi
         }.getOrNull()
     }
 
-/** Writes the backup in the app's cache and opens Android's share menu on it. */
-private fun shareBackup(context: android.content.Context, fileName: String, json: String, title: String) {
-    val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
-    dir.listFiles()?.forEach { it.delete() }
-    val file = java.io.File(dir, fileName).apply { writeText(json) }
+/** Writes the backup in the app's cache, off the main thread, then opens Android's share menu on it. */
+private suspend fun shareBackup(context: android.content.Context, fileName: String, json: String, title: String) {
+    val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+        dir.listFiles()?.forEach { it.delete() }
+        java.io.File(dir, fileName).apply { writeText(json) }
+    }
     val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)
     val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("application/json")
         .putExtra(android.content.Intent.EXTRA_SUBJECT, fileName)

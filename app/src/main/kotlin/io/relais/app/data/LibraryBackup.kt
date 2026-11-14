@@ -4,10 +4,10 @@ package io.relais.app.data
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.time.ZoneId
 
@@ -45,6 +45,9 @@ data class BackupReading(
     val finishedAt: Long? = null,
     val readAt: Long? = null,
     val pdfPage: Int = 0,
+    /** Where the reading stopped, so that Continue reading opens there (review of PR 17). */
+    val itemIndex: Int = 0,
+    val itemOffset: Int = 0,
     val card: BackupCard? = null,
 )
 
@@ -86,9 +89,21 @@ data class LibraryBackup(
     /** What the confirmation names: "12 saved, 140 in history, 40 highlights and 6 followed." */
     data class Counts(val saved: Int, val history: Int, val highlights: Int, val followed: Int)
 
-    val counts: Counts
-        get() = Counts(readings.count { it.savedAt != null }, readings.count { it.inHistory }, highlights.size, countries.size + crises.size + sources.size)
+    /**
+     * The counts of what a restore brings, with the phone's "Keep history for" ([historyDays],
+     * -1 for Forever): History older than that is not brought back, so it is not counted.
+     */
+    fun counts(now: Long, historyDays: Int): Counts = Counts(
+        readings.count { it.savedAt != null },
+        readings.count { it.inHistory && keptInHistory(it, now, historyDays) },
+        highlights.size,
+        countries.size + crises.size + sources.size,
+    )
 }
+
+/** Whether a row of History is within the phone's keep. */
+internal fun keptInHistory(r: BackupReading, now: Long, historyDays: Int): Boolean =
+    historyDays <= 0 || (r.lastOpenedAt ?: r.firstOpenedAt ?: 0L) >= now - historyDays * Repository.ONE_DAY
 
 object LibraryBackupFormat {
     const val APP = "Re.L"
@@ -113,14 +128,28 @@ object LibraryBackupFormat {
         data object Newer : Parsed
     }
 
-    /** A Re.L backup of this version or an earlier one; a newer one is refused, with its own message. */
-    fun parse(text: String): Parsed {
-        val obj = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return Parsed.NotBackup
-        if (obj["app"]?.jsonPrimitive?.contentOrNull != APP || obj["kind"]?.jsonPrimitive?.contentOrNull != KIND) return Parsed.NotBackup
-        val version = obj["version"]?.jsonPrimitive?.intOrNull ?: return Parsed.NotBackup
-        if (version > VERSION) return Parsed.Newer
-        return runCatching { Parsed.Ok(json.decodeFromJsonElement(LibraryBackup.serializer(), obj)) }.getOrElse { Parsed.NotBackup }
-    }
+    /** Longest highlight text and note kept from a file: a passage, not a book. */
+    const val MAX_TEXT = 10_000
+    const val MAX_NOTE = 2_000
+
+    /**
+     * A Re.L backup of this version or an earlier one; a newer one is refused, with its own
+     * message. Any other text, valid JSON or not, is "not a backup" and never throws (review of
+     * PR 17: an object in place of "app" crashed the app).
+     */
+    fun parse(text: String): Parsed = runCatching {
+        val obj = json.parseToJsonElement(text) as? JsonObject ?: return@runCatching Parsed.NotBackup
+        fun field(name: String) = obj[name] as? JsonPrimitive
+        if (field("app")?.contentOrNull != APP || field("kind")?.contentOrNull != KIND) return@runCatching Parsed.NotBackup
+        val version = field("version")?.intOrNull ?: return@runCatching Parsed.NotBackup
+        if (version > VERSION) return@runCatching Parsed.Newer
+        val backup = json.decodeFromJsonElement(LibraryBackup.serializer(), obj)
+        Parsed.Ok(
+            backup.copy(
+                highlights = backup.highlights.map { it.copy(text = it.text.take(MAX_TEXT), note = it.note?.take(MAX_NOTE)) },
+            ),
+        )
+    }.getOrElse { Parsed.NotBackup }
 
     /** "rel-library-2026-11-14.json". */
     fun fileName(now: Long, zone: ZoneId = ZoneId.systemDefault()): String =
@@ -150,12 +179,22 @@ class LibraryBackupStore(
      * phone's row, completed by the file's (saved, in history, the furthest reading); its card
      * comes back when the phone has no copy. A highlight already there (same report, same place)
      * is not added twice. A follow already there stays as it is; a new one counts its last 7
-     * days as new, as when it is followed by hand, and fills in at the next sync.
+     * days as new, as when it is followed by hand, and fills in at the next sync. History older
+     * than the phone's keep ([historyDays], -1 for Forever) is not brought back.
      */
-    suspend fun restore(backup: LibraryBackup, now: Long) {
+    suspend fun restore(backup: LibraryBackup, now: Long, historyDays: Int = -1) {
+        val readings = backup.readings
+            .map { if (it.inHistory && !keptInHistory(it, now, historyDays)) it.copy(inHistory = false) else it }
+            .filter { it.inHistory || it.savedAt != null }
         transaction {
-            dao.insertReportsIfAbsent(backup.readings.mapNotNull { r -> r.card?.toEntity(r.reportId, now) })
-            backup.readings.forEach { r ->
+            // The cards the phone lacks, each indexed for the Library's search by its title and
+            // organizations (its text comes when it is opened).
+            val cards = readings.mapNotNull { r -> r.card?.toEntity(r.reportId, now) }
+            val inserted = dao.insertReportsIfAbsent(cards)
+            cards.zip(inserted).filter { (_, row) -> row != -1L }.forEach { (card, _) ->
+                dao.insertFts(ReportFtsEntity(card.id, card.displayTitle, card.sourceLong, ""))
+            }
+            readings.forEach { r ->
                 val mine = dao.reading(r.reportId)
                 dao.upsertReading(mine?.mergedWith(r) ?: r.toEntity())
             }
@@ -200,17 +239,21 @@ private fun BackupCard.toEntity(id: Long, now: Long) = ReportEntity(
     primaryCountryId = primaryCountryId, primaryCountryName = primaryCountryName,
     countries = listOfNotNull(primaryCountryId?.let { Ref(it, primaryCountryName.orEmpty()) }),
     sources = sources, formatId = formatId, formatName = formatName, themes = emptyList(), languages = emptyList(),
-    files = emptyList(), bodyHtml = null, isHeadline = headlineTitle != null, fromRss = fromRss, fetchedAt = now,
+    // Never a headline: without its summary and photo it would show bare in Today's pile until
+    // the next sync (review of PR 17). The next sync restores the flag of a recent one.
+    files = emptyList(), bodyHtml = null, isHeadline = false, fromRss = fromRss, fetchedAt = now,
 )
 
 private fun ReadingEntity.toBackup(card: BackupCard?) = BackupReading(
     reportId = reportId, savedAt = savedAt, inHistory = inHistory, firstOpenedAt = firstOpenedAt, lastOpenedAt = lastOpenedAt,
-    percent = percent, finishedAt = finishedAt, readAt = readAt, pdfPage = pdfPage, card = card,
+    percent = percent, finishedAt = finishedAt, readAt = readAt, pdfPage = pdfPage, itemIndex = itemIndex,
+    itemOffset = itemOffset, card = card,
 )
 
 private fun BackupReading.toEntity() = ReadingEntity(
-    reportId = reportId, firstOpenedAt = firstOpenedAt, lastOpenedAt = lastOpenedAt, percent = percent,
-    finishedAt = finishedAt, savedAt = savedAt, pdfPage = pdfPage, readAt = readAt, inHistory = inHistory,
+    reportId = reportId, firstOpenedAt = firstOpenedAt, lastOpenedAt = lastOpenedAt, itemIndex = itemIndex,
+    itemOffset = itemOffset, percent = percent, finishedAt = finishedAt, savedAt = savedAt, pdfPage = pdfPage,
+    readAt = readAt, inHistory = inHistory,
 )
 
 /** The phone's row, completed by the file's: nothing the phone knows is lost. */
@@ -223,6 +266,9 @@ internal fun ReadingEntity.mergedWith(b: BackupReading) = copy(
     finishedAt = finishedAt ?: b.finishedAt,
     readAt = readAt ?: b.readAt,
     pdfPage = if (pdfPage > 0) pdfPage else b.pdfPage,
+    // The phone's place in the text, or the file's when the phone has none.
+    itemIndex = if (itemIndex > 0) itemIndex else b.itemIndex,
+    itemOffset = if (itemIndex > 0) itemOffset else b.itemOffset,
 )
 
 private fun HighlightEntity.toBackup() = BackupHighlight(

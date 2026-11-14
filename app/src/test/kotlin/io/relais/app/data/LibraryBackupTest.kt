@@ -33,12 +33,13 @@ class LibraryBackupTest {
 
     private val nco = SourceLite(990101, "NCO", "Noravia Coordination Office")
 
-    private fun report(id: Long, title: String, body: String? = null) = ReportEntity(
-        id = id, title = title, headlineTitle = null, headlineSummary = null, imageUrl = null, imageCaption = null,
+    private fun report(id: Long, title: String, body: String? = null, headline: Boolean = false) = ReportEntity(
+        id = id, title = title, headlineTitle = if (headline) title else null, headlineSummary = if (headline) "A summary." else null,
+        imageUrl = null, imageCaption = null,
         imageCopyright = null, urlAlias = "https://relais.test/report/$id", origin = null, dateCreated = now - id * day,
         dateOriginal = null, primaryCountryId = 990, primaryCountryName = "Noravia", countries = listOf(Ref(990, "Noravia")),
         sources = listOf(nco), formatId = 10, formatName = "Situation Report", themes = emptyList(), languages = listOf("English"),
-        files = emptyList(), bodyHtml = body, isHeadline = false, fromRss = false, fetchedAt = now,
+        files = emptyList(), bodyHtml = body, isHeadline = headline, fromRss = false, fetchedAt = now,
     )
 
     private fun highlight(reportId: Long, start: Int, text: String, note: String? = null) = HighlightEntity(
@@ -63,11 +64,22 @@ class LibraryBackupTest {
         new.close()
     }
 
-    /** The old phone: 1 saved, 2 in history, 3 opened once and in neither, a highlight, three follows. */
+    /**
+     * The old phone: 1 saved (a headline, read to block 12), 2 in history, 3 opened once and in
+     * neither, 4 in history 200 days ago, a highlight, three follows.
+     */
     private suspend fun fillOldPhone() {
         val dao = old.dao()
-        dao.upsertReports(listOf(report(1, "Noravia: Situation Report No. 1", "<p>Text</p>"), report(2, "Noravia: Situation Report No. 2"), report(3, "Noravia: Situation Report No. 3")))
-        dao.upsertReading(ReadingEntity(reportId = 1, savedAt = now - day, firstOpenedAt = now - 2 * day, lastOpenedAt = now - day, percent = 40))
+        dao.upsertReports(
+            listOf(
+                report(1, "Noravia: Situation Report No. 1", "<p>Text</p>", headline = true),
+                report(2, "Noravia: Situation Report No. 2"),
+                report(3, "Noravia: Situation Report No. 3"),
+                report(4, "Noravia: Situation Report No. 4"),
+            ),
+        )
+        dao.upsertReading(ReadingEntity(reportId = 1, savedAt = now - day, firstOpenedAt = now - 2 * day, lastOpenedAt = now - day, percent = 40, itemIndex = 12, itemOffset = 40))
+        dao.upsertReading(ReadingEntity(reportId = 4, inHistory = true, firstOpenedAt = now - 200 * day, lastOpenedAt = now - 200 * day))
         dao.upsertReading(ReadingEntity(reportId = 2, inHistory = true, firstOpenedAt = now - 3 * day, lastOpenedAt = now - 3 * day, percent = 100, finishedAt = now - 3 * day))
         dao.upsertReading(ReadingEntity(reportId = 3, readAt = now - day))
         dao.insertHighlight(highlight(1, 10, "Floods displaced about 8,000 people.", note = "for the brief"))
@@ -83,8 +95,10 @@ class LibraryBackupTest {
         val json = LibraryBackupFormat.encode(backup)
         assertTrue(json, json.contains("\"app\":\"Re.L\"") && json.contains("\"kind\":\"library-backup\"") && json.contains("\"version\":1"))
         // Saved and History only: report 3, merely read, stays out.
-        assertEquals(listOf(1L, 2L), backup.readings.map { it.reportId }.sorted())
-        assertEquals(LibraryBackup.Counts(saved = 1, history = 1, highlights = 1, followed = 3), backup.counts)
+        assertEquals(listOf(1L, 2L, 4L), backup.readings.map { it.reportId }.sorted())
+        assertEquals(LibraryBackup.Counts(saved = 1, history = 2, highlights = 1, followed = 3), backup.counts(now, historyDays = -1))
+        // With "Keep history for" at 90 days, report 4 is neither counted nor brought back.
+        assertEquals(LibraryBackup.Counts(saved = 1, history = 1, highlights = 1, followed = 3), backup.counts(now, historyDays = 90))
         // No appname, no full text, no PDF.
         assertFalse(json, json.contains("appname", ignoreCase = true))
         assertFalse(json, json.contains("<p>Text</p>"))
@@ -106,13 +120,20 @@ class LibraryBackupTest {
         dao.upsertFollowed(FollowedCountryEntity(990, "Noravia", now - day, now - day))
 
         val parsed = LibraryBackupFormat.parse(file) as LibraryBackupFormat.Parsed.Ok
-        LibraryBackupStore(dao).restore(parsed.backup, now)
+        LibraryBackupStore(dao).restore(parsed.backup, now, historyDays = 90)
 
-        // Report 1 comes back as a card, saved, its text to load on opening.
+        // Report 1 comes back as a card, saved, its text to load on opening, at block 12, and
+        // findable by the Library's search. Not a headline: it does not show bare in the pile.
         val one = dao.reportsByIds(listOf(1L)).single()
         assertEquals("Noravia: Situation Report No. 1", one.title)
         assertNull(one.bodyHtml)
+        assertFalse(one.isHeadline)
         assertNotNull(dao.reading(1)?.savedAt)
+        assertEquals(12, dao.reading(1)?.itemIndex)
+        assertEquals(40, dao.reading(1)?.itemOffset)
+        assertEquals(listOf(1L), dao.searchFts("Noravia"))
+        // Report 4, older than the 90 days of History kept, is not brought back.
+        assertNull(dao.reading(4))
         // Report 2 keeps the phone's full copy and saved date, and joins History.
         assertEquals("<p>Full text</p>", dao.reportsByIds(listOf(2L)).single().bodyHtml)
         val two = dao.reading(2)!!
@@ -127,19 +148,37 @@ class LibraryBackupTest {
         assertTrue(dao.followedSource(990101)!!.reportsOnly)
 
         // A second restore of the same file changes nothing.
-        LibraryBackupStore(dao).restore(parsed.backup, now)
+        LibraryBackupStore(dao).restore(parsed.backup, now, historyDays = 90)
         assertEquals(2, dao.allHighlights().size)
         assertEquals(2, dao.libraryReadings().size)
+        assertEquals(listOf(1L), dao.searchFts("Noravia"))
     }
 
     @Test
     fun anotherFileOrANewerBackupIsRefused() {
         assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("not json"))
+        // Any JSON in another shape is "not a backup", never a crash (review of PR 17).
+        assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse(""))
+        assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("[1, 2]"))
+        assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":{"name":"x"}}"""))
+        assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":"Re.L","kind":["library-backup"],"version":1}"""))
+        assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":{"n":1}}"""))
+        assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":1,"exportedAt":0,"readings":"x"}"""))
         assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":"Other","kind":"library-backup","version":1,"exportedAt":0}"""))
         assertEquals(LibraryBackupFormat.Parsed.Newer, LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":0}"""))
         // An unknown field of the same version is ignored.
         val ok = LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":1,"exportedAt":5,"topics":[{"id":1}]}""")
         assertEquals(5L, (ok as LibraryBackupFormat.Parsed.Ok).backup.exportedAt)
+    }
+
+    @Test
+    fun aHighlightFromAFileIsCappedInLength() {
+        val long = "word ".repeat(5_000)
+        val file = """{"app":"Re.L","kind":"library-backup","version":1,"exportedAt":0,"highlights":[""" +
+            """{"reportId":1,"reportTitle":"T","reportDate":0,"createdAt":0,"text":"$long","note":"$long","blockIndex":0,"start":0,"end":5}]}"""
+        val h = (LibraryBackupFormat.parse(file) as LibraryBackupFormat.Parsed.Ok).backup.highlights.single()
+        assertEquals(LibraryBackupFormat.MAX_TEXT, h.text.length)
+        assertEquals(LibraryBackupFormat.MAX_NOTE, h.note?.length)
     }
 
     @Test
