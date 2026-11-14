@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -56,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -69,7 +67,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import io.relais.api.Display
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -505,70 +502,6 @@ fun DocumentRow(
     }
 }
 
-/**
- * Large headline (theme-compose.md 5.3 and 12.6): photo (2:1 in Compact, 16:9 otherwise) with a
- * neutral background while it loads, credit at the bottom right, then kicker, title, summary and
- * the country. [menu] opens on a long press, like a row's.
- */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-fun HeadlineHero(
-    report: ReportEntity,
-    isRead: Boolean,
-    onClick: () -> Unit,
-    tag: String = "doc_${report.id}",
-    menu: (@Composable ColumnScope.(close: () -> Unit) -> Unit)? = null,
-) {
-    val cs = MaterialTheme.colorScheme
-    val extra = LocalRelaisColors.current
-    var menuOpen by remember { mutableStateOf(false) }
-    val moreLabel = stringResource(R.string.action_more)
-    Box {
-        Column(
-            Modifier.fillMaxWidth().testTag(tag)
-                .combinedClickable(onClick = onClick, onLongClick = if (menu != null) ({ menuOpen = true }) else null)
-                .semantics {
-                    if (menu != null) customActions = listOf(CustomAccessibilityAction(moreLabel) { menuOpen = true; true })
-                },
-        ) {
-            if (report.imageUrl != null) {
-                Box(Modifier.fillMaxWidth().aspectRatio(LocalDisplaySize.current.heroRatio).background(extra.image)) {
-                    AsyncImage(
-                        model = report.imageUrl,
-                        contentDescription = report.imageCaption,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.matchParentSize(),
-                    )
-                    report.imageCopyright?.let {
-                        Text(
-                            it.uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = cs.onSurface,
-                            maxLines = 1,
-                            modifier = Modifier.align(Alignment.BottomEnd)
-                                .background(cs.surface)
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                        )
-                    }
-                }
-            }
-            Column(Modifier.fillMaxWidth().padding(Space.screen), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Kicker(report, isNew = !isRead)
-                Text(report.displayTitle, style = MaterialTheme.typography.displaySmall, color = if (isRead) cs.onSurfaceVariant else cs.onSurface)
-                report.headlineSummary?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                }
-                val country = metaLine(report)
-                if (country.isNotBlank()) Text(country, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-            }
-            HorizontalDivider(thickness = Hairline, color = cs.outlineVariant)
-        }
-        if (menu != null) {
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) { menu { menuOpen = false } }
-        }
-    }
-}
-
 @Composable
 fun OverflowMenu(content: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -580,30 +513,6 @@ fun OverflowMenu(content: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
             content { expanded = false }
         }
     }
-}
-
-/** One tab of a rubric row (theme-compose.md 5.4): bold ink when active, ink 2 otherwise, optional count. */
-@Composable
-fun RubricTab(label: String, active: Boolean, onClick: () -> Unit, count: Int? = null, badge: Boolean = false) {
-    val cs = MaterialTheme.colorScheme
-    androidx.compose.material3.Tab(selected = active, onClick = onClick, text = {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                label,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (active) FontWeight.Bold else FontWeight.Medium),
-                color = if (active) cs.onSurface else cs.onSurfaceVariant,
-            )
-            if (count != null && (!badge || count > 0)) {
-                if (badge) {
-                    Box(Modifier.background(cs.primary, CircleShape).padding(horizontal = 6.dp, vertical = 1.dp)) {
-                        Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = cs.onPrimary)
-                    }
-                } else {
-                    Text(count.toString(), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                }
-            }
-        }
-    })
 }
 
 /**

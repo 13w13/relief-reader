@@ -67,7 +67,6 @@
 
     <!-- M5 Today -->
     <string name="today_header">Today · %1$s</string>
-    <string name="today_progress">%1$d of %2$d read</string>
     <string name="today_continue">Continue reading</string>
     <string name="today_continue_percent">%1$d%% read</string>
     <string name="today_see_all">See all</string>
@@ -76,17 +75,9 @@
     <string name="today_remove_continue">Remove from Continue reading</string>
     <string name="today_headlines">Headlines</string>
     <string name="today_headlines_subtitle">Chosen by ReliefWeb editors</string>
-    <string name="today_countries">Your countries</string>
-    <string name="today_up_to_date_countries">Up to date: %1$s</string>
-    <string name="today_invite">Follow a country to see its new reports here.</string>
     <string name="today_choose_countries">Choose countries</string>
-    <string name="today_end">You\'ve read this week\'s %1$d headlines.</string>
     <string name="today_up_to_date">You\'re up to date</string>
-    <string name="today_left_one">1 headline left this week</string>
-    <string name="today_left_many">%1$d headlines left this week</string>
-    <string name="today_left_hint">Read them and this becomes \"You\'re up to date\".</string>
     <string name="today_updated">Updated %1$s</string>
-    <string name="today_all_headlines">All headlines</string>
     <string name="today_empty">No headlines in the last 7 days. ReliefWeb editors usually publish one or two on weekdays.</string>
     <string name="action_save">Save</string>
     <string name="action_saved">Saved</string>
@@ -301,9 +292,7 @@
     </plurals>
     <string name="export_share">Share</string>
     <string name="export_none">No highlights to export with these filters.</string>
-    <string name="today_new_disasters">New disasters this week</string>
     <string name="today_new_disasters_note">Alert or ongoing, recorded in the last 7 days</string>
-    <string name="today_new_disasters_none">No new disasters recorded on ReliefWeb this week.</string>
     <string name="report_crises">Crises</string>
     <string name="following_crises">Crises</string>
     <string name="following_crises_empty">Follow a crisis to group its reports across countries. Long conflicts, such as in Sudan, are not crises on ReliefWeb: follow them as countries.</string>
@@ -332,7 +321,6 @@
     </plurals>
     <string name="also_in">Also in %1$s</string>
     <string name="also_in_prefix">Also in</string>
-    <string name="today_crisis_page">Crisis page</string>
     <string name="overview_no_reports_tagged">No report tagged with this disaster on your phone yet.</string>
     <string name="action_more_options">More options</string>
     <string name="following_kind_country">Country</string>
@@ -395,10 +383,6 @@
     <string name="library_search_highlights">Search your highlights</string>
     <string name="library_highlights_empty">No highlights yet. In a report, tap the highlighter, then a paragraph, and select a passage.</string>
     <string name="label_unofficial">Unofficial</string>
-    <string name="today_country_page">Country page</string>
-    <string name="today_new_since">New since your last visit</string>
-    <string name="today_format_empty">Nothing of this type in the last 7 days, among headlines and your countries.</string>
-    <string name="today_add_country">Add a country</string>
     <string name="report_document_title">Document title</string>
     <string name="text_size">Text size</string>
     <string name="text_size_sample">Text from the report appears at this size.</string>
@@ -490,8 +474,6 @@
     <string name="display_preview_1">Sudan: Humanitarian Situation Report No. 14</string>
     <string name="display_preview_2">Lebanon: Flash Update No. 3</string>
     <!-- v0.3, Today renewed (produit/today-fraicheur.md 5, through unslop) -->
-    <string name="today_new_headlines">New headlines</string>
-    <string name="today_no_new_headlines">No new headlines since your last visit. The latest is from %1$s.</string>
     <string name="today_latest_follow">Latest from what you follow</string>
     <plurals name="today_more_in_following">
         <item quantity="one">1 more in Following</item>
@@ -499,10 +481,6 @@
     </plurals>
     <string name="today_latest_reports">Latest reports on ReliefWeb</string>
     <string name="today_latest_reports_note">Situation reports, analyses, assessments and appeals from all countries</string>
-    <plurals name="today_earlier_headlines">
-        <item quantity="one">1 earlier headline this week</item>
-        <item quantity="other">%d earlier headlines this week</item>
-    </plurals>
     <!-- v0.3, organizations (produit/suivre-organisation.md 7, theme-compose.md 13.1 and 13.2) -->
     <string name="kicker_with">With %1$s</string>
     <plurals name="source_rhythm">
@@ -561,4 +539,24 @@
     <string name="about_made_with">Made with ♥ in my free time.</string>
     <string name="about_star">Like Re.L? Star it on GitHub</string>
     <string name="about_open_issue">An idea or a problem? Open an issue</string>
+    <!-- The pile of headlines on Today, and the block at the end of a report opened from it (v0.4). -->
+    <plurals name="today_new_since_visit">
+        <item quantity="one">%d new since your last visit</item>
+        <item quantity="other">%d new since your last visit</item>
+    </plurals>
+    <string name="today_nothing_new">Nothing new since your last visit</string>
+    <string name="pile_position">%1$d of %2$d</string>
+    <string name="pile_end">End</string>
+    <string name="pile_previous">Previous headline</string>
+    <string name="pile_next">Next headline</string>
+    <string name="pile_headline_of">Headline %1$d of %2$d</string>
+    <plurals name="pile_end_title">
+        <item quantity="one">This week\'s headline</item>
+        <item quantity="other">This week\'s %d headlines</item>
+    </plurals>
+    <string name="pile_end_left">· %1$d left</string>
+    <string name="pile_older">Older headlines</string>
+    <string name="headline_nav_next">Next</string>
+    <string name="older_all_read">You\'ve read the %1$d latest headlines.</string>
+    <string name="older_feed_limit">That\'s every headline on your phone. ReliefWeb\'s feed keeps the 20 latest.</string>
 </resources>
