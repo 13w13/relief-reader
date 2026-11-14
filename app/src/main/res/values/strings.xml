@@ -608,4 +608,15 @@
     <string name="topic_show_more">Show more</string>
     <string name="topic_show_less">Show less</string>
     <string name="topics_failed">ReliefWeb\'s regional crises can\'t be loaded right now.</string>
+    <!-- What's new in 0.5 (equipe/produit/notes-v0.5.0.md). -->
+    <string name="whats_new_05_lead_1">Search by organization and theme.</string>
+    <string name="whats_new_05_text_1">In Search, tap Filters.</string>
+    <string name="whats_new_05_lead_2">Back up your library.</string>
+    <string name="whats_new_05_text_2">Save it to a file in Settings, and restore it on a new phone.</string>
+    <string name="whats_new_05_lead_3">Follow a regional crisis.</string>
+    <string name="whats_new_05_text_3">In Following, tap Manage, then Follow a crisis.</string>
+    <string name="whats_new_05_lead_4">Choose when images load.</string>
+    <string name="whats_new_05_text_4">Always, on Wi-Fi only, or never, in Settings.</string>
+    <string name="whats_new_05_lead_5">Following without an appname.</string>
+    <string name="whats_new_05_text_5">It shows headlines about the countries you follow.</string>
 </resources>
