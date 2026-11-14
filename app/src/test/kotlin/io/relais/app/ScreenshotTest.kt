@@ -36,6 +36,9 @@ import io.relais.app.ui.headlinePlace
 import io.relais.app.ui.headlinesNote
 import io.relais.app.ui.RelaisTheme
 import io.relais.app.ui.FilesSection
+import io.relais.app.ui.FileLines
+import io.relais.app.ui.SourceHeader
+import io.relais.app.data.SourceInfo
 import io.relais.app.ui.Photo
 import io.relais.app.ui.ReportHeader
 import io.relais.app.ui.SectionHeader
@@ -154,17 +157,42 @@ class ScreenshotTest {
         }
     }
 
+    /** The head of an organization's page (v0.4): three lines, then "About ACAPS" folded. */
+    @Test
+    fun sourceHead() {
+        val info = SourceInfo(
+            id = 990101, shortname = "NCO", name = "Noravia Coordination Office", typeName = "Government",
+            countryName = "Noravia", homepage = "https://nco.example.org/en", descriptionHtml = "<p>A made-up office for screenshots.</p>",
+            perWeek = 2.2, latestAt = System.currentTimeMillis() - 2 * 86_400_000L, mainCountries = listOf("Noravia", "Kestrova"),
+        )
+        val docs = reports("sudan-reports.json").take(5)
+        shoot("source-head") {
+            LazyColumn {
+                item { SourceHeader(info, "NCO") }
+                item { FilterRow(PageFilter.FEEDS, PageFilter.ALL, onSelect = {}) }
+                items(docs) { DocumentRow(it, onClick = {}) }
+            }
+        }
+    }
+
     @Test
     fun report() {
         val report = reports("report-full.json").first()
         val blocks = report.bodyHtml?.takeIf { it.isNotEmpty() }?.let { HtmlBlocks.parse(it) } ?: emptyList()
         shoot("report") {
-            // The report screen in order: photo, header, files, then the text.
+            // The report screen in order: photo, header, then the file: a line under the dates
+            // when the report has its text (v0.4), the card above the first page otherwise.
             LazyColumn {
                 if (report.imageUrl != null) item { Photo(report) }
                 item { ReportHeader(report) }
                 if (report.files.isNotEmpty()) {
-                    item { FilesSection(report, downloads = emptyMap(), downloaded = emptyMap(), onRead = {}, onCancel = {}) }
+                    item {
+                        if (blocks.isNotEmpty()) {
+                            FileLines(report, downloads = emptyMap(), downloaded = emptyMap(), onRead = {}, onCancel = {})
+                        } else {
+                            FilesSection(report, downloads = emptyMap(), downloaded = emptyMap(), onRead = {}, onCancel = {})
+                        }
+                    }
                 }
                 items(blocks.take(12)) { BlockView(it) }
             }

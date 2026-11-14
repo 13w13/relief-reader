@@ -366,6 +366,11 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
     val firstBody = rows.indexOfFirst { it is ReportRow.Body }
     val lastBody = rows.indexOfLast { it is ReportRow.Body }
 
+    fun openFile(file: FileLite) {
+        val r = report ?: return
+        nav.pdf(file.url, r.id, file.description?.removePrefix("- ")?.ifBlank { null } ?: file.filename ?: r.title, r.urlAlias)
+    }
+
     // "Read": open a PDF on the phone, ask first for a large one on mobile data, else download it.
     fun readFile(file: FileLite) {
         when {
@@ -381,11 +386,6 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
     fun cancelFile(file: FileLite) {
         pendingOpen = null
         vm.cancel(file)
-    }
-
-    fun openFile(file: FileLite) {
-        val r = report ?: return
-        nav.pdf(file.url, r.id, file.description?.removePrefix("- ")?.ifBlank { null } ?: file.filename ?: r.title, r.urlAlias)
     }
 
     // A download started from this screen opens in the viewer as soon as it is complete.
