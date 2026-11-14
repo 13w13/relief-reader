@@ -535,7 +535,7 @@ fun FollowingScreen(nav: Nav) {
                         FollowedLine(
                             countries.map { FollowedName(it.name, "following_name_country_${it.countryId}") { nav.country(it.countryId, it.name) } } +
                                 crises.map { FollowedName(crisisShort(it.disaster.name), "following_name_crisis_${it.disaster.disasterId}") { nav.crisis(it.disaster.disasterId, it.disaster.name) } } +
-                                sources.map { source -> FollowedName(source.shortname, "following_name_source_${source.sourceId}") { nav.source(source.sourceId, source.name) } },
+                                sources.map { source -> FollowedName(source.shortname, "following_name_source_${source.sourceId}") { nav.source(source.sourceId, source.shortname) } },
                             onManage = nav::manageFollowing,
                         )
                     }

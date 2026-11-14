@@ -482,18 +482,17 @@
     <string name="today_latest_reports_note">Situation reports, analyses, assessments and appeals from all countries</string>
     <!-- v0.3, organizations (produit/suivre-organisation.md 7, theme-compose.md 13.1 and 13.2) -->
     <string name="kicker_with">With %1$s</string>
-    <plurals name="source_rhythm">
-        <item quantity="one">About 1 document a week on ReliefWeb</item>
-        <item quantity="other">About %d documents a week on ReliefWeb</item>
-    </plurals>
-    <string name="source_rhythm_fewer">Fewer than 1 document a week on ReliefWeb</string>
-    <string name="source_latest">Latest: %1$s</string>
     <string name="source_mostly_on_1">Mostly on %1$s</string>
     <string name="source_mostly_on_2">Mostly on %1$s and %2$s</string>
     <string name="source_mostly_on_3">Mostly on %1$s, %2$s and %3$s</string>
     <string name="source_based_in">Based in %1$s</string>
-    <string name="source_website">Website</string>
-    <string name="source_show_more">Show more</string>
+    <plurals name="source_head_rhythm">
+        <item quantity="one">About 1 document a week</item>
+        <item quantity="other">About %d documents a week</item>
+    </plurals>
+    <string name="source_head_rhythm_fewer">Fewer than 1 document a week</string>
+    <string name="source_head_latest">Latest %1$s</string>
+    <string name="source_about">About %1$s</string>
     <string name="source_sheet_title">%1$s publishes about %2$d documents a week</string>
     <string name="source_reports_only">Reports only</string>
     <string name="source_reports_only_note">About %1$d a week: situation reports, analyses, assessments, appeals and evaluations.</string>
