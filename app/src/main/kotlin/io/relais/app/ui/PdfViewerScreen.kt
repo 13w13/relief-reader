@@ -321,6 +321,16 @@ class PdfViewerViewModel(
 
     fun setReadingSize(index: Int) = viewModelScope.launch { c.settings.setReadingSize(index) }
 
+    /** The text view's banner: on its first opening only, then kept for this opening (v0.4). */
+    var showTextBanner by androidx.compose.runtime.mutableStateOf<Boolean?>(null)
+        private set
+
+    init {
+        viewModelScope.launch { showTextBanner = !c.settings.current().pdfTextBannerSeen }
+    }
+
+    fun textBannerShown() = viewModelScope.launch { c.settings.setPdfTextBannerSeen() }
+
     /** Search works on the text: from the PDF view, it opens the Text view (theme-compose.md 10.10). */
     fun openSearch() {
         if (_state.value.text is PdfTextState.Ready) mode.value = PdfMode.TEXT
@@ -556,9 +566,12 @@ fun PdfViewerScreen(
                         val matchesByBlock = remember(search.matches) { search.matches.groupBy { it.page to it.block } }
                         val highlightsByBlock = remember(highlights) { highlights.groupBy { (it.pdfPage ?: 0) - 1 to it.blockIndex } }
                         val current = search.current
+                        val showBanner = vm.showTextBanner == true
+                        LaunchedEffect(showBanner) { if (showBanner) vm.textBannerShown() }
                         PdfTextContent(
                             rows = text.rows,
                             listState = textList,
+                            showBanner = showBanner,
                             onOpenPdf = { p ->
                                 if (p >= 0) vm.setPage(p)
                                 vm.setMode(PdfMode.PDF)
@@ -622,7 +635,7 @@ fun PdfViewerScreen(
         }
 
         if (mode == PdfMode.TEXT && ready != null) {
-            PdfTextBottomBar(currentPage, ready.pages.size, state.fileSize, onTextSize = { showTextSize = true })
+            PdfTextBottomBar(currentPage, ready.pages.size, onTextSize = { showTextSize = true })
         } else if (mode == PdfMode.PDF) {
             PdfBottomBar(document, pdfList, scale, state.fileSize, onScale = { scale = it }, barColor = extra.pdfBar, barText = barText)
         }

@@ -369,7 +369,7 @@ class BlockMarks(
 }
 
 /**
- * The text of the PDF: banner, then pages. [marks] gives what to draw on a block (page,
+ * The text of the PDF: banner ([showBanner], the first opening only), then pages. [marks] gives what to draw on a block (page,
  * block). With [onSelect], text can be selected as in a report (SelectableText) and reports
  * page, block and range; [clearSignal] clears the selection. [flash] outlines the block a
  * highlight opened on, for a moment.
@@ -384,10 +384,13 @@ fun PdfTextContent(
     onSelect: ((page: Int, block: Int, start: Int, end: Int) -> Unit)? = null,
     clearSignal: Int = 0,
     flash: Pair<Int, Int>? = null,
+    showBanner: Boolean = true,
 ) {
     LazyColumn(state = listState, modifier = modifier.fillMaxSize().testTag("pdf_text"), contentPadding = PaddingValues(bottom = Space.xl)) {
-        item(key = "banner") {
-            Banner(stringResource(R.string.pdf_text_banner), stringResource(R.string.pdf_open_pdf), { onOpenPdf(-1) })
+        if (showBanner) {
+            item(key = "banner") {
+                Banner(stringResource(R.string.pdf_text_banner), stringResource(R.string.pdf_open_pdf), { onOpenPdf(-1) })
+            }
         }
         itemsIndexed(rows, key = { _, row -> row.key() }) { _, row ->
             when (row) {
@@ -515,9 +518,12 @@ private fun marked(text: String, marks: BlockMarks): AnnotatedString {
     }
 }
 
-/** Bottom bar of the text view: "Aa", the page being read, the file size kept on the phone. */
+/**
+ * Bottom bar of the text view: "Aa" and the page being read. The file's size left it in v0.4: it
+ * is of no use while reading (revue-densite-v0.3.md, change 8).
+ */
 @Composable
-fun PdfTextBottomBar(page: Int, pageCount: Int, fileSize: Long?, onTextSize: () -> Unit) {
+fun PdfTextBottomBar(page: Int, pageCount: Int, onTextSize: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().background(cs.surface).navigationBarsPadding()) {
         HorizontalDivider(color = cs.outlineVariant)
@@ -532,15 +538,6 @@ fun PdfTextBottomBar(page: Int, pageCount: Int, fileSize: Long?, onTextSize: () 
                 color = cs.onSurface,
                 modifier = Modifier.weight(1f).padding(start = Space.s),
             )
-            fileSize?.let { size ->
-                Icon(Icons.Rounded.DownloadDone, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                Text(
-                    Display.size(size).orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = cs.onSurfaceVariant,
-                    modifier = Modifier.padding(start = Space.xs, end = Space.m),
-                )
-            }
         }
     }
 }

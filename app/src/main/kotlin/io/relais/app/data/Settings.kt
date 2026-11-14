@@ -39,6 +39,8 @@ data class Settings(
     val accessDenied: Boolean = false,
     val recentSearches: List<String> = emptyList(),
     val rssBannerSeen: Boolean = false,
+    /** The banner of a PDF's text view shows on its first opening only (v0.4). */
+    val pdfTextBannerSeen: Boolean = false,
     /** Article text size, an index into TextStep (Theme.kt). */
     val readingSize: Int = DEFAULT_READING_SIZE,
     /** "Display" (theme-compose.md 12.6): the name of a DisplaySize, Compact when unset. */
@@ -96,6 +98,7 @@ class SettingsStore(private val context: Context) {
         val accessDenied = booleanPreferencesKey("access_denied")
         val recentSearches = stringPreferencesKey("recent_searches")
         val rssBannerSeen = booleanPreferencesKey("rss_banner_seen")
+        val pdfTextBannerSeen = booleanPreferencesKey("pdf_text_banner_seen")
         val readingSize = intPreferencesKey("reading_size")
         val display = stringPreferencesKey("display_size")
         val followingVisitAt = longPreferencesKey("following_visit_at")
@@ -129,6 +132,7 @@ class SettingsStore(private val context: Context) {
             accessDenied = p[Keys.accessDenied] ?: false,
             recentSearches = p[Keys.recentSearches]?.split('\n')?.filter { it.isNotBlank() } ?: emptyList(),
             rssBannerSeen = p[Keys.rssBannerSeen] ?: false,
+            pdfTextBannerSeen = p[Keys.pdfTextBannerSeen] ?: false,
             readingSize = p[Keys.readingSize] ?: DEFAULT_READING_SIZE,
             display = p[Keys.display],
             followingVisitAt = p[Keys.followingVisitAt] ?: 0,
@@ -184,6 +188,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setBlockedUntil(at: Long) = context.dataStore.edit { it[Keys.blockedUntil] = at }
     suspend fun setAccessDenied(denied: Boolean) = context.dataStore.edit { it[Keys.accessDenied] = denied }
     suspend fun setRssBannerSeen() = context.dataStore.edit { it[Keys.rssBannerSeen] = true }
+    suspend fun setPdfTextBannerSeen() = context.dataStore.edit { it[Keys.pdfTextBannerSeen] = true }
     suspend fun setReadingSize(index: Int) = context.dataStore.edit { it[Keys.readingSize] = index }
 
     /** A display level brings the report text to its starting step (12.6). */

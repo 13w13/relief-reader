@@ -155,45 +155,16 @@ onFlowComplete:
 - assertVisible: "Saved Today · Available offline · PDF on phone"
 - takeScreenshot: p4-14-library-saved
 
-# 4.7 History, filtered on Sudan, then on Health. Only this report was opened in this flow:
-# "a report without Health disappears" needs a second report and is not checked.
+# 4.7 History. Since v0.4 search and filters show from ten items on (revue-densite-v0.3.md,
+# change 9): with the one report of this flow, History is the list alone. The filter sheet
+# (facets, Group by) is drawn by the screenshot tests.
 - tapOn: "History"
 - extendedWaitUntil:
     visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
     timeout: 15000
-- tapOn: "Country"
-- tapOn: "Sudan \\d+"
-- tapOn: "Done"
-- tapOn: "Theme"
-- tapOn: "Health \\d+"
-- tapOn: "Done"
-- assertVisible: "Country \\(1\\)"
-- assertVisible: "Theme \\(1\\)"
-- assertVisible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
-- takeScreenshot: p4-15-history-filtered
-
-# 4.8 Group by format: the report sits under "Analysis". The "Group by" chip is at the end
-# of the chip row: swipe the row until it shows (one swipe was not always enough on 8/11).
-- repeat:
-    while:
-      notVisible: "Group by: .*"
-    times: 4
-    commands:
-      - swipe:
-          from:
-            text: "Format"
-          direction: LEFT
-      - waitForAnimationToEnd:
-          timeout: 2000
-- tapOn: "Group by: .*"
-# The Group by menu is a popup window: only its items are on screen.
-- tapOn: "Format"
-- extendedWaitUntil:
-    visible: "Group by: Format"
-    timeout: 15000
-- assertVisible: "Analysis"
-- assertVisible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
-- takeScreenshot: p4-16-history-by-format
+- assertNotVisible:
+    id: "library_search"
+- takeScreenshot: p4-15-history
 
 # 4.9 Settings, Clear history: the confirmation.
 - tapOn: "Settings"
