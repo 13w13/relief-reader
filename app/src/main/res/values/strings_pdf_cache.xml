@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The PDF line of list rows, and the PDF space and Wi-Fi preload of Settings > Storage. Kept
+     apart from strings.xml so that this branch and the screen rework do not edit the same file. -->
+<resources>
+    <!-- List rows and the report: "PDF · 12 pages · 2.3 MB". The count comes from the API or from the file on the phone. -->
+    <plurals name="pdf_facts_pages">
+        <item quantity="one">%1$d page</item>
+        <item quantity="other">%1$d pages</item>
+    </plurals>
+    <!-- Settings > Storage, above the chips 200 MB, 300 MB, 500 MB, 1 GB. -->
+    <string name="pdf_cache_space">Space for PDFs you haven\'t saved</string>
+    <!-- Under the chips: "120.4 MB of 300 MB used." -->
+    <string name="pdf_cache_used">%1$s of %2$s used. When it\'s full, Re.L deletes the oldest PDFs first. It keeps the PDFs of saved and highlighted reports.</string>
+    <string name="pdf_preload">Download PDFs on Wi-Fi</string>
+    <string name="pdf_preload_help" formatted="false">Re.L downloads the PDFs of recent reports on what you follow, so they open offline. Wi-Fi only. It fills at most 80% of the space above.</string>
+</resources>
