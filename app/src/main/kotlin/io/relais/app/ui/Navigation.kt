@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -188,7 +189,17 @@ fun MainScreen() {
         }
     }
 
-    CompositionLocalProvider(LocalPdfPreviews provides pdfPreviews) {
+    // "Load images" with the network, and what can be read offline (lot 3, C).
+    val net by container.network.state.collectAsStateWithLifecycle()
+    val loadImages by remember { container.settings.flow.map { io.relais.app.data.LoadImages.of(it.loadImages) } }
+        .collectAsStateWithLifecycle(io.relais.app.data.LoadImages.ALWAYS)
+    val pdfsOnPhone by remember { container.pdfs.downloaded.map { it.keys } }.collectAsStateWithLifecycle(emptySet())
+    CompositionLocalProvider(
+        LocalPdfPreviews provides pdfPreviews,
+        LocalImagesAllowed provides io.relais.app.data.imagesAllowed(loadImages, net),
+        LocalOffline provides !net.online,
+        LocalPdfsOnPhone provides pdfsOnPhone,
+    ) {
     Scaffold(
         // The top bars of each screen handle the status bar; the navigation bar handles the bottom.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
