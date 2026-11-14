@@ -180,8 +180,8 @@ fun HeadlinePile(
 
 /**
  * A card of the pile: the photo (2:1 in Compact, 16:9 otherwise) on a neutral background while
- * it loads, or without one; then kicker, title on 3 lines and summary on 2, all fixed, so that
- * every card has the same height. The country line is dropped when the title starts with it.
+ * it loads, or without one; then kicker, title on 3 lines at most and summary on 2, in a body of
+ * fixed height, so that every card has the same height. The country line is dropped when the title starts with it.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -237,26 +237,30 @@ private fun HeadlineCard(
                     }
                 }
             }
-            Column(Modifier.fillMaxWidth().padding(Space.screen), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Room for a kicker, three lines of title and two of summary on every card; what a
+            // shorter card leaves stays at the bottom, as in the sketch.
+            val type = MaterialTheme.typography
+            val bodyHeight = with(LocalDensity.current) {
+                type.labelSmall.lineHeight.toDp() + type.displaySmall.lineHeight.toDp() * 3 + type.bodyMedium.lineHeight.toDp() * 2
+            } + 16.dp + Space.screen * 2
+            Column(
+                Modifier.fillMaxWidth().heightIn(min = bodyHeight).padding(Space.screen),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Kicker(report, isNew = isNew && !isRead)
                 Text(
                     report.displayTitle,
-                    style = MaterialTheme.typography.displaySmall,
+                    style = type.displaySmall,
                     color = if (isRead) cs.onSurfaceVariant else cs.onSurface,
-                    minLines = 3,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
                 // Two lines of summary, or one and the country when the title does not name it.
-                val style = MaterialTheme.typography.bodyMedium
                 val country = pileCountry(report)
-                val summary = report.headlineSummary
-                Column(Modifier.fillMaxWidth().height(with(LocalDensity.current) { (style.lineHeight * 2).toDp() })) {
-                    if (summary != null) {
-                        Text(summary, style = style, color = cs.onSurfaceVariant, maxLines = if (country != null) 1 else 2, overflow = TextOverflow.Ellipsis)
-                    }
-                    if (country != null) Text(country, style = style, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                report.headlineSummary?.let {
+                    Text(it, style = type.bodyMedium, color = cs.onSurfaceVariant, maxLines = if (country != null) 1 else 2, overflow = TextOverflow.Ellipsis)
                 }
+                if (country != null) Text(country, style = type.bodyMedium, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         if (menu != null) {
