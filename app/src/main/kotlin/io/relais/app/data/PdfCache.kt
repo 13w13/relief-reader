@@ -63,8 +63,8 @@ object Preload {
     /** The newest documents of Following looked at, before the plan picks among them. */
     const val CANDIDATES = 60
 
-    /** A preloaded PDF is at most 25 MB; a larger one waits until the reader opens it. */
-    const val MAX_FILE_BYTES = 25L * 1024 * 1024
+    /** A preloaded PDF is at most 25 MB (decimal, as the cap); a larger one waits until the reader opens it. */
+    const val MAX_FILE_BYTES = 25_000_000L
 
     /** Reports of the last 7 days: what a reader catches up on. */
     const val MAX_AGE_MS = 7 * 24 * 3_600_000L
