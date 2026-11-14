@@ -26,7 +26,7 @@ onFlowComplete:
 - openLink: relais://report/4237046
 - extendedWaitUntil:
     visible:
-      id: "highlighter"
+      id: "save_button"
     timeout: 60000
 - scrollUntilVisible:
     element:

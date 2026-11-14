@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
@@ -28,7 +27,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material3.Button
@@ -63,7 +61,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -90,16 +87,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 // Organizations (v0.3): produit/suivre-organisation.md (P13), theme-compose.md 13.1 and 13.2.
-
-/** "About 3 documents a week on ReliefWeb", or the forms for 1 and fewer than 1. */
-@Composable
-private fun rhythmLine(perWeek: Double): String {
-    val n = perWeek.roundToInt()
-    return when {
-        perWeek < 0.5 -> stringResource(R.string.source_rhythm_fewer)
-        else -> pluralStringResource(R.plurals.source_rhythm, n, n)
-    }
-}
 
 /** The domain of a homepage, without https:// and www. */
 internal fun domainOf(url: String?): String? =

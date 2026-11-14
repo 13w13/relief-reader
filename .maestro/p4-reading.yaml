@@ -34,10 +34,13 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
     timeout: 30000
+# Since v0.4 the highlighter is in the menu, once the text is loaded.
+- tapOn: "More options"
 - extendedWaitUntil:
     visible:
       id: "highlighter"
     timeout: 60000
+- back
 - takeScreenshot: p4-06-msf-report
 - repeat:
     times: 3
@@ -85,7 +88,8 @@ onFlowComplete:
 - assertVisible: "Back to top"
 - takeScreenshot: p4-09-picked-up
 
-# 4.4 The PDF: page 3, close, open again on page 3. The Files section is above the text.
+# 4.4 The PDF: page 3, close, open again on page 3. Since v0.4 the file is a line under the
+# dates, above the text.
 - scrollUntilVisible:
     element:
       id: "file_row"
