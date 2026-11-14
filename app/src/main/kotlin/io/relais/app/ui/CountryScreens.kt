@@ -3,6 +3,7 @@
 package io.relais.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
@@ -532,7 +533,9 @@ fun FollowingScreen(nav: Nav) {
                     }
                     item(key = "followed") {
                         FollowedLine(
-                            countries.map { it.name } + crises.map { crisisShort(it.disaster.name) } + sources.map { it.shortname },
+                            countries.map { FollowedName(it.name, "following_name_country_${it.countryId}") { nav.country(it.countryId, it.name) } } +
+                                crises.map { FollowedName(crisisShort(it.disaster.name), "following_name_crisis_${it.disaster.disasterId}") { nav.crisis(it.disaster.disasterId, it.disaster.name) } } +
+                                sources.map { source -> FollowedName(source.shortname, "following_name_source_${source.sourceId}") { nav.source(source.sourceId, source.name) } },
                             onManage = nav::manageFollowing,
                         )
                     }
@@ -562,30 +565,60 @@ fun FollowingScreen(nav: Nav) {
     }
 }
 
-/** "Sudan, Lebanon, DR Congo +2", cut to one line, then "Manage" (12.3). */
+/** A name on the line of what is followed, and the page it opens. */
+internal data class FollowedName(val label: String, val tag: String, val open: () -> Unit)
+
+/**
+ * What is followed, on one line: the names that fit, each opening its page (revue-ux-v0.3.md,
+ * change 6), then "+N" for the others, which opens Manage like the button.
+ */
 @Composable
-internal fun FollowedLine(names: List<String>, onManage: () -> Unit) {
+internal fun FollowedLine(names: List<FollowedName>, onManage: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val style = MaterialTheme.typography.bodySmall
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(start = Space.screen, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f)) {
             val width = constraints.maxWidth
-            val text = remember(names, width, style) { fitNames(names, width) { measurer.measure(it, style, softWrap = false, maxLines = 1, constraints = androidx.compose.ui.unit.Constraints(maxWidth = width)).hasVisualOverflow } }
-            Text(text, style = style, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("following_line"))
+            val labels = names.map { it.label }
+            val shown = remember(labels, width, style) {
+                fitCount(labels, width) { measurer.measure(it, style, softWrap = false, maxLines = 1, constraints = androidx.compose.ui.unit.Constraints(maxWidth = width)).hasVisualOverflow }
+            }
+            Row(Modifier.testTag("following_line"), verticalAlignment = Alignment.CenterVertically) {
+                names.take(shown).forEachIndexed { i, name ->
+                    if (i > 0) Text(", ", style = style, color = cs.onSurfaceVariant)
+                    Text(
+                        name.label,
+                        style = style,
+                        color = cs.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false).heightIn(min = 44.dp).clickable(onClick = name.open)
+                            .wrapContentHeight(Alignment.CenterVertically).testTag(name.tag),
+                    )
+                }
+                if (shown < names.size) {
+                    Text(
+                        " +${names.size - shown}",
+                        style = style,
+                        color = cs.onSurfaceVariant,
+                        modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onManage).wrapContentHeight(Alignment.CenterVertically),
+                    )
+                }
+            }
         }
         TextButton(onClick = onManage, modifier = Modifier.testTag("following_manage")) { Text(stringResource(R.string.following_manage)) }
     }
 }
 
-/** The most names that fit, then "+N" for the others. */
-internal fun fitNames(names: List<String>, width: Int, overflows: (String) -> Boolean): String {
-    if (names.isEmpty() || width <= 0) return names.joinToString(", ")
+/** How many names fit on the line, with "+N" for the others; at least one. */
+internal fun fitCount(names: List<String>, width: Int, overflows: (String) -> Boolean): Int {
+    if (names.isEmpty() || width <= 0) return names.size
     for (k in names.size downTo 1) {
         val text = names.take(k).joinToString(", ") + if (k < names.size) " +${names.size - k}" else ""
-        if (!overflows(text)) return text
+        if (!overflows(text)) return k
     }
-    return names.first() + if (names.size > 1) " +${names.size - 1}" else ""
+    return 1
 }
 
 /** Nothing followed yet: the two ways to start (12.3). */
@@ -957,7 +990,6 @@ private fun ScopeContent(name: String, state: CountryState, vm: CountryViewModel
                     FilterRow(state.filters, state.filter, vm::select, sheetCount = state.sheet.count, onSheet = { showSheet = true })
                 }
                 if (!state.sheet.isEmpty) item(key = "active") { ActiveFilters(state, onChange = vm::setSheet) }
-                if (vm.isCrisis) item(key = "tagging") { TaggingNote() }
                 val f = feed ?: return@LazyColumn
                 // A feed never fetched stays blank until it loads, rather than saying it is empty.
                 if (f.reports.isEmpty() && f.fetched && !state.loading && state.error == null) {
