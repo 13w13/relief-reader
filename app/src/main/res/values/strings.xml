@@ -212,9 +212,9 @@
     <string name="settings_none">No access: headlines only</string>
     <string name="settings_check">Check access</string>
     <string name="settings_use_own">Use your own appname</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_appname_saved">Appname saved. Re.L now reads ReliefWeb with it.</string>
     <string name="settings_remove_own">Remove your appname</string>
-    <string name="settings_countries">Countries</string>
-    <string name="settings_countries_you_follow">Countries you follow · %1$d</string>
     <string name="settings_digest">Daily summary</string>
     <string name="settings_digest_around">Around %1$s</string>
     <string name="settings_library">Library</string>
