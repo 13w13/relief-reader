@@ -153,7 +153,7 @@ data class ReportState(
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-class ReportViewModel(private val c: AppContainer, private val id: Long) : ViewModel() {
+class ReportViewModel(private val c: AppContainer, private val id: Long, headline: Boolean = false) : ViewModel() {
     val readingSize: StateFlow<Int> = c.settings.flow.map { it.readingSize }
         .stateIn(viewModelScope, SharingStarted.Eagerly, io.relais.app.data.DEFAULT_READING_SIZE)
 
@@ -195,6 +195,21 @@ class ReportViewModel(private val c: AppContainer, private val id: Long) : ViewM
     ) { (r, b), reading, same, highlights, tw ->
         ReportState(report = r, blocks = b, reading = reading, sameCountry = same, highlights = highlights, twins = tw)
     }
+
+    /**
+     * Opened from the pile of Today: its place among this week's headlines, as the pile counts
+     * them, for the block "Headline 3 of 6" after the text (v0.4). Null otherwise.
+     */
+    internal val place: StateFlow<HeadlinePlace?> = if (!headline) {
+        MutableStateFlow(null)
+    } else {
+        c.repository.access.flatMapLatest { access ->
+            c.dao.observeHeadlines(fromRss = !access, since = System.currentTimeMillis() - Repository.SEVEN_DAYS)
+        }.combine(c.dao.observeReadIds()) { headlines, read -> headlinePlace(headlines, id, read.toSet()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
+
+    val hasAccess: Boolean get() = c.repository.hasAccess
 
     val state: StateFlow<ReportState> = combine(main, c.pdfs.states, c.pdfs.downloaded, loading, error) { s, dl, done, l, e ->
         s.copy(downloads = dl, downloaded = done, loading = l, error = e)
@@ -257,6 +272,7 @@ private sealed interface ReportRow {
     data object Summary : ReportRow
     data object Preview : ReportRow
     data class Body(val index: Int, val block: Block) : ReportRow
+    data object HeadlineNav : ReportRow
     data object Details : ReportRow
     data object Links : ReportRow
     data object SameCountry : ReportRow
@@ -277,10 +293,13 @@ private fun Block.text(): String? = when (this) {
 /** M6 Report. `jumpToBlock` opens the report on a highlighted passage. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav) {
+fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = false) {
     val container = LocalContext.current.container
-    val vm = viewModel(key = "report-$id") { ReportViewModel(container, id) }
+    val vm = viewModel(key = "report-$id") { ReportViewModel(container, id, fromHeadline) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val place by vm.place.collectAsStateWithLifecycle()
+    // Back on Today, the pile stands on the last headline read here.
+    if (fromHeadline) LaunchedEffect(id) { container.headlineFocus.value = id }
     val readingSize by vm.readingSize.collectAsStateWithLifecycle()
     var showTextSize by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -316,7 +335,8 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav) {
 
     BackHandler(enabled = passage != null) { dismissSelection() }
 
-    val rows: List<ReportRow> = remember(report, state.blocks, state.notFound, state.error, state.twins) {
+    val hasPlace = place != null
+    val rows: List<ReportRow> = remember(report, state.blocks, state.notFound, state.error, state.twins, hasPlace) {
         buildList {
             if (report == null) return@buildList
             if (report.imageUrl != null) add(ReportRow.Photo)
@@ -332,6 +352,8 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav) {
             // Full text loaded but empty (map, infographic, PDF only): the first page in large.
             if (!report.fromRss && report.bodyHtml != null && state.blocks.isEmpty()) add(ReportRow.Preview)
             state.blocks.forEachIndexed { index, block -> add(ReportRow.Body(index, block)) }
+            // Right after the text, before Details (revue-densite-v0.3.md, section 3).
+            if (hasPlace) add(ReportRow.HeadlineNav)
             if (!report.fromRss) add(ReportRow.Details)
             add(ReportRow.Links)
             if (state.sameCountry.isNotEmpty()) add(ReportRow.SameCountry)
@@ -547,6 +569,14 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav) {
                                     }
                                 },
                                 clearSignal = clearSelection,
+                            )
+                        }
+                        ReportRow.HeadlineNav -> place?.let { p ->
+                            HeadlineNavBlock(
+                                p,
+                                onNext = { nav.swapHeadline(it.id) },
+                                onPrevious = { nav.swapHeadline(it.id) },
+                                onOlder = { nav.olderHeadlines(vm.hasAccess) },
                             )
                         }
                         ReportRow.Details -> Details(report, nav)

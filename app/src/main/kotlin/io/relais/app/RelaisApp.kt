@@ -111,6 +111,9 @@ class AppContainer(private val context: Context) {
     /** A screen to open from a notification: a report id, or -1 for Following (theme-compose.md 10.15). */
     val openRequest = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
 
+    /** The last headline read from the pile: Today stands on its card when the reader comes back (v0.4). */
+    val headlineFocus = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
+
     init {
         // Read the appname entered on the phone before the first request, then follow changes.
         repository.userAppname = runBlocking { settings.current().userAppname }

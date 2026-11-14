@@ -6,27 +6,19 @@ import android.app.Application
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -40,7 +32,6 @@ import coil3.compose.AsyncImagePreviewHandler
 import coil3.compose.LocalAsyncImagePreviewHandler
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
-import io.relais.api.Display
 import io.relais.app.data.FileLite
 import io.relais.app.data.ReportEntity
 import io.relais.app.data.SourceLite
@@ -58,12 +49,13 @@ import io.relais.app.ui.DocumentRow
 import io.relais.app.ui.FollowedLine
 import io.relais.app.ui.FollowingRoute
 import io.relais.app.ui.FilterRow
-import io.relais.app.ui.HeadlineHero
+import io.relais.app.ui.HeadlinePile
+import io.relais.app.ui.TodayDateLine
+import io.relais.app.ui.headlinesNote
 import io.relais.app.ui.MainBottomBar
 import io.relais.app.ui.PageFilter
 import io.relais.app.ui.ReadingTypography
 import io.relais.app.ui.RelaisTheme
-import io.relais.app.ui.RubricTab
 import io.relais.app.ui.ScreenScaffold
 import io.relais.app.ui.SectionHeader
 import io.relais.app.ui.Space
@@ -157,11 +149,27 @@ class ReadmeScreensTest {
     /** The last visit, at 06:20: what came after it has the blue dot, unless already read. */
     private val lastVisit get() = at(6, 20)
 
-    // The new headlines of this morning, one of them already read (greyed, no dot).
-    private val todayRows = listOf(
-        report(2, "$OTHER: Market prices after the October harvest", OTHER, kfm, 3, "Analysis", at(7, 5)) to false,
-        report(3, "$REGION: Shelter needs in Osmira and Tarvel, rapid assessment", REGION, nwp, 5, "Assessment", at(6, 50), pdfBytes = 880_000) to true,
-        report(4, "$REGION: Water trucking reaches 12,400 people in the northern camps", REGION, nwp, 8, "News and Press Release", at(6, 30)) to false,
+    // This week's headlines, newest first (the art director's sketch, morning: 2 new, 3 read).
+    private val pile = listOf(
+        hero,
+        report(2, "$OTHER: Market prices rise after the October harvest", OTHER, kfm, 3, "Analysis", at(7, 5), headline = true,
+            summary = "Maize costs a third more than in September in the three main markets."),
+        report(3, "$REGION: Cholera prevention reaches two collective centres", REGION, nhn, 8, "News and Press Release", at(16, 20, daysAgo = 2), headline = true,
+            summary = "Health teams vaccinated 3,100 people and opened two oral rehydration points."),
+        report(4, "$REGION: Water points in the northern camps", REGION, nwp, 12, "Map", at(14, 0, daysAgo = 3), headline = true,
+            summary = "Twenty-two water points work again after repairs. Four camps still rely on trucks."),
+        report(5, "$OTHER: Food security outlook to February 2027", OTHER, kfm, 3, "Analysis", at(11, 30, daysAgo = 4), headline = true,
+            summary = "Households in the south will need help before the lean season."),
+        report(6, "$REGION: Flood response plan asks for funds to January 2027", REGION, nco, 4, "Appeal", at(10, 0, daysAgo = 5), headline = true,
+            summary = "The plan covers shelter, water and health for 46,000 people."),
+    )
+    private val pileRead = setOf(3L, 4L, 6L)
+
+    // New since the last visit from what is followed: the block under the pile.
+    private val followNew = listOf(
+        report(7, "$REGION: Shelter needs in Osmira and Tarvel, rapid assessment", REGION, nwp, 5, "Assessment", at(6, 50), pdfBytes = 880_000),
+        report(8, "$REGION: Situation Report No. 7", REGION, nco, 10, "Situation Report", at(7, 30), pdfBytes = 1_180_000),
+        report(9, "$OTHER: Rainfall and planting, November update", OTHER, kfm, 3, "Analysis", at(17, 10, daysAgo = 1)),
     )
 
     private val followingRows = listOf(
@@ -204,38 +212,21 @@ class ReadmeScreensTest {
     @Composable
     private fun Today() = WithBottomBar(TodayRoute) {
         ScreenScaffold(title = "Re.L", onSettings = {}, titleContent = { TodayTitle() }, actions = { TodayRefresh {} }) { padding ->
-            Column(Modifier.padding(padding)) {
-                PrimaryScrollableTabRow(selectedTabIndex = 0, edgePadding = 8.dp) {
-                    listOf("All", "Situation reports", "Analysis", "Maps", "Appeals", REGION).forEachIndexed { i, label ->
-                        RubricTab(label, active = i == 0, onClick = {})
-                    }
+            LazyColumn(Modifier.padding(padding)) {
+                item { TodayDateLine(lastRefreshAt = at(7, 45)) }
+                item { SectionHeader(stringResource(R.string.today_headlines), headlinesNote(pile, lastVisit)) }
+                item {
+                    HeadlinePile(
+                        headlines = pile,
+                        readIds = pileRead,
+                        since = lastVisit,
+                        pager = rememberPagerState { pile.size + 1 },
+                        onOpen = {},
+                        onOlder = {},
+                    )
                 }
-                LazyColumn {
-                    item {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = Space.screen, vertical = Space.m), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(Display.longDate(LocalDate.now(zone)), style = MaterialTheme.typography.titleSmall)
-                                Text("Updated 07:45", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            LinearProgressIndicator(
-                                progress = { 1f / 4 },
-                                modifier = Modifier.width(64.dp).height(4.dp).clip(CircleShape),
-                                trackColor = MaterialTheme.colorScheme.outlineVariant,
-                            )
-                            Text(
-                                stringResource(R.string.today_progress, 1, 4),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = Space.s),
-                            )
-                        }
-                    }
-                    item { SectionHeader(stringResource(R.string.today_new_headlines)) }
-                    item { HeadlineHero(hero, isRead = false, onClick = {}) }
-                    items(todayRows) { (row, read) ->
-                        DocumentRow(row, onClick = {}, isNew = row.dateCreated > lastVisit && !read, isRead = read, title = row.displayTitle)
-                    }
-                }
+                item { SectionHeader(stringResource(R.string.today_latest_follow)) }
+                items(followNew) { DocumentRow(it, onClick = {}, isNew = true) }
             }
         }
     }

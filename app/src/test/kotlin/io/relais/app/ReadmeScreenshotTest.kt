@@ -8,12 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,10 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import io.relais.app.ui.NoNewHeadlines
-import io.relais.app.ui.headlineBlocks
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import io.relais.api.ApiResponse
@@ -33,11 +29,11 @@ import io.relais.api.RelaisJson
 import io.relais.api.ReportFields
 import io.relais.app.data.toEntity
 import io.relais.app.ui.AboutSection
+import io.relais.app.ui.HeadlinePile
+import io.relais.app.ui.headlinesNote
+import io.relais.app.ui.pileOpening
 import io.relais.app.ui.ConnectContent
-import io.relais.app.ui.DocumentRow
-import io.relais.app.ui.HeadlineHero
 import io.relais.app.ui.RelaisTheme
-import io.relais.app.ui.RubricTab
 import io.relais.app.ui.ScreenScaffold
 import io.relais.app.ui.SectionHeader
 import io.relais.app.ui.Space
@@ -89,75 +85,52 @@ class ReadmeScreenshotTest {
         }
     }
 
-    /**
-     * Today with no headline new since the last visit (v0.3.2): the line that says so, then the most
-     * recent headline of the week, large with its photo, then the earlier ones folded.
-     */
-    @Test
-    fun todayNoNewHeadline() {
+    private fun week(): List<io.relais.app.data.ReportEntity> {
         val response = RelaisJson.decodeFromString(ApiResponse.serializer(ReportFields.serializer()), File("../fixtures/headlines.json").readText())
         val now = System.currentTimeMillis()
-        val week = response.data.map { it.toEntity(existing = null, now = now, full = true) }.take(5)
-        val blocks = headlineBlocks(week, since = now, readIds = emptySet())
-        shoot("today-no-new") {
-            ScreenScaffold(title = "Re.L", onSettings = {}, titleContent = { TodayTitle() }, actions = { TodayRefresh {} }) { padding ->
-                Column(Modifier.padding(padding)) {
-                    PrimaryScrollableTabRow(selectedTabIndex = 0, edgePadding = 8.dp) {
-                        listOf("All", "Situation reports", "Analysis", "Maps", "Appeals", "Sudan").forEachIndexed { i, label ->
-                            RubricTab(label, active = i == 0, onClick = {})
-                        }
-                    }
-                    LazyColumn {
-                        item {
-                            Column(Modifier.padding(horizontal = Space.screen, vertical = Space.m)) {
-                                Text(Display.longDate(LocalDate.now()), style = MaterialTheme.typography.titleSmall)
-                                Text("Updated 16:05", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        item { SectionHeader(stringResource(R.string.today_new_headlines)) }
-                        item { NoNewHeadlines(latest = week.firstOrNull()) }
-                        blocks.hero?.let { hero -> item { HeadlineHero(hero, isRead = false, onClick = {}) } }
-                        item {
-                            Text(
-                                pluralStringResource(R.plurals.today_earlier_headlines, blocks.earlier.size, blocks.earlier.size),
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(horizontal = Space.screen, vertical = Space.m),
-                            )
-                        }
-                    }
+        return response.data.map { it.toEntity(existing = null, now = now, full = true) }.take(6)
+    }
+
+    /** Today since v0.4: the top bar with "UNOFFICIAL", the date, then the pile of headlines. */
+    @Composable
+    private fun Today(week: List<io.relais.app.data.ReportEntity>, since: Long, readIds: Set<Long>) {
+        ScreenScaffold(title = "Re.L", onSettings = {}, titleContent = { TodayTitle() }, actions = { TodayRefresh {} }) { padding ->
+            LazyColumn(Modifier.padding(padding)) {
+                item {
+                    Text(
+                        Display.longDate(LocalDate.now()) + " · Updated 16:05",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(horizontal = Space.screen, vertical = Space.xs),
+                    )
+                }
+                item { SectionHeader(stringResource(R.string.today_headlines), headlinesNote(week, since)) }
+                item {
+                    HeadlinePile(
+                        headlines = week,
+                        readIds = readIds,
+                        since = since,
+                        pager = rememberPagerState(initialPage = pileOpening(week, readIds)) { week.size + 1 },
+                        onOpen = {},
+                        onOlder = {},
+                    )
                 }
             }
         }
     }
 
+    /**
+     * Today with no headline new since the last visit: "Nothing new since your last visit", and the
+     * pile on the first headline not read.
+     */
+    @Test
+    fun todayNoNewHeadline() {
+        val week = week()
+        shoot("today-no-new") { Today(week, since = System.currentTimeMillis(), readIds = week.take(2).map { it.id }.toSet()) }
+    }
+
     @Test
     fun today() {
-        val response = RelaisJson.decodeFromString(ApiResponse.serializer(ReportFields.serializer()), File("../fixtures/headlines.json").readText())
-        val now = System.currentTimeMillis()
-        val headlines = response.data.map { it.toEntity(existing = null, now = now, full = true) }.take(6)
-        shoot("today") {
-            // The top bar of Today, with "UNOFFICIAL" next to the logotype.
-            ScreenScaffold(title = "Re.L", onSettings = {}, titleContent = { TodayTitle() }, actions = { TodayRefresh {} }) { padding ->
-                Column(Modifier.padding(padding)) {
-                    PrimaryScrollableTabRow(selectedTabIndex = 0, edgePadding = 8.dp) {
-                        listOf("All", "Situation reports", "Analysis", "Maps", "Appeals", "Sudan").forEachIndexed { i, label ->
-                            RubricTab(label, active = i == 0, onClick = {})
-                        }
-                    }
-                    LazyColumn {
-                        item {
-                            Column(Modifier.padding(horizontal = Space.screen, vertical = Space.m)) {
-                                // The day of the capture: the rows say "Yesterday" or a date relative to it.
-                                Text(Display.longDate(LocalDate.now()), style = MaterialTheme.typography.titleSmall)
-                                Text("Updated 16:05", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        item { SectionHeader("New headlines") }
-                        item { HeadlineHero(headlines.first(), isRead = false, onClick = {}) }
-                        items(headlines.drop(1)) { DocumentRow(it, onClick = {}, isNew = true, isRead = it == headlines[2], title = it.displayTitle) }
-                    }
-                }
-            }
-        }
+        val week = week()
+        shoot("today") { Today(week, since = week[2].dateCreated, readIds = emptySet()) }
     }
 }

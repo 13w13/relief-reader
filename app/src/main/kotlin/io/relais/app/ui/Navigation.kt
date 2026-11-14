@@ -19,12 +19,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -48,7 +48,8 @@ import kotlin.reflect.KClass
 @Serializable object SearchRoute
 @Serializable object LibraryRoute
 @Serializable object SettingsRoute
-@Serializable data class ReportRoute(val id: Long, val block: Int = -1)
+// `headline` marks a report opened from the pile of Today: it ends with "Headline 3 of 6" (v0.4).
+@Serializable data class ReportRoute(val id: Long, val block: Int = -1, val headline: Boolean = false)
 // page, block and query open the reader on a highlight or a search result (pdf/, T9).
 @Serializable data class PdfRoute(
     val url: String,
@@ -73,6 +74,8 @@ import kotlin.reflect.KClass
 @Serializable object PickCrisesRoute
 @Serializable data class ResultsRoute(val query: String, val headlinesOnly: Boolean = false, val reportsOnly: Boolean = false)
 @Serializable object PickCountriesRoute
+/** The headlines of ReliefWeb's feed on the phone, for a reader without an appname (v0.4). */
+@Serializable object OlderHeadlinesRoute
 
 /** [tag] is the test tag of the bottom bar item, read by the Maestro flows in .maestro/. */
 private data class Tab(val route: Any, val routeClass: KClass<*>, val label: Int, val icon: ImageVector, val tag: String)
@@ -83,6 +86,9 @@ private val TABS = listOf(
     Tab(SearchRoute, SearchRoute::class, R.string.tab_search, Icons.Rounded.Search, "tab_search"),
     Tab(LibraryRoute, LibraryRoute::class, R.string.tab_library, Icons.Rounded.Bookmarks, "tab_library"),
 )
+
+/** Whether the back stack holds the route [T]. */
+private inline fun <reified T : Any> NavHostController.holds(): Boolean = runCatching { getBackStackEntry<T>() }.isSuccess
 
 /** The bottom bar of the four tabs; also drawn by the README screenshots. */
 @Composable
@@ -105,6 +111,18 @@ internal fun MainBottomBar(isSelected: (KClass<*>) -> Boolean, onTab: (route: An
 class Nav(private val controller: NavHostController) {
     fun back() = controller.popBackStack()
     fun report(id: Long, block: Int = -1) = controller.navigate(ReportRoute(id, block))
+
+    /** A headline of the pile, whose report ends with its place and the next one. */
+    fun headline(id: Long) = controller.navigate(ReportRoute(id, headline = true))
+
+    /** Next or Previous at the end of a headline: it replaces the report open, without stacking. */
+    fun swapHeadline(id: Long) = controller.navigate(ReportRoute(id, headline = true)) {
+        popUpTo<ReportRoute> { inclusive = true }
+    }
+
+    /** After the pile: the search of headlines by date with an appname, the feed's ones without. */
+    fun olderHeadlines(hasAccess: Boolean) =
+        if (hasAccess) results("", headlinesOnly = true) else controller.navigate(OlderHeadlinesRoute) { launchSingleTop = true }
     fun pdf(url: String, reportId: Long, title: String, sourceUrl: String?, page: Int = -1, block: Int = -1, query: String? = null) =
         controller.navigate(PdfRoute(url, reportId, title, sourceUrl, page, block, query))
     fun country(id: Long, name: String, filter: PageFilter? = null) = controller.navigate(CountryRoute(id, name, filter?.name.orEmpty()))
@@ -140,6 +158,16 @@ fun MainScreen() {
     val nav = Nav(controller)
     val entry by controller.currentBackStackEntryAsState()
     val destination = entry?.destination
+    // The bottom bar keeps the tab a page was opened from lit (revue-densite-v0.3.md, section 2):
+    // Today is the start, always at the bottom of the stack; another tab sits right above it.
+    val originTab: KClass<*> = remember(entry) {
+        when {
+            controller.holds<FollowingRoute>() -> FollowingRoute::class
+            controller.holds<SearchRoute>() -> SearchRoute::class
+            controller.holds<LibraryRoute>() -> LibraryRoute::class
+            else -> TodayRoute::class
+        }
+    }
 
     // The bottom bar is hidden while reading a report or a PDF (theme-compose.md, 5.6).
     val reading = destination?.hasRoute(ReportRoute::class) == true || destination?.hasRoute(PdfRoute::class) == true
@@ -163,7 +191,7 @@ fun MainScreen() {
         bottomBar = {
             if (!reading) {
                 MainBottomBar(
-                    isSelected = { route -> destination?.hierarchy?.any { it.hasRoute(route) } == true },
+                    isSelected = { route -> route == originTab },
                     // Tapped again, the current tab goes back to its root (revue-lecteur-v0.2.md, defect 8).
                     onTab = { route, selected -> if (selected) nav.toRoot(route) else nav.tab(route) },
                 )
@@ -177,11 +205,12 @@ fun MainScreen() {
                 composable<SearchRoute> { SearchScreen(nav) }
                 composable<LibraryRoute> { LibraryScreen(nav) }
                 composable<SettingsRoute> { SettingsScreen(nav) }
+                composable<OlderHeadlinesRoute> { OlderHeadlinesScreen(nav) }
                 composable<PickCountriesRoute> { PickCountriesScreen(onDone = { nav.back() }, onBack = { nav.back() }) }
                 // Deep links relais://report/{id} and relais://country/{id}, used by the Maestro flows.
                 composable<ReportRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<ReportRoute>(basePath = "relais://report")) else emptyList()) {
                     val route = it.toRoute<ReportRoute>()
-                    ReportScreen(route.id, route.block, nav)
+                    ReportScreen(route.id, route.block, nav, fromHeadline = route.headline)
                 }
                 composable<PdfRoute> {
                     val route = it.toRoute<PdfRoute>()
