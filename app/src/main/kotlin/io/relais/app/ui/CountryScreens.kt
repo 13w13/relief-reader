@@ -564,7 +564,7 @@ fun FollowingScreen(nav: Nav) {
 
 /** "Sudan, Lebanon, DR Congo +2", cut to one line, then "Manage" (12.3). */
 @Composable
-private fun FollowedLine(names: List<String>, onManage: () -> Unit) {
+internal fun FollowedLine(names: List<String>, onManage: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val style = MaterialTheme.typography.bodySmall
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
