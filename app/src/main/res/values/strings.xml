@@ -215,10 +215,10 @@
     <string name="settings_save">Save</string>
     <string name="settings_remove">Remove</string>
     <plurals name="settings_history_shorten">
-        <item quantity="one">Remove reading history older than %2$d days? %1$d report.</item>
-        <item quantity="other">Remove reading history older than %2$d days? %1$d reports.</item>
+        <item quantity="one">Remove reading history older than %2$s? %1$d report.</item>
+        <item quantity="other">Remove reading history older than %2$s? %1$d reports.</item>
     </plurals>
-    <string name="settings_appname_saved">Appname saved. Re.L now reads ReliefWeb with it.</string>
+    <string name="settings_appname_saved">Appname saved. Full reports, country pages and search now work.</string>
     <string name="settings_remove_own">Remove your appname</string>
     <string name="settings_digest">Daily summary</string>
     <string name="settings_digest_around">Around %1$s</string>
@@ -495,7 +495,7 @@
         <item quantity="other">About %d documents a week</item>
     </plurals>
     <string name="source_head_rhythm_fewer">Fewer than 1 document a week</string>
-    <string name="source_head_latest">Latest %1$s</string>
+    <string name="source_head_latest">Last posted %1$s</string>
     <string name="source_about">About %1$s</string>
     <string name="source_sheet_title">%1$s publishes about %2$d documents a week</string>
     <string name="source_reports_only">Reports only</string>
