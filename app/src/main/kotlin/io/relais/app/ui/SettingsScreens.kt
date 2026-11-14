@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
 import android.Manifest
 import android.app.TimePickerDialog
 import android.os.Build
@@ -118,7 +122,13 @@ fun ConnectScreen() {
 
 /** Field for a ReliefWeb appname. The value is checked with one call, then kept only on the phone. */
 @Composable
-fun AppnameForm(onSaved: () -> Unit, secondaryLabel: String? = null, onSecondary: (() -> Unit)? = null) {
+fun AppnameForm(
+    onSaved: () -> Unit,
+    secondaryLabel: String? = null,
+    onSecondary: (() -> Unit)? = null,
+    /** "Save" next to the field, in Settings (v0.4); "Check and continue" under it otherwise. */
+    inline: Boolean = false,
+) {
     // The container is read on "Check and continue" only: the form then draws in a screenshot
     // test, without the app (README, v0.3.1).
     val context = LocalContext.current
@@ -128,40 +138,51 @@ fun AppnameForm(onSaved: () -> Unit, secondaryLabel: String? = null, onSecondary
     var checking by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<AccessCheck?>(null) }
 
+    // The keyboard's action key saves as the button does: nothing waits for another gesture.
+    fun submit() {
+        if (value.isBlank() || checking) return
+        scope.launch {
+            val c = context.container
+            checking = true
+            val check = c.repository.checkAccess(value)
+            result = check
+            checking = false
+            if (check == AccessCheck.OK) {
+                c.settings.setUserAppname(value)
+                c.repository.userAppname = value.trim()
+                value = ""
+                onSaved()
+            }
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { value = it; result = null },
-            label = { Text(stringResource(R.string.access_field)) },
-            supportingText = { Text(accessMessage(result) ?: stringResource(R.string.access_field_help)) },
-            isError = result == AccessCheck.REFUSED,
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it; result = null },
+                label = { Text(stringResource(R.string.access_field)) },
+                supportingText = { Text(accessMessage(result) ?: stringResource(R.string.access_field_help)) },
+                isError = result == AccessCheck.REFUSED,
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+                modifier = Modifier.weight(1f).testTag("appname_field"),
+            )
+            if (inline) {
+                Button(enabled = value.isNotBlank() && !checking, onClick = ::submit, modifier = Modifier.testTag("appname_save")) {
+                    Text(stringResource(R.string.settings_save))
+                }
+            }
+        }
         TextButton(onClick = { safeOpen(uriHandler, APPNAME_HELP_URL) }, modifier = Modifier.testTag("access_request")) {
             Text(stringResource(R.string.access_help_link))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(
-                enabled = value.isNotBlank() && !checking,
-                onClick = {
-                    scope.launch {
-                        val c = context.container
-                        checking = true
-                        val check = c.repository.checkAccess(value)
-                        result = check
-                        checking = false
-                        if (check == AccessCheck.OK) {
-                            c.settings.setUserAppname(value)
-                            c.repository.userAppname = value.trim()
-                            value = ""
-                            onSaved()
-                        }
-                    }
-                },
-            ) { Text(stringResource(R.string.access_check)) }
+            if (!inline) {
+                Button(enabled = value.isNotBlank() && !checking, onClick = ::submit) { Text(stringResource(R.string.access_check)) }
+            }
             if (checking) CircularProgressIndicator(Modifier.padding(start = 8.dp))
             if (secondaryLabel != null && onSecondary != null) {
                 TextButton(onClick = onSecondary) { Text(secondaryLabel) }
@@ -219,7 +240,9 @@ fun SettingsScreen(nav: Nav) {
     val scope = rememberCoroutineScope()
     var checkResult by remember { mutableStateOf<AccessCheck?>(null) }
     var checking by remember { mutableStateOf(false) }
-    var showAppnameDialog by remember { mutableStateOf(false) }
+    var editingAppname by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val appnameSaved = stringResource(R.string.settings_appname_saved)
     var confirmClear by remember { mutableStateOf(false) }
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
@@ -239,7 +262,9 @@ fun SettingsScreen(nav: Nav) {
         }
     }
 
-    ScreenScaffold(title = stringResource(R.string.settings_title), onBack = { nav.back() }) { padding ->
+    // Every setting applies as soon as it changes (the founder, 14/11): switches, chips and
+    // sizes write at once; the appname saves from its button or the keyboard's key.
+    ScreenScaffold(title = stringResource(R.string.settings_title), onBack = { nav.back() }, snackbarHostState = snackbar) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             SectionHeader(stringResource(R.string.settings_access))
             val accessLabel = when {
@@ -256,8 +281,20 @@ fun SettingsScreen(nav: Nav) {
                 ) { Text(stringResource(R.string.settings_check)) }
                 if (checking) CircularProgressIndicator(Modifier.padding(start = 8.dp))
             }
-            TextButton(onClick = { showAppnameDialog = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
+            TextButton(onClick = { editingAppname = !editingAppname }, modifier = Modifier.padding(horizontal = 8.dp).testTag("settings_use_own")) {
                 Text(stringResource(R.string.settings_use_own))
+            }
+            if (editingAppname) {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    AppnameForm(
+                        onSaved = {
+                            editingAppname = false
+                            checkResult = AccessCheck.OK
+                            scope.launch { snackbar.showSnackbar(appnameSaved) }
+                        },
+                        inline = true,
+                    )
+                }
             }
             if (s.userAppname != null) {
                 TextButton(onClick = { vm.removeOwn(); checkResult = null }, modifier = Modifier.padding(horizontal = 8.dp)) {
@@ -266,12 +303,8 @@ fun SettingsScreen(nav: Nav) {
             }
             HorizontalDivider()
 
-            SectionHeader(stringResource(R.string.settings_countries))
-            TextButton(onClick = nav::pickCountries, modifier = Modifier.padding(horizontal = 8.dp)) {
-                Text(stringResource(R.string.settings_countries_you_follow, state.followedCount))
-            }
-            HorizontalDivider(Modifier.padding(top = 8.dp))
-
+            // No Countries section since v0.4: Following > Manage has them, with crises and
+            // organizations (revue-densite-v0.3.md, change 12).
             SectionHeader(stringResource(R.string.settings_digest))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -283,7 +316,8 @@ fun SettingsScreen(nav: Nav) {
                     if (on) enableDigest(s.digestHour, s.digestMinute) else vm.setDigest(context, false, s.digestHour, s.digestMinute)
                 })
             }
-            FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The hours only while the summary is on (change 12).
+            if (s.digestEnabled) FlowRow(Modifier.padding(horizontal = 16.dp).testTag("digest_hours"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DIGEST_HOURS.forEach { hour ->
                     FilterChip(
                         selected = s.digestHour == hour && s.digestMinute == 0,
@@ -356,15 +390,6 @@ fun SettingsScreen(nav: Nav) {
 
     showWhatsNew?.let { release -> WhatsNewSheet(release, onDismiss = { showWhatsNew = null }) }
 
-    if (showAppnameDialog) {
-        AlertDialog(
-            onDismissRequest = { showAppnameDialog = false },
-            title = { Text(stringResource(R.string.settings_use_own)) },
-            text = { AppnameForm(onSaved = { showAppnameDialog = false; checkResult = AccessCheck.OK }) },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { showAppnameDialog = false }) { Text(stringResource(R.string.report_cancel)) } },
-        )
-    }
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
