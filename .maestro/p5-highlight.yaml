@@ -22,12 +22,19 @@ onFlowComplete:
       PREFIX: p5
       DIGEST: skip
 
-# 5.1 The report, then the highlighter (shown once the text is loaded).
+# 5.1 The report, then the highlighter: in the menu since v0.4, once the text is loaded.
 - openLink: relais://report/4237046
 - extendedWaitUntil:
     visible:
-      id: "highlighter"
+      id: "save_button"
     timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: ".*75 per cent of the patients treated for measles.*"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn: "More options"
 - tapOn:
     id: "highlighter"
 - extendedWaitUntil:
@@ -51,8 +58,7 @@ onFlowComplete:
 # 5.3 Not automated: Maestro cannot long-press one word inside a text field. The sheet
 # selects the whole paragraph by default, which is what gets highlighted here.
 
-# 5.4 The note is typed in the same sheet, before saving. The sheet's button is picked
-# below the sheet's title: the highlighter icon above is also described as "Highlight".
+# 5.4 The note is typed in the same sheet, before saving.
 - tapOn: "Note (optional)"
 - inputText: "for the health note"
 - hideKeyboard
@@ -65,14 +71,11 @@ onFlowComplete:
     timeout: 15000
 - takeScreenshot: p5-08-highlighted
 
-# 5.5 Library, Highlights, search "measles".
+# 5.5 Library, Highlights: the passage. Since v0.4 search shows from ten items on.
 - back
 - tapOn:
     id: "tab_library"
 - tapOn: "Highlights"
-- tapOn: "Search your highlights"
-- inputText: "measles"
-- hideKeyboard
 - extendedWaitUntil:
     visible: "Note: for the health note"
     timeout: 15000
@@ -101,9 +104,6 @@ onFlowComplete:
 - tapOn:
     id: "tab_library"
 - tapOn: "Highlights"
-- tapOn: "Search your highlights"
-- inputText: "measles"
-- hideKeyboard
 - extendedWaitUntil:
     visible: "Note: for the health note"
     timeout: 15000
@@ -117,6 +117,7 @@ onFlowComplete:
 
 # 5.9 Remove the highlight from the report (highlighter, paragraph, "Remove highlight" in
 # the sheet), then Library, Highlights is empty.
+- tapOn: "More options"
 - tapOn:
     id: "highlighter"
 - tapOn: ".*75 per cent of the patients treated for measles.*"

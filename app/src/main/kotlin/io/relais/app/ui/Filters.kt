@@ -43,7 +43,8 @@ import io.relais.app.R
 
 /**
  * One filter of the row that replaced the tabs (theme-compose.md 12.1), in its order. [tab] is
- * the API feed it reads; Most read has none: it reads ReliefWeb's file.
+ * the API feed it reads; Most read has none: it reads ReliefWeb's file. "Key documents" left the
+ * row in v0.4: it repeated the formats (revue-ux-v0.3.md, change 7).
  */
 enum class PageFilter(val tab: CountryTab?, @StringRes val label: Int) {
     ALL(CountryTab.ALL, R.string.tab_all),
@@ -52,7 +53,6 @@ enum class PageFilter(val tab: CountryTab?, @StringRes val label: Int) {
     MAPS(CountryTab.MAPS, R.string.tab_maps),
     APPEALS(CountryTab.APPEALS, R.string.tab_appeals),
     NEWS(CountryTab.NEWS, R.string.tab_news),
-    KEY(CountryTab.KEY, R.string.tab_key),
     MOST_READ(null, R.string.filter_most_read),
     ;
 

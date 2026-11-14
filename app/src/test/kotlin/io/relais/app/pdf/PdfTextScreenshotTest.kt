@@ -94,7 +94,7 @@ class PdfTextScreenshotTest {
                     PdfTextContent(rows, rememberLazyListState(firstRow), onOpenPdf = {}, marks = marks)
                 }
             }
-            PdfTextBottomBar(page, pageCount, 5_731, onTextSize = {})
+            PdfTextBottomBar(page, pageCount, onTextSize = {})
         }
     }
 

@@ -31,11 +31,12 @@ onFlowStart:
 - tapOn: "Use your own appname"
 - tapOn: "ReliefWeb appname"
 - inputText: ${APPNAME}
-- hideKeyboard
-- tapOn: "Check and continue"
+# Since v0.4 the field sits in Settings with "Save" next to it; the keyboard's key does the same.
+- pressKey: Enter
 - extendedWaitUntil:
-    visible: "Your own appname"
+    visible: "Appname saved\\..*"
     timeout: 30000
+- assertVisible: "Your own appname"
 - back
 - back
 

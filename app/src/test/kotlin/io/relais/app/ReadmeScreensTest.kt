@@ -47,6 +47,7 @@ import io.relais.app.pdf.TextRow
 import io.relais.app.pdf.textRows
 import io.relais.app.ui.DocumentRow
 import io.relais.app.ui.FollowedLine
+import io.relais.app.ui.FollowedName
 import io.relais.app.ui.FollowingRoute
 import io.relais.app.ui.FilterRow
 import io.relais.app.ui.HeadlinePile
@@ -235,7 +236,7 @@ class ReadmeScreensTest {
     private fun Following() = WithBottomBar(FollowingRoute) {
         ScreenScaffold(title = stringResource(R.string.following_title), onSettings = {}) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding)) {
-                item { FollowedLine(listOf(REGION, OTHER, nwp.shortname), onManage = {}) }
+                item { FollowedLine(listOf(REGION, OTHER, nwp.shortname).map { FollowedName(it, it) {} }, onManage = {}) }
                 item { FilterRow(PageFilter.FEEDS, PageFilter.ALL, onSelect = {}) }
                 items(followingRows) { (row, read) -> DocumentRow(row, onClick = {}, isNew = row.dateCreated > lastVisit && !read, isRead = read) }
             }
@@ -252,12 +253,12 @@ class ReadmeScreensTest {
             PdfTopBar("$REGION Situation Report No. 7", PdfMode.TEXT, true, {}, {}, {}, cs.surface, cs.onSurface)
             Box(Modifier.weight(1f)) {
                 ReadingTypography(2) {
-                    PdfTextContent(rows, rememberLazyListState(0), onOpenPdf = {}, marks = { p, b ->
+                    PdfTextContent(rows, rememberLazyListState(0), onOpenPdf = {}, showBanner = false, marks = { p, b ->
                         if (p == marked.page && b == marked.block) BlockMarks(highlights = listOf(start until start + sentence.length)) else BlockMarks.NONE
                     })
                 }
             }
-            PdfTextBottomBar(0, pages.size, 5_731, onTextSize = {})
+            PdfTextBottomBar(0, pages.size, onTextSize = {})
         }
     }
 

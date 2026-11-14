@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.BorderColor
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.FormatSize
@@ -45,16 +46,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -268,6 +266,7 @@ private sealed interface ReportRow {
     data object Header : ReportRow
     data object Twins : ReportRow
     data object Files : ReportRow
+    data object FileLines : ReportRow
     data class Notice(val text: Int, val action: Int? = null) : ReportRow
     data object Summary : ReportRow
     data object Preview : ReportRow
@@ -341,6 +340,10 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
             if (report == null) return@buildList
             if (report.imageUrl != null) add(ReportRow.Photo)
             add(ReportRow.Header)
+            // With its own text, the file is a line under the dates; without, the card stays
+            // above the first page (revue-densite-v0.3.md, change 7).
+            val hasText = state.blocks.isNotEmpty()
+            if (report.files.isNotEmpty() && hasText) add(ReportRow.FileLines)
             if (state.twins.isNotEmpty()) add(ReportRow.Twins)
             when {
                 report.goneAt != null || state.notFound -> add(ReportRow.Notice(R.string.report_gone))
@@ -348,7 +351,7 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                 report.bodyHtml == null && state.error == LoadError.OFFLINE -> add(ReportRow.Notice(R.string.report_not_saved_offline))
             }
             if (report.fromRss && report.headlineSummary != null) add(ReportRow.Summary)
-            if (report.files.isNotEmpty()) add(ReportRow.Files)
+            if (report.files.isNotEmpty() && !hasText) add(ReportRow.Files)
             // Full text loaded but empty (map, infographic, PDF only): the first page in large.
             if (!report.fromRss && report.bodyHtml != null && state.blocks.isEmpty()) add(ReportRow.Preview)
             state.blocks.forEachIndexed { index, block -> add(ReportRow.Body(index, block)) }
@@ -366,6 +369,23 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
     fun openFile(file: FileLite) {
         val r = report ?: return
         nav.pdf(file.url, r.id, file.description?.removePrefix("- ")?.ifBlank { null } ?: file.filename ?: r.title, r.urlAlias)
+    }
+
+    // "Read": open a PDF on the phone, ask first for a large one on mobile data, else download it.
+    fun readFile(file: FileLite) {
+        when {
+            state.downloaded.containsKey(file.url) -> openFile(file)
+            vm.isMetered() && (file.size ?: 0) > 5_000_000 -> confirmFile = file
+            else -> {
+                pendingOpen = file.url
+                vm.download(file)
+            }
+        }
+    }
+
+    fun cancelFile(file: FileLite) {
+        pendingOpen = null
+        vm.cancel(file)
     }
 
     // A download started from this screen opens in the viewer as soon as it is complete.
@@ -417,32 +437,24 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
         onBack = { nav.back() },
         snackbarHostState = snackbar,
         actions = {
+            // Four controls, no text (revue-densite-v0.3.md, change 7): Save as a bookmark, full
+            // once the report is kept; the highlighter moved to the menu.
             if (report != null && !report.fromRss) {
-                if (state.blocks.isNotEmpty()) {
-                    IconToggleButton(checked = highlightMode, onCheckedChange = {
-                        highlightMode = it
-                        if (it) dismissSelection()
-                        if (it) scope.launch { snackbar.showSnackbar(highlightHint) }
-                    }, modifier = Modifier.testTag("highlighter")) {
-                        Icon(Icons.Rounded.BorderColor, contentDescription = stringResource(R.string.highlight_action))
-                    }
-                }
-                if (saved) {
-                    FilledTonalButton(onClick = { vm.setSaved(false) }, shape = CircleShape, modifier = Modifier.testTag("save_button")) {
-                        Icon(Icons.Rounded.Bookmark, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text(stringResource(R.string.action_saved), modifier = Modifier.padding(start = 6.dp))
-                    }
-                } else {
-                    OutlinedButton(onClick = {
+                IconButton(onClick = {
+                    if (saved) {
+                        vm.setSaved(false)
+                    } else {
                         vm.setSaved(true)
                         scope.launch {
                             val result = snackbar.showSnackbar(savedMsg, undoLabel)
                             if (result == SnackbarResult.ActionPerformed) vm.setSaved(false)
                         }
-                    }, shape = CircleShape, modifier = Modifier.testTag("save_button")) {
-                        Icon(Icons.Rounded.BookmarkBorder, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text(stringResource(R.string.action_save), modifier = Modifier.padding(start = 6.dp))
                     }
+                }, modifier = Modifier.testTag("save_button")) {
+                    Icon(
+                        if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                        contentDescription = stringResource(if (saved) R.string.action_saved else R.string.action_save),
+                    )
                 }
             }
             val shareUrl = report?.urlAlias
@@ -455,13 +467,33 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                 }) {
                     Icon(Icons.Rounded.Share, contentDescription = stringResource(R.string.report_share))
                 }
+            }
+            // The menu whether or not the report has a ReliefWeb link: the highlighter and the
+            // text size do not need one (review of PR 13).
+            if (report != null) {
                 OverflowMenu { close ->
+                    if (!report.fromRss && state.blocks.isNotEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.highlight_action)) },
+                            leadingIcon = { Icon(Icons.Rounded.BorderColor, contentDescription = null) },
+                            trailingIcon = { if (highlightMode) Icon(Icons.Rounded.Check, contentDescription = null) },
+                            onClick = {
+                                close()
+                                highlightMode = !highlightMode
+                                if (highlightMode) {
+                                    dismissSelection()
+                                    scope.launch { snackbar.showSnackbar(highlightHint) }
+                                }
+                            },
+                            modifier = Modifier.testTag("highlighter"),
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.text_size)) },
                         leadingIcon = { Icon(Icons.Rounded.FormatSize, contentDescription = null) },
                         onClick = { close(); showTextSize = true },
                     )
-                    DropdownMenuItem(text = { Text(openOnRwLabel) }, onClick = { close(); safeOpen(uriHandler, shareUrl) })
+                    if (shareUrl != null) DropdownMenuItem(text = { Text(openOnRwLabel) }, onClick = { close(); safeOpen(uriHandler, shareUrl) })
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.action_mark_unread)) },
                         onClick = { close(); vm.markUnread() },
@@ -511,20 +543,15 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                             report = report,
                             downloads = state.downloads,
                             downloaded = state.downloaded,
-                            onRead = { file ->
-                                when {
-                                    state.downloaded.containsKey(file.url) -> openFile(file)
-                                    vm.isMetered() && (file.size ?: 0) > 5_000_000 -> confirmFile = file
-                                    else -> {
-                                        pendingOpen = file.url
-                                        vm.download(file)
-                                    }
-                                }
-                            },
-                            onCancel = { file ->
-                                pendingOpen = null
-                                vm.cancel(file)
-                            },
+                            onRead = ::readFile,
+                            onCancel = ::cancelFile,
+                        )
+                        ReportRow.FileLines -> FileLines(
+                            report = report,
+                            downloads = state.downloads,
+                            downloaded = state.downloaded,
+                            onRead = ::readFile,
+                            onCancel = ::cancelFile,
                         )
                         is ReportRow.Notice -> {
                             val url = report.urlAlias
@@ -894,24 +921,97 @@ internal fun FilesSection(
                             )
                         }
                     }
-                    // Over 100 MB: ReliefWeb's page, where the browser can download it.
-                    if (tooLarge) {
-                        TextButton(onClick = { safeOpen(uriHandler, report.urlAlias) }) {
-                            Text(stringResource(R.string.report_open_reliefweb))
-                        }
-                    } else when (val d = downloads[file.url]) {
-                        is DownloadState.Running -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(progress = { d.progress }, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Text("${(d.progress * 100).toInt()}%", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
-                            }
-                            TextButton(onClick = { onCancel(file) }) { Text(stringResource(R.string.report_cancel)) }
-                        }
-                        else -> Button(onClick = { onRead(file) }, shape = CircleShape) {
-                            Text(stringResource(if (d == DownloadState.Failed) R.string.action_try_again else R.string.report_read))
+                    FileAction(file, report, downloads[file.url], tooLarge, onRead, onCancel, filled = true)
+                }
+            }
+        }
+    }
+}
+
+/** "Read", its progress and "Cancel", or ReliefWeb's page for a file over 100 MB. */
+@Composable
+private fun FileAction(
+    file: FileLite,
+    report: ReportEntity,
+    download: DownloadState?,
+    tooLarge: Boolean,
+    onRead: (FileLite) -> Unit,
+    onCancel: (FileLite) -> Unit,
+    /** The blue button of the card; a text button on a file line. */
+    filled: Boolean = false,
+) {
+    val uriHandler = LocalUriHandler.current
+    // Over 100 MB: ReliefWeb's page, where the browser can download it.
+    if (tooLarge) {
+        TextButton(onClick = { safeOpen(uriHandler, report.urlAlias) }) {
+            Text(stringResource(R.string.report_open_reliefweb))
+        }
+    } else when (download) {
+        is DownloadState.Running -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(progress = { download.progress }, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text("${(download.progress * 100).toInt()}%", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
+            }
+            TextButton(onClick = { onCancel(file) }) { Text(stringResource(R.string.report_cancel)) }
+        }
+        else -> {
+            val label = stringResource(if (download == DownloadState.Failed) R.string.action_try_again else R.string.report_read)
+            if (filled) Button(onClick = { onRead(file) }, shape = CircleShape) { Text(label) } else TextButton(onClick = { onRead(file) }) { Text(label) }
+        }
+    }
+}
+
+/**
+ * The files of a report that has its own text, one line each under the dates (v0.4):
+ * "PDF · 22 pages · 352 KB", then "Read". The text comes first; the file waits on its line.
+ */
+@Composable
+internal fun FileLines(
+    report: ReportEntity,
+    downloads: Map<String, DownloadState>,
+    downloaded: Map<String, PdfEntity>,
+    onRead: (FileLite) -> Unit,
+    onCancel: (FileLite) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().padding(start = Space.screen, end = Space.xs)) {
+        report.files.forEach { file ->
+            val type = file.mimetype?.substringAfter('/')?.uppercase() ?: "FILE"
+            val onPhone = downloaded.containsKey(file.url)
+            val tooLarge = !onPhone && (PdfDownloader.tooLarge(file.size) || downloads[file.url] is DownloadState.TooLarge)
+            val name = if (report.files.size == 1) null else file.description?.removePrefix("- ")?.ifBlank { null } ?: file.filename
+            val facts = listOfNotNull(
+                name ?: type,
+                file.pages?.takeIf { it > 0 }?.let { stringResource(R.string.report_pages, it.toInt()) },
+                Display.size(file.size),
+            ).joinToString(" · ")
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("file_row"), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Column(Modifier.weight(1f).padding(horizontal = Space.s)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(facts, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (onPhone) {
+                            Icon(
+                                Icons.Rounded.DownloadDone,
+                                contentDescription = stringResource(R.string.library_pdf_on_phone),
+                                tint = cs.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 4.dp).size(16.dp),
+                            )
                         }
                     }
+                    if (downloads[file.url] == DownloadState.Failed) {
+                        Text(stringResource(R.string.report_download_failed), style = MaterialTheme.typography.bodySmall, color = cs.error)
+                    }
+                    if (tooLarge) {
+                        Text(
+                            stringResource(R.string.report_too_large, Display.size(PdfDownloader.MAX_BYTES).orEmpty()),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = cs.onSurfaceVariant,
+                            modifier = Modifier.testTag("file_too_large"),
+                        )
+                    }
                 }
+                FileAction(file, report, downloads[file.url], tooLarge, onRead, onCancel)
             }
         }
     }

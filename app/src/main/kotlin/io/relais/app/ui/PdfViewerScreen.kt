@@ -321,6 +321,16 @@ class PdfViewerViewModel(
 
     fun setReadingSize(index: Int) = viewModelScope.launch { c.settings.setReadingSize(index) }
 
+    /** The text view's banner: on its first opening only, then kept for this opening (v0.4). */
+    var showTextBanner by androidx.compose.runtime.mutableStateOf<Boolean?>(null)
+        private set
+
+    init {
+        viewModelScope.launch { showTextBanner = !c.settings.current().pdfTextBannerSeen }
+    }
+
+    fun textBannerShown() = viewModelScope.launch { c.settings.setPdfTextBannerSeen() }
+
     /** Search works on the text: from the PDF view, it opens the Text view (theme-compose.md 10.10). */
     fun openSearch() {
         if (_state.value.text is PdfTextState.Ready) mode.value = PdfMode.TEXT
@@ -363,15 +373,18 @@ class PdfViewerViewModel(
     }
 }
 
-/** Index in the text list of a page and block: the banner comes first, then the rows. */
-private fun rowIndex(rows: List<TextRow>, page: Int, block: Int): Int {
+/**
+ * Index in the text list of a page and block. [lead] items come first: 1 when the banner shows,
+ * 0 since v0.4 once it has been seen (review of PR 13: a fixed 1 put every jump a row too far).
+ */
+internal fun rowIndex(rows: List<TextRow>, page: Int, block: Int, lead: Int): Int {
     val exact = rows.indexOfFirst { it is TextRow.Body && it.page == page && it.block >= block }
     val index = if (exact >= 0 && block > 0) exact else rows.indexOfFirst { it.page >= page }.takeIf { it >= 0 } ?: 0
-    return index + 1
+    return index + lead
 }
 
 /** The row at a list index, or null for the banner. */
-private fun rowAt(rows: List<TextRow>, index: Int): TextRow? = rows.getOrNull(index - 1)
+internal fun rowAt(rows: List<TextRow>, index: Int, lead: Int): TextRow? = rows.getOrNull(index - lead)
 
 /**
  * Built-in PDF reader with two views (theme-compose.md 5.11): the text taken from the PDF, in
@@ -429,13 +442,18 @@ fun PdfViewerScreen(
     BackHandler(enabled = search.open) { vm.closeSearch() }
     BackHandler(enabled = passage != null) { dismissSelection() }
 
+    // Items before the first row of the text: the banner, on its first opening only. Unknown
+    // (null) until the setting is read: no position is restored or saved before then.
+    val bannerKnown = vm.showTextBanner != null
+    fun lead() = if (vm.showTextBanner == true) 1 else 0
+
     // The text view opens on its saved position, or on the passage asked for.
-    LaunchedEffect(ready) {
-        if (ready == null || textRestored) return@LaunchedEffect
+    LaunchedEffect(ready, bannerKnown) {
+        if (ready == null || textRestored || !bannerKnown) return@LaunchedEffect
         textRestored = true
         val start = ready.start
         if (start.page > 0 || start.block > 0 || start.offset > 0) {
-            textList.scrollToItem(rowIndex(ready.rows, start.page, start.block), start.offset.coerceAtLeast(0))
+            textList.scrollToItem(rowIndex(ready.rows, start.page, start.block, lead()), start.offset.coerceAtLeast(0))
         }
     }
     LaunchedEffect(document) {
@@ -456,22 +474,22 @@ fun PdfViewerScreen(
         if (mode == PdfMode.PDF && doc != null) {
             if (pdfList.firstVisibleItemIndex != target) pdfList.scrollToItem(target.coerceIn(0, doc.pageCount - 1))
         } else if (mode == PdfMode.TEXT && text != null) {
-            val shown = rowAt(text.rows, textList.firstVisibleItemIndex)?.page ?: 0
-            if (shown != target) textList.scrollToItem(rowIndex(text.rows, target, 0))
+            val shown = rowAt(text.rows, textList.firstVisibleItemIndex, lead())?.page ?: 0
+            if (shown != target) textList.scrollToItem(rowIndex(text.rows, target, 0, lead()))
         }
     }
 
     // Follow and save the place in each view. The page being read is the one at the top of
     // the screen, or, at the end of the text, where a short last page cannot reach the top,
     // the page of the last row in view.
-    LaunchedEffect(ready, mode) {
-        if (ready == null || mode != PdfMode.TEXT) return@LaunchedEffect
+    LaunchedEffect(ready, mode, bannerKnown) {
+        if (ready == null || mode != PdfMode.TEXT || !bannerKnown) return@LaunchedEffect
         snapshotFlow {
             val last = if (textList.canScrollForward) -1 else textList.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
             Triple(textList.firstVisibleItemIndex, textList.firstVisibleItemScrollOffset, last)
         }.collectLatest { (index, offset, last) ->
-            val row = rowAt(ready.rows, index) ?: ready.rows.firstOrNull() ?: return@collectLatest
-            val shown = (if (last >= 0) rowAt(ready.rows, last) else null)?.page ?: row.page
+            val row = rowAt(ready.rows, index, lead()) ?: ready.rows.firstOrNull() ?: return@collectLatest
+            val shown = (if (last >= 0) rowAt(ready.rows, last, lead()) else null)?.page ?: row.page
             vm.setPage(shown)
             delay(600)
             val blockIndex = (row as? TextRow.Body)?.block ?: 0
@@ -493,7 +511,7 @@ fun PdfViewerScreen(
         if (mode == PdfMode.TEXT && ready != null) {
             val row = ready.rows.indexOfFirst { it is TextRow.Body && it.page == match.page && it.block == match.block }
                 .takeIf { it >= 0 } ?: ready.rows.indexOfFirst { it.page == match.page && it is TextRow.Link }
-            if (row >= 0) textList.animateScrollToItem(row + 1)
+            if (row >= 0) textList.animateScrollToItem(row + lead())
         } else if (mode == PdfMode.PDF && document != null) {
             pdfList.animateScrollToItem(match.page.coerceIn(0, document.pageCount - 1))
         }
@@ -556,9 +574,12 @@ fun PdfViewerScreen(
                         val matchesByBlock = remember(search.matches) { search.matches.groupBy { it.page to it.block } }
                         val highlightsByBlock = remember(highlights) { highlights.groupBy { (it.pdfPage ?: 0) - 1 to it.blockIndex } }
                         val current = search.current
+                        val showBanner = vm.showTextBanner == true
+                        LaunchedEffect(showBanner) { if (showBanner) vm.textBannerShown() }
                         PdfTextContent(
                             rows = text.rows,
                             listState = textList,
+                            showBanner = showBanner,
                             onOpenPdf = { p ->
                                 if (p >= 0) vm.setPage(p)
                                 vm.setMode(PdfMode.PDF)
@@ -622,7 +643,7 @@ fun PdfViewerScreen(
         }
 
         if (mode == PdfMode.TEXT && ready != null) {
-            PdfTextBottomBar(currentPage, ready.pages.size, state.fileSize, onTextSize = { showTextSize = true })
+            PdfTextBottomBar(currentPage, ready.pages.size, onTextSize = { showTextSize = true })
         } else if (mode == PdfMode.PDF) {
             PdfBottomBar(document, pdfList, scale, state.fileSize, onScale = { scale = it }, barColor = extra.pdfBar, barText = barText)
         }

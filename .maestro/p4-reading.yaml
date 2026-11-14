@@ -34,10 +34,13 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
     timeout: 30000
+# Since v0.4 the highlighter is in the menu, once the text is loaded.
+- tapOn: "More options"
 - extendedWaitUntil:
     visible:
       id: "highlighter"
     timeout: 60000
+- back
 - takeScreenshot: p4-06-msf-report
 - repeat:
     times: 3
@@ -85,7 +88,8 @@ onFlowComplete:
 - assertVisible: "Back to top"
 - takeScreenshot: p4-09-picked-up
 
-# 4.4 The PDF: page 3, close, open again on page 3. The Files section is above the text.
+# 4.4 The PDF: page 3, close, open again on page 3. Since v0.4 the file is a line under the
+# dates, above the text.
 - scrollUntilVisible:
     element:
       id: "file_row"
@@ -151,45 +155,18 @@ onFlowComplete:
 - assertVisible: "Saved Today · Available offline · PDF on phone"
 - takeScreenshot: p4-14-library-saved
 
-# 4.7 History, filtered on Sudan, then on Health. Only this report was opened in this flow:
-# "a report without Health disappears" needs a second report and is not checked.
+# 4.7 History (v0.4, revue-densite-v0.3.md, change 9). Its PDF is on the phone since 4.4, so
+# the search field shows; the filter icon waits for ten items. The filter sheet (facets,
+# Group by) is drawn by the screenshot tests.
 - tapOn: "History"
 - extendedWaitUntil:
     visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
     timeout: 15000
-- tapOn: "Country"
-- tapOn: "Sudan \\d+"
-- tapOn: "Done"
-- tapOn: "Theme"
-- tapOn: "Health \\d+"
-- tapOn: "Done"
-- assertVisible: "Country \\(1\\)"
-- assertVisible: "Theme \\(1\\)"
-- assertVisible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
-- takeScreenshot: p4-15-history-filtered
-
-# 4.8 Group by format: the report sits under "Analysis". The "Group by" chip is at the end
-# of the chip row: swipe the row until it shows (one swipe was not always enough on 8/11).
-- repeat:
-    while:
-      notVisible: "Group by: .*"
-    times: 4
-    commands:
-      - swipe:
-          from:
-            text: "Format"
-          direction: LEFT
-      - waitForAnimationToEnd:
-          timeout: 2000
-- tapOn: "Group by: .*"
-# The Group by menu is a popup window: only its items are on screen.
-- tapOn: "Format"
-- extendedWaitUntil:
-    visible: "Group by: Format"
-    timeout: 15000
-- assertVisible: "Analysis"
-- assertVisible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
-- takeScreenshot: p4-16-history-by-format
+- assertVisible:
+    id: "library_search"
+- assertNotVisible:
+    id: "library_filters"
+- takeScreenshot: p4-15-history
 
 # 4.9 Settings, Clear history: the confirmation.
 - tapOn: "Settings"

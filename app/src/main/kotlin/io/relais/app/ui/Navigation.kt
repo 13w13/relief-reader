@@ -112,12 +112,16 @@ class Nav(private val controller: NavHostController) {
     fun back() = controller.popBackStack()
     fun report(id: Long, block: Int = -1) = controller.navigate(ReportRoute(id, block))
 
-    /** A headline of the pile, whose report ends with its place and the next one. */
-    fun headline(id: Long) = controller.navigate(ReportRoute(id, headline = true))
+    /**
+     * A headline of the pile, whose report ends with its place and the next one. Single top: a
+     * double tap on a card stacks the report once (review of PR 12).
+     */
+    fun headline(id: Long) = controller.navigate(ReportRoute(id, headline = true)) { launchSingleTop = true }
 
     /** Next or Previous at the end of a headline: it replaces the report open, without stacking. */
     fun swapHeadline(id: Long) = controller.navigate(ReportRoute(id, headline = true)) {
         popUpTo<ReportRoute> { inclusive = true }
+        launchSingleTop = true
     }
 
     /** After the pile: the search of headlines by date with an appname, the feed's ones without. */

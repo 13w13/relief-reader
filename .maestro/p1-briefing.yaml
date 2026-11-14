@@ -274,16 +274,18 @@ onFlowComplete:
 - runFlow:
     file: common/filter.yaml
     env:
-      FILTER: "key"
+      FILTER: "sitreps"
 - extendedWaitUntil:
     visible:
       id: "doc_.*"
     timeout: 60000
-- takeScreenshot: p1-15b-country-sudan-key
+- takeScreenshot: p1-15b-country-sudan-sitreps
 - back
 
 # 1.12 Every headline read: from the end card, open and close each line left (tagged
-# pile_line_unread_<id>). Back stands on that headline's card; the arrow leads back to the end.
+# pile_line_unread_<id>). The end card lists 6 titles at most; a headline left beyond them is
+# found by going back through the cards. Back stands on that headline's card; the arrow leads
+# back to the end.
 - extendedWaitUntil:
     visible:
       id: "tab_today"
@@ -305,13 +307,34 @@ onFlowComplete:
 - takeScreenshot: p1-13-pile-end
 - repeat:
     while:
-      visible:
-        id: "pile_line_unread_.*"
+      notVisible: "You're up to date"
     times: 25
     commands:
-      - tapOn:
-          id: "pile_line_unread_.*"
-          index: 0
+      - runFlow:
+          when:
+            visible:
+              id: "pile_line_unread_.*"
+          commands:
+            - tapOn:
+                id: "pile_line_unread_.*"
+                index: 0
+      - runFlow:
+          when:
+            visible:
+              id: "pile_position"
+              text: "End"
+          commands:
+            - repeat:
+                while:
+                  notVisible:
+                    id: "headline_unread_.*"
+                times: 25
+                commands:
+                  - tapOn:
+                      id: "pile_previous"
+            - tapOn:
+                id: "headline_unread_.*"
+                index: 0
       - extendedWaitUntil:
           visible:
             id: "save_button"

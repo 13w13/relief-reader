@@ -975,6 +975,15 @@ class Repository(
             .sortedWith(compareByDescending<FollowedDisasterRow> { it.newCount }.thenBy { it.disaster.name })
     }
 
+    /** How many reports of History a keep of [days] removes now (v0.4: Settings apply at once). */
+    suspend fun historyOlderThan(days: Int): Int =
+        if (days > 0) dao.countHistoryBefore(System.currentTimeMillis() - days * ONE_DAY) else 0
+
+    /** A shorter keep takes effect at once, not at the next daily cleanup. */
+    suspend fun expireHistoryOlderThan(days: Int) {
+        if (days > 0) dao.expireHistory(System.currentTimeMillis() - days * ONE_DAY)
+    }
+
     suspend fun cleanup(historyDays: Int) {
         val now = System.currentTimeMillis()
         if (historyDays > 0) dao.expireHistory(now - historyDays * ONE_DAY)

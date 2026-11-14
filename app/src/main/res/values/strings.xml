@@ -212,9 +212,14 @@
     <string name="settings_none">No access: headlines only</string>
     <string name="settings_check">Check access</string>
     <string name="settings_use_own">Use your own appname</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_remove">Remove</string>
+    <plurals name="settings_history_shorten">
+        <item quantity="one">Remove reading history older than %2$d days? %1$d report.</item>
+        <item quantity="other">Remove reading history older than %2$d days? %1$d reports.</item>
+    </plurals>
+    <string name="settings_appname_saved">Appname saved. Re.L now reads ReliefWeb with it.</string>
     <string name="settings_remove_own">Remove your appname</string>
-    <string name="settings_countries">Countries</string>
-    <string name="settings_countries_you_follow">Countries you follow · %1$d</string>
     <string name="settings_digest">Daily summary</string>
     <string name="settings_digest_around">Around %1$s</string>
     <string name="settings_library">Library</string>
@@ -310,7 +315,6 @@
     <string name="crisis_listed">Listed on ReliefWeb %1$s</string>
     <string name="crisis_description_by">Description by ReliefWeb editors</string>
     <string name="crisis_description_more">Read the full description</string>
-    <string name="crisis_description_less">Show less</string>
     <plurals name="crisis_new">
         <item quantity="one">%d new report</item>
         <item quantity="other">%d new reports</item>
@@ -403,7 +407,6 @@
         <item quantity="other">%1$s · %2$d reports</item>
     </plurals>
     <string name="most_covered_limits">A report posted in two languages counts twice, and a few organizations post a lot.</string>
-    <string name="tab_key">Key documents</string>
     <string name="country_more_in_all">%1$d more in All: %2$s.</string>
     <plurals name="format_news_count">
         <item quantity="one">%d news release</item>
@@ -483,18 +486,17 @@
     <string name="today_latest_reports_note">Situation reports, analyses, assessments and appeals from all countries</string>
     <!-- v0.3, organizations (produit/suivre-organisation.md 7, theme-compose.md 13.1 and 13.2) -->
     <string name="kicker_with">With %1$s</string>
-    <plurals name="source_rhythm">
-        <item quantity="one">About 1 document a week on ReliefWeb</item>
-        <item quantity="other">About %d documents a week on ReliefWeb</item>
-    </plurals>
-    <string name="source_rhythm_fewer">Fewer than 1 document a week on ReliefWeb</string>
-    <string name="source_latest">Latest: %1$s</string>
     <string name="source_mostly_on_1">Mostly on %1$s</string>
     <string name="source_mostly_on_2">Mostly on %1$s and %2$s</string>
     <string name="source_mostly_on_3">Mostly on %1$s, %2$s and %3$s</string>
     <string name="source_based_in">Based in %1$s</string>
-    <string name="source_website">Website</string>
-    <string name="source_show_more">Show more</string>
+    <plurals name="source_head_rhythm">
+        <item quantity="one">About 1 document a week</item>
+        <item quantity="other">About %d documents a week</item>
+    </plurals>
+    <string name="source_head_rhythm_fewer">Fewer than 1 document a week</string>
+    <string name="source_head_latest">Latest %1$s</string>
+    <string name="source_about">About %1$s</string>
     <string name="source_sheet_title">%1$s publishes about %2$d documents a week</string>
     <string name="source_reports_only">Reports only</string>
     <string name="source_reports_only_note">About %1$d a week: situation reports, analyses, assessments, appeals and evaluations.</string>
@@ -556,7 +558,15 @@
     </plurals>
     <string name="pile_end_left">· %1$d left</string>
     <string name="pile_older">Older headlines</string>
+    <plurals name="pile_more_this_week">
+        <item quantity="one">%d more this week</item>
+        <item quantity="other">%d more this week</item>
+    </plurals>
     <string name="headline_nav_next">Next</string>
-    <string name="older_all_read">You\'ve read the %1$d latest headlines.</string>
-    <string name="older_feed_limit">That\'s every headline on your phone. ReliefWeb\'s feed keeps the 20 latest.</string>
+    <plurals name="older_all_read">
+        <item quantity="one">You\'ve read the only headline on your phone.</item>
+        <item quantity="other">You\'ve read all %1$d headlines on your phone.</item>
+    </plurals>
+    <string name="older_every_one">That\'s every headline on your phone.</string>
+    <string name="older_feed_limit">ReliefWeb\'s feed keeps only the 20 latest. Add an appname to see older ones.</string>
 </resources>

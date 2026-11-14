@@ -28,7 +28,9 @@ onFlowComplete:
     visible:
       id: "following_line"
     timeout: 30000
-- assertVisible: "(.*Sudan.*Lebanon.*|.*Lebanon.*Sudan.*)"
+# Since v0.4 each name of the line is touchable (following_name_<kind>_<id>).
+- assertVisible:
+    id: "following_name_country_.*"
 - assertVisible:
     id: "filter_all"
 - extendedWaitUntil:
@@ -36,6 +38,23 @@ onFlowComplete:
       id: "doc_.*"
     timeout: 90000
 - takeScreenshot: p2-06-following
+
+# 2.1a A name of the line opens its page; the bottom bar keeps Following lit.
+- tapOn:
+    id: "following_name_country_.*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Humanitarian situation"
+    timeout: 30000
+- assertVisible:
+    id: "tab_following"
+    selected: true
+- takeScreenshot: p2-06a-name-opens-country
+- back
+- extendedWaitUntil:
+    visible:
+      id: "following_line"
+    timeout: 15000
 
 # 2.1b "Manage": the list, each country with "Humanitarian situation".
 - tapOn:
@@ -103,16 +122,9 @@ onFlowComplete:
       id: "page_all"
     timeout: 15000
 
-# 2.3c Key documents, the filter before Most read.
-- runFlow:
-    file: common/filter.yaml
-    env:
-      FILTER: "key"
-- extendedWaitUntil:
-    visible:
-      id: "doc_.*"
-    timeout: 60000
-- takeScreenshot: p2-09b-country-chad-key
+# 2.3c No "Key documents" filter since v0.4: it repeated the formats.
+- assertNotVisible:
+    id: "filter_key"
 
 # 2.4 The three latest documents. Their order against the site (oracle O3) is checked
 # in fixtures mode, not here.

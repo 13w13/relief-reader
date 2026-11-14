@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -44,7 +50,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -311,7 +316,7 @@ fun LibraryScreen(nav: Nav) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var openFacet by remember { mutableStateOf<LibraryFacet?>(null) }
-    var groupMenu by remember { mutableStateOf(false) }
+    var filterSheet by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     // The pager holds the current view: a swipe or a tap on a tab moves it.
     val pager = rememberPagerState { LibraryView.entries.size }
     OnPageSettled(pager) { vm.setView(LibraryView.entries[it]) }
@@ -334,55 +339,57 @@ fun LibraryScreen(nav: Nav) {
 
     ScreenScaffold(title = stringResource(R.string.tab_library), onSettings = nav::settings, snackbarHostState = snackbar) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            // Tabs in the style of 5.4: Inter, ink for the active one (revue-densite-v0.3.md, change 9).
+            val cs = MaterialTheme.colorScheme
             PrimaryScrollableTabRow(selectedTabIndex = pager.currentPage, edgePadding = 8.dp, modifier = Modifier.testTag("library_tabs")) {
                 LibraryView.entries.forEachIndexed { index, v ->
+                    val active = index == pager.currentPage
                     Tab(
-                        selected = index == pager.currentPage,
+                        selected = active,
                         onClick = { scope.launch { pager.animateScrollToPage(index) } },
-                        text = { Text(stringResource(VIEW_LABELS.getValue(v))) },
+                        selectedContentColor = cs.onSurface,
+                        unselectedContentColor = cs.onSurfaceVariant,
+                        text = {
+                            Text(
+                                stringResource(VIEW_LABELS.getValue(v)),
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (active) FontWeight.Bold else FontWeight.Medium),
+                            )
+                        },
                     )
                 }
             }
-            // The field keeps its own text: bound to the view model's state, which lags, fast
-            // typing lost or swapped letters ("measles" became "mealess" in an e2e run).
-            OutlinedTextField(
-                value = queryText,
-                onValueChange = { queryText = it; vm.setQuery(it) },
-                label = {
-                    Text(stringResource(if (state.view == LibraryView.HIGHLIGHTS) R.string.library_search_highlights else R.string.library_search))
-                },
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp)) {
-                items(state.view.facets()) { facet ->
-                    val selected = state.filters[facet].orEmpty()
-                    val label = stringResource(FACET_LABELS.getValue(facet))
-                    FilterChip(
-                        selected = selected.isNotEmpty(),
-                        onClick = { openFacet = facet },
-                        label = { Text(if (selected.isEmpty()) label else "$label (${selected.size})") },
-                    )
-                }
-                if (state.view != LibraryView.HIGHLIGHTS) item {
-                    Box {
-                        FilterChip(
-                            selected = state.groupBy != GroupBy.DATE,
-                            onClick = { groupMenu = true },
-                            label = { Text(stringResource(R.string.library_group_by, stringResource(GROUP_LABELS.getValue(state.groupBy)))) },
-                        )
-                        DropdownMenu(expanded = groupMenu, onDismissRequest = { groupMenu = false }) {
-                            GroupBy.entries.forEach { g ->
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(GROUP_LABELS.getValue(g))) },
-                                    onClick = { vm.setGroupBy(g); groupMenu = false },
-                                )
+            // Search and filters (change 9, art director 14/11). The field: from ten items, or in
+            // Saved and History as soon as a PDF read is on the phone, since the list shows titles
+            // and not the PDFs' text. The filter icon: from ten items. Both stay while a search or
+            // a filter is on, so that the reader can always undo it. The facets and "Group by" sit
+            // in a sheet behind the icon at the end of the field.
+            val count = if (state.view == LibraryView.HIGHLIGHTS) state.allHighlights.size else state.list(state.view).all.size
+            val active = state.filters.values.count { it.isNotEmpty() } + if (state.groupBy != GroupBy.DATE && state.view != LibraryView.HIGHLIGHTS) 1 else 0
+            val busy = queryText.isNotBlank() || active > 0
+            val pdfs = state.view != LibraryView.HIGHLIGHTS && state.list(state.view).all.any { it.pdfOnPhone }
+            val showFilters = busy || count >= SEARCH_FROM
+            if (showFilters || pdfs) {
+                // The field keeps its own text: bound to the view model's state, which lags, fast
+                // typing lost or swapped letters ("measles" became "mealess" in an e2e run).
+                OutlinedTextField(
+                    value = queryText,
+                    onValueChange = { queryText = it; vm.setQuery(it) },
+                    label = {
+                        Text(stringResource(if (state.view == LibraryView.HIGHLIGHTS) R.string.library_search_highlights else R.string.library_search))
+                    },
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    trailingIcon = if (!showFilters) null else { {
+                        val label = if (active > 0) stringResource(R.string.results_filters_count, active) else stringResource(R.string.results_filters)
+                        IconButton(onClick = { filterSheet = true }, modifier = Modifier.testTag("library_filters")) {
+                            BadgedBox(badge = { if (active > 0) Badge(containerColor = cs.primary) { Text(active.toString()) } }) {
+                                Icon(Icons.Outlined.FilterList, contentDescription = label)
                             }
                         }
-                    }
-                }
+                    } },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("library_search"),
+                )
             }
 
             // The Library is on the phone: a pull only re-reads it, the spinner closes at once.
@@ -434,6 +441,17 @@ fun LibraryScreen(nav: Nav) {
         ExportSheet(result, onDismiss = { exportResult = null })
     }
 
+    if (filterSheet) {
+        ModalBottomSheet(onDismissRequest = { filterSheet = false }, modifier = Modifier.testTag("library_filter_sheet")) {
+            LibraryFilterSheet(
+                state,
+                onFacet = { filterSheet = false; openFacet = it },
+                onGroupBy = vm::setGroupBy,
+                onClear = { vm.clearFilters(); vm.setGroupBy(GroupBy.DATE) },
+            )
+        }
+    }
+
     openFacet?.let { facet ->
         val values = if (state.view == LibraryView.HIGHLIGHTS) {
             state.allHighlights.flatMap { facet.valuesOf(it, state.highlightReports[it.reportId]) }
@@ -469,6 +487,53 @@ fun LibraryScreen(nav: Nav) {
                 TextButton(onClick = { vm.setFilter(facet, emptySet()); openFacet = null }) { Text(stringResource(R.string.filter_clear_all)) }
             },
         )
+    }
+}
+
+/** Search and filters show from this many items in a view. */
+private const val SEARCH_FROM = 10
+
+/** The facets of the view, each opening its list, then "Group by" for Saved and History. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+internal fun LibraryFilterSheet(state: LibraryState, onFacet: (LibraryFacet) -> Unit, onGroupBy: (GroupBy) -> Unit, onClear: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().padding(bottom = Space.xl).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = Space.screen), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.results_filters), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            TextButton(onClick = onClear) { Text(stringResource(R.string.filter_clear_all)) }
+        }
+        state.view.facets().forEach { facet ->
+            val selected = state.filters[facet].orEmpty()
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onFacet(facet) }.padding(horizontal = Space.screen)
+                    .testTag("library_facet_" + facet.name.lowercase()),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(FACET_LABELS.getValue(facet)), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                if (selected.isNotEmpty()) {
+                    Text(selected.sorted().joinToString(", "), style = MaterialTheme.typography.bodySmall, color = cs.primary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                }
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = cs.onSurfaceVariant)
+            }
+        }
+        if (state.view != LibraryView.HIGHLIGHTS) {
+            Text(
+                stringResource(R.string.library_group_by, stringResource(GROUP_LABELS.getValue(state.groupBy))),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(start = Space.screen, end = Space.screen, top = Space.l, bottom = Space.s),
+            )
+            FlowRow(Modifier.padding(horizontal = Space.screen), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GroupBy.entries.forEach { g ->
+                    FilterChip(
+                        selected = state.groupBy == g,
+                        onClick = { onGroupBy(g) },
+                        label = { Text(stringResource(GROUP_LABELS.getValue(g))) },
+                        modifier = Modifier.testTag("library_group_" + g.name.lowercase()),
+                    )
+                }
+            }
+        }
     }
 }
 

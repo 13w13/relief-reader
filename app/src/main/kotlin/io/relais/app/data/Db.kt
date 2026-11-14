@@ -586,6 +586,10 @@ interface RelaisDao {
     @Query("UPDATE reading SET inHistory = 0 WHERE lastOpenedAt < :cutoff")
     suspend fun expireHistory(cutoff: Long)
 
+    /** Reports of History last opened before [cutoff]: what a shorter "Keep history for" removes. */
+    @Query("SELECT COUNT(*) FROM reading WHERE inHistory = 1 AND lastOpenedAt < :cutoff")
+    suspend fun countHistoryBefore(cutoff: Long): Int
+
     @Query("UPDATE reading SET inHistory = 0")
     suspend fun clearHistoryFlags()
 

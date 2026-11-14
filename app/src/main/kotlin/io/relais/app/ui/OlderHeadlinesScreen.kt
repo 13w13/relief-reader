@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,18 +50,32 @@ fun OlderHeadlinesScreen(nav: Nav) {
     val vm = viewModel { OlderHeadlinesViewModel(container) }
     val state by vm.state.collectAsStateWithLifecycle()
     ScreenScaffold(title = stringResource(R.string.pile_older), onBack = { nav.back() }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).testTag("page_older_headlines")) {
-            val (headlines, read) = state ?: return@LazyColumn
-            items(headlines, key = { it.id }) { report ->
-                DocumentRow(report, onClick = { nav.headline(report.id) }, isRead = report.id in read, title = report.displayTitle)
-            }
-            item(key = "end") {
-                val allRead = headlines.isNotEmpty() && headlines.all { it.id in read }
+        val (headlines, read) = state ?: return@ScreenScaffold
+        // A plain report: opened from here, it notes no place in the pile, and Today does not
+        // jump to its card later (review of PR 12).
+        OlderHeadlinesList(headlines, read, onOpen = { nav.report(it) }, modifier = Modifier.padding(padding))
+    }
+}
+
+/** The list and its end: what is read, and where older headlines are to be found. */
+@Composable
+internal fun OlderHeadlinesList(headlines: List<ReportEntity>, read: Set<Long>, onOpen: (Long) -> Unit, modifier: Modifier = Modifier) {
+    LazyColumn(modifier.fillMaxSize().testTag("page_older_headlines")) {
+        items(headlines, key = { it.id }) { report ->
+            DocumentRow(report, onClick = { onOpen(report.id) }, isRead = report.id in read, title = report.displayTitle)
+        }
+        item(key = "end") {
+            val allRead = headlines.isNotEmpty() && headlines.all { it.id in read }
+            Column(Modifier.padding(horizontal = Space.screen, vertical = Space.xl).testTag("older_end"), verticalArrangement = Arrangement.spacedBy(Space.s)) {
                 Text(
-                    if (allRead) stringResource(R.string.older_all_read, headlines.size) else stringResource(R.string.older_feed_limit),
+                    if (allRead) pluralStringResource(R.plurals.older_all_read, headlines.size, headlines.size) else stringResource(R.string.older_every_one),
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    stringResource(R.string.older_feed_limit),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = Space.screen, vertical = Space.xl).testTag("older_end"),
                 )
             }
         }

@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
 import android.Manifest
 import android.app.TimePickerDialog
 import android.os.Build
@@ -118,50 +123,68 @@ fun ConnectScreen() {
 
 /** Field for a ReliefWeb appname. The value is checked with one call, then kept only on the phone. */
 @Composable
-fun AppnameForm(onSaved: () -> Unit, secondaryLabel: String? = null, onSecondary: (() -> Unit)? = null) {
+fun AppnameForm(
+    onSaved: () -> Unit,
+    secondaryLabel: String? = null,
+    onSecondary: (() -> Unit)? = null,
+    /** "Save" next to the field, in Settings (v0.4); "Check and continue" under it otherwise. */
+    inline: Boolean = false,
+) {
     // The container is read on "Check and continue" only: the form then draws in a screenshot
     // test, without the app (README, v0.3.1).
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
-    var value by remember { mutableStateOf("") }
+    // Kept across a rotation while the form stays open (review of PR 13).
+    var value by rememberSaveable { mutableStateOf("") }
     var checking by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<AccessCheck?>(null) }
 
+    // The keyboard's action key saves as the button does: nothing waits for another gesture.
+    fun submit() {
+        if (value.isBlank() || checking) return
+        scope.launch {
+            val c = context.container
+            checking = true
+            val check = c.repository.checkAccess(value)
+            result = check
+            checking = false
+            if (check == AccessCheck.OK) {
+                c.settings.setUserAppname(value)
+                c.repository.userAppname = value.trim()
+                value = ""
+                onSaved()
+            }
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { value = it; result = null },
-            label = { Text(stringResource(R.string.access_field)) },
-            supportingText = { Text(accessMessage(result) ?: stringResource(R.string.access_field_help)) },
-            isError = result == AccessCheck.REFUSED,
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it; result = null },
+                label = { Text(stringResource(R.string.access_field)) },
+                supportingText = { Text(accessMessage(result) ?: stringResource(R.string.access_field_help)) },
+                isError = result == AccessCheck.REFUSED,
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+                modifier = Modifier.weight(1f).testTag("appname_field"),
+            )
+            if (inline) {
+                Button(enabled = value.isNotBlank() && !checking, onClick = ::submit, modifier = Modifier.testTag("appname_save")) {
+                    Text(stringResource(R.string.settings_save))
+                }
+            }
+        }
         TextButton(onClick = { safeOpen(uriHandler, APPNAME_HELP_URL) }, modifier = Modifier.testTag("access_request")) {
             Text(stringResource(R.string.access_help_link))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(
-                enabled = value.isNotBlank() && !checking,
-                onClick = {
-                    scope.launch {
-                        val c = context.container
-                        checking = true
-                        val check = c.repository.checkAccess(value)
-                        result = check
-                        checking = false
-                        if (check == AccessCheck.OK) {
-                            c.settings.setUserAppname(value)
-                            c.repository.userAppname = value.trim()
-                            value = ""
-                            onSaved()
-                        }
-                    }
-                },
-            ) { Text(stringResource(R.string.access_check)) }
+            if (!inline) {
+                Button(enabled = value.isNotBlank() && !checking, onClick = ::submit) { Text(stringResource(R.string.access_check)) }
+            }
             if (checking) CircularProgressIndicator(Modifier.padding(start = 8.dp))
             if (secondaryLabel != null && onSecondary != null) {
                 TextButton(onClick = onSecondary) { Text(secondaryLabel) }
@@ -201,7 +224,13 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
         Work.scheduleDigest(context, enabled, hour, minute)
     }
 
-    fun setHistoryDays(days: Int) = viewModelScope.launch { c.settings.setHistoryDays(days) }
+    suspend fun historyToRemove(days: Int): Int = c.repository.historyOlderThan(days)
+
+    /** The keep applies at once: History loses what is older right away (Produit, 14/11). */
+    fun setHistoryDays(days: Int) = viewModelScope.launch {
+        c.settings.setHistoryDays(days)
+        c.repository.expireHistoryOlderThan(days)
+    }
     fun setReadingSize(index: Int) = viewModelScope.launch { c.settings.setReadingSize(index) }
     fun setDisplay(d: DisplaySize) = viewModelScope.launch { c.settings.setDisplay(d.name, d.reportStep.ordinal) }
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
@@ -219,8 +248,11 @@ fun SettingsScreen(nav: Nav) {
     val scope = rememberCoroutineScope()
     var checkResult by remember { mutableStateOf<AccessCheck?>(null) }
     var checking by remember { mutableStateOf(false) }
-    var showAppnameDialog by remember { mutableStateOf(false) }
+    var editingAppname by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val appnameSaved = stringResource(R.string.settings_appname_saved)
     var confirmClear by remember { mutableStateOf(false) }
+    var shortenHistory by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -239,7 +271,9 @@ fun SettingsScreen(nav: Nav) {
         }
     }
 
-    ScreenScaffold(title = stringResource(R.string.settings_title), onBack = { nav.back() }) { padding ->
+    // Every setting applies as soon as it changes (the founder, 14/11): switches, chips and
+    // sizes write at once; the appname saves from its button or the keyboard's key.
+    ScreenScaffold(title = stringResource(R.string.settings_title), onBack = { nav.back() }, snackbarHostState = snackbar) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             SectionHeader(stringResource(R.string.settings_access))
             val accessLabel = when {
@@ -256,8 +290,20 @@ fun SettingsScreen(nav: Nav) {
                 ) { Text(stringResource(R.string.settings_check)) }
                 if (checking) CircularProgressIndicator(Modifier.padding(start = 8.dp))
             }
-            TextButton(onClick = { showAppnameDialog = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
+            TextButton(onClick = { editingAppname = !editingAppname }, modifier = Modifier.padding(horizontal = 8.dp).testTag("settings_use_own")) {
                 Text(stringResource(R.string.settings_use_own))
+            }
+            if (editingAppname) {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    AppnameForm(
+                        onSaved = {
+                            editingAppname = false
+                            checkResult = AccessCheck.OK
+                            scope.launch { snackbar.showSnackbar(appnameSaved) }
+                        },
+                        inline = true,
+                    )
+                }
             }
             if (s.userAppname != null) {
                 TextButton(onClick = { vm.removeOwn(); checkResult = null }, modifier = Modifier.padding(horizontal = 8.dp)) {
@@ -266,12 +312,8 @@ fun SettingsScreen(nav: Nav) {
             }
             HorizontalDivider()
 
-            SectionHeader(stringResource(R.string.settings_countries))
-            TextButton(onClick = nav::pickCountries, modifier = Modifier.padding(horizontal = 8.dp)) {
-                Text(stringResource(R.string.settings_countries_you_follow, state.followedCount))
-            }
-            HorizontalDivider(Modifier.padding(top = 8.dp))
-
+            // No Countries section since v0.4: Following > Manage has them, with crises and
+            // organizations (revue-densite-v0.3.md, change 12).
             SectionHeader(stringResource(R.string.settings_digest))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -283,7 +325,8 @@ fun SettingsScreen(nav: Nav) {
                     if (on) enableDigest(s.digestHour, s.digestMinute) else vm.setDigest(context, false, s.digestHour, s.digestMinute)
                 })
             }
-            FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The hours only while the summary is on (change 12).
+            if (s.digestEnabled) FlowRow(Modifier.padding(horizontal = 16.dp).testTag("digest_hours"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DIGEST_HOURS.forEach { hour ->
                     FilterChip(
                         selected = s.digestHour == hour && s.digestMinute == 0,
@@ -333,7 +376,13 @@ fun SettingsScreen(nav: Nav) {
             SettingText(stringResource(R.string.settings_keep_history))
             FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(90 to R.string.keep_90, 365 to R.string.keep_365, -1 to R.string.keep_forever).forEach { (days, label) ->
-                    FilterChip(selected = s.historyDays == days, onClick = { vm.setHistoryDays(days) }, label = { Text(stringResource(label)) })
+                    FilterChip(selected = s.historyDays == days, onClick = {
+                        // A shorter keep that removes reports asks first, with their number.
+                        scope.launch {
+                            val removed = vm.historyToRemove(days)
+                            if (removed > 0) shortenHistory = days to removed else vm.setHistoryDays(days)
+                        }
+                    }, label = { Text(stringResource(label)) }, modifier = Modifier.testTag("keep_history_$days"))
                 }
             }
             TextButton(onClick = { confirmClear = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
@@ -356,13 +405,16 @@ fun SettingsScreen(nav: Nav) {
 
     showWhatsNew?.let { release -> WhatsNewSheet(release, onDismiss = { showWhatsNew = null }) }
 
-    if (showAppnameDialog) {
+    shortenHistory?.let { (days, removed) ->
         AlertDialog(
-            onDismissRequest = { showAppnameDialog = false },
-            title = { Text(stringResource(R.string.settings_use_own)) },
-            text = { AppnameForm(onSaved = { showAppnameDialog = false; checkResult = AccessCheck.OK }) },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { showAppnameDialog = false }) { Text(stringResource(R.string.report_cancel)) } },
+            onDismissRequest = { shortenHistory = null },
+            text = { Text(pluralStringResource(R.plurals.settings_history_shorten, removed, removed, days)) },
+            confirmButton = {
+                TextButton(onClick = { vm.setHistoryDays(days); shortenHistory = null }, modifier = Modifier.testTag("keep_history_confirm")) {
+                    Text(stringResource(R.string.settings_remove))
+                }
+            },
+            dismissButton = { TextButton(onClick = { shortenHistory = null }) { Text(stringResource(R.string.report_cancel)) } },
         )
     }
     if (confirmClear) {

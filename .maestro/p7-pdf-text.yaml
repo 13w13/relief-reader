@@ -221,6 +221,8 @@ onFlowComplete:
 - assertVisible:
     id: "pdf_preview"
 - takeScreenshot: p7-13-history-preview
+# Since v0.4 the field shows in History as soon as a PDF read is on the phone (art director,
+# 14/11), whatever the length of the list.
 - tapOn: "Search your library"
 - inputText: "trucking"
 - hideKeyboard

@@ -2,6 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
@@ -19,7 +27,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material3.Button
@@ -54,7 +61,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -82,23 +88,18 @@ import kotlin.math.roundToInt
 
 // Organizations (v0.3): produit/suivre-organisation.md (P13), theme-compose.md 13.1 and 13.2.
 
-/** "About 3 documents a week on ReliefWeb", or the forms for 1 and fewer than 1. */
-@Composable
-private fun rhythmLine(perWeek: Double): String {
-    val n = perWeek.roundToInt()
-    return when {
-        perWeek < 0.5 -> stringResource(R.string.source_rhythm_fewer)
-        else -> pluralStringResource(R.plurals.source_rhythm, n, n)
-    }
-}
-
 /** The domain of a homepage, without https:// and www. */
 internal fun domainOf(url: String?): String? =
     url?.substringAfter("://")?.substringBefore('/')?.removePrefix("www.")?.takeIf { it.isNotBlank() }
 
+/** "12 Nov", or "today" and "yesterday" in running text. */
+private fun shortDay(at: Long): String = Display.day(at).let { if (it == "Today" || it == "Yesterday") it.lowercase() else it }
+
 /**
- * The head of an organization's page (13.1): its type, short name and full name, its rhythm and
- * latest document, its main countries, where it is based, its website, its description folded.
+ * The head of an organization's page, three lines since v0.4 (revue-densite-v0.3.md, change 6,
+ * in the order of the product review): its full name; its rhythm and latest document; its type,
+ * where it is based and its website. Its main countries and the editors' description fold under
+ * "About ACAPS", as "About this disaster" does. The short name is in the top bar, with Follow.
  * No logo: a logo would make the page look endorsed by the organization.
  */
 @Composable
@@ -110,45 +111,65 @@ internal fun SourceHeader(info: SourceInfo?, name: String) {
         info?.descriptionHtml?.let { HtmlBlocks.plainText(it) }.orEmpty()
             .split(Regex("\\n\\s*\\n|\\n")).map { it.trim() }.filter { it.isNotEmpty() }
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = Space.screen, vertical = Space.m), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        info?.typeName?.let {
-            Text(it.uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, lineHeight = 16.sp), color = cs.onSurfaceVariant)
-        }
-        Text(info?.shortname ?: name, style = MaterialTheme.typography.headlineSmall, color = cs.onSurface)
-        if (info != null && info.name.isNotBlank() && info.name != info.shortname) {
-            Text(info.name, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
-        }
+    val small = MaterialTheme.typography.bodySmall
+    Column(Modifier.fillMaxWidth().padding(start = Space.screen, end = Space.screen, top = Space.m, bottom = Space.s), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val full = info?.name?.takeIf { it.isNotBlank() } ?: info?.shortname ?: name
+        Text(full, style = MaterialTheme.typography.titleLarge, color = cs.onSurface)
         if (info != null) {
             val rhythm = listOfNotNull(
-                rhythmLine(info.perWeek),
-                info.latestAt?.let { stringResource(R.string.source_latest, Display.fullDate(it)) },
+                if (info.perWeek < 0.5) stringResource(R.string.source_head_rhythm_fewer)
+                else info.perWeek.roundToInt().let { pluralStringResource(R.plurals.source_head_rhythm, it, it) },
+                info.latestAt?.let { stringResource(R.string.source_head_latest, shortDay(it)) },
             ).joinToString(" · ")
-            Text(rhythm, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.testTag("source_rhythm"))
-            mostlyOn(info.mainCountries)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant) }
-            info.countryName?.let { Text(stringResource(R.string.source_based_in, it), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant) }
+            Text(rhythm, style = small, color = cs.onSurfaceVariant, modifier = Modifier.testTag("source_rhythm"))
+            // "International NGO · Based in Switzerland · acaps.org", the domain a link.
             val domain = domainOf(info.homepage)
-            if (domain != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { safeOpen(uriHandler, info.homepage) }, modifier = Modifier.testTag("source_website")) {
-                        Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text(stringResource(R.string.source_website), modifier = Modifier.padding(start = 6.dp))
-                    }
-                    Text(domain, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            val facts = listOfNotNull(info.typeName, info.countryName?.let { stringResource(R.string.source_based_in, it) })
+            if (facts.isNotEmpty() || domain != null) {
+                val link = TextLinkStyles(SpanStyle(color = cs.primary))
+                Text(
+                    buildAnnotatedString {
+                        append(facts.joinToString(" · "))
+                        if (domain != null) {
+                            if (facts.isNotEmpty()) append(" · ")
+                            withLink(LinkAnnotation.Clickable("website", link) { safeOpen(uriHandler, info.homepage) }) { append(domain) }
+                        }
+                    },
+                    style = small,
+                    color = cs.onSurfaceVariant,
+                    modifier = Modifier.testTag("source_facts"),
+                )
+            }
+        }
+    }
+    val mostly = info?.let { mostlyOn(it.mainCountries) }
+    if (mostly != null || paragraphs.isNotEmpty()) {
+        val state = stringResource(if (open) R.string.state_expanded else R.string.state_collapsed)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { open = !open }
+                .semantics { stateDescription = state }
+                .padding(horizontal = Space.screen).testTag("source_about"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.source_about, info?.shortname?.takeIf { it.isNotBlank() } ?: name),
+                style = MaterialTheme.typography.labelLarge,
+                color = cs.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = cs.onSurfaceVariant)
+        }
+        if (open) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = Space.screen).padding(bottom = Space.m), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                mostly?.let { Text(it, style = small, color = cs.onSurfaceVariant) }
+                if (paragraphs.isNotEmpty()) {
+                    Text(stringResource(R.string.crisis_description_by), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+                    val body = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 26.sp)
+                    paragraphs.forEach { Text(it, style = body, color = cs.onSurface) }
                 }
             }
         }
-        if (paragraphs.isNotEmpty()) {
-            Text(stringResource(R.string.crisis_description_by), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-            val body = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 26.sp)
-            if (open) {
-                paragraphs.forEach { Text(it, style = body, color = cs.onSurface) }
-            } else {
-                Text(paragraphs.first(), style = body, color = cs.onSurface, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            }
-            TextButton(onClick = { open = !open }) {
-                Text(stringResource(if (open) R.string.crisis_description_less else R.string.source_show_more))
-            }
-        }
+        HorizontalDivider(thickness = Hairline, color = cs.outlineVariant, modifier = Modifier.padding(horizontal = Space.screen))
     }
 }
 

@@ -285,7 +285,7 @@ fun TodayScreen(nav: Nav) {
     }
 
     val pager = rememberPagerState { state.headlines.size + 1 }
-    PileOpening(state, pager)
+    val pileReady = pileInPlace(state, pager)
 
     val snackbar = remember { SnackbarHostState() }
     val pull = rememberPull(state.lastRefreshAt.takeIf { state.hasAccess }, snackbar) { vm.refresh(force = true) }
@@ -322,7 +322,7 @@ fun TodayScreen(nav: Nav) {
             Refreshable(loading = state.loading, onRefresh = pull, modifier = Modifier.fillMaxSize()) {
                 LazyColumn(Modifier.fillMaxSize().testTag("today_list"), state = vm.listState) {
                     todayPage(
-                        state, vm, nav, pager,
+                        state, vm, nav, pager, pileReady,
                         prefetchNext = { !container.pdfs.isMetered() },
                         onSeeHistory = {
                             container.libraryRequest.value = LibraryView.HISTORY.ordinal
@@ -339,25 +339,30 @@ fun TodayScreen(nav: Nav) {
  * Where the pile stands. At each visit (P14), it opens on the first headline not read. Back from
  * a report opened from the pile, it stands on the last headline read there (the report notes it
  * in AppContainer.headlineFocus), even after Next or Previous in the report.
+ *
+ * Returns whether the pile is in place. Until then Today does not compose it: card 0 would
+ * otherwise compose, and load its photo on mobile data, before the jump to the right card
+ * (review of PR 12). requestScrollToPage takes effect at the pile's first measure.
  */
 @Composable
-private fun PileOpening(state: TodayState, pager: PagerState) {
+private fun pileInPlace(state: TodayState, pager: PagerState): Boolean {
     val container = LocalContext.current.container
     val hasHeadlines = state.headlines.isNotEmpty()
     var openedFor by rememberSaveable { mutableStateOf<Long?>(null) }
+    val focus by container.headlineFocus.collectAsStateWithLifecycle()
     LaunchedEffect(state.since, hasHeadlines) {
         if (!hasHeadlines || openedFor == state.since) return@LaunchedEffect
+        if (container.headlineFocus.value == null) pager.requestScrollToPage(pileOpening(state.headlines, state.readIds))
         openedFor = state.since
-        if (container.headlineFocus.value == null) pager.scrollToPage(pileOpening(state.headlines, state.readIds))
     }
-    val focus by container.headlineFocus.collectAsStateWithLifecycle()
     LaunchedEffect(focus, state.headlines) {
         val id = focus ?: return@LaunchedEffect
         if (!hasHeadlines) return@LaunchedEffect
         val index = state.headlines.indexOfFirst { it.id == id }
-        if (index >= 0) pager.scrollToPage(index)
+        if (index >= 0) pager.requestScrollToPage(index)
         container.headlineFocus.value = null
     }
+    return hasHeadlines && openedFor == state.since && focus == null
 }
 
 /** "Updated 14:32", or "Updated 12 Nov, 14:32" when it was not today. */
@@ -403,6 +408,7 @@ private fun LazyListScope.todayPage(
     vm: TodayViewModel,
     nav: Nav,
     pager: PagerState,
+    pileReady: Boolean,
     prefetchNext: () -> Boolean,
     onSeeHistory: () -> Unit,
 ) {
@@ -430,7 +436,7 @@ private fun LazyListScope.todayPage(
             SectionHeader(stringResource(R.string.today_headlines), headlinesNote(state.headlines, state.since))
         }
         item(key = "pile") {
-            HeadlinePile(
+            if (pileReady) HeadlinePile(
                 headlines = state.headlines,
                 readIds = state.readIds,
                 since = state.since,
