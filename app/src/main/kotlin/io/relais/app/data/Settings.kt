@@ -43,6 +43,8 @@ data class Settings(
     val pdfTextBannerSeen: Boolean = false,
     /** Article text size, an index into TextStep (Theme.kt). */
     val readingSize: Int = DEFAULT_READING_SIZE,
+    /** "Load images": ALWAYS, WIFI or NEVER (LoadImages), for the pile and the reports (lot 3, C). */
+    val loadImages: String = "ALWAYS",
     /** "Display" (theme-compose.md 12.6): the name of a DisplaySize, Compact when unset. */
     val display: String? = null,
     /** Last opening of Following: its feed marks what was posted since (12.3). */
@@ -104,6 +106,7 @@ class SettingsStore(private val context: Context) {
         val rssBannerSeen = booleanPreferencesKey("rss_banner_seen")
         val pdfTextBannerSeen = booleanPreferencesKey("pdf_text_banner_seen")
         val readingSize = intPreferencesKey("reading_size")
+        val loadImages = stringPreferencesKey("load_images")
         val display = stringPreferencesKey("display_size")
         val followingVisitAt = longPreferencesKey("following_visit_at")
         val todaySeenAt = longPreferencesKey("today_seen_at")
@@ -140,6 +143,7 @@ class SettingsStore(private val context: Context) {
             rssBannerSeen = p[Keys.rssBannerSeen] ?: false,
             pdfTextBannerSeen = p[Keys.pdfTextBannerSeen] ?: false,
             readingSize = p[Keys.readingSize] ?: DEFAULT_READING_SIZE,
+            loadImages = p[Keys.loadImages] ?: "ALWAYS",
             display = p[Keys.display],
             followingVisitAt = p[Keys.followingVisitAt] ?: 0,
             todaySeenAt = p[Keys.todaySeenAt] ?: 0,
@@ -197,6 +201,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setAccessDenied(denied: Boolean) = context.dataStore.edit { it[Keys.accessDenied] = denied }
     suspend fun setRssBannerSeen() = context.dataStore.edit { it[Keys.rssBannerSeen] = true }
     suspend fun setPdfTextBannerSeen() = context.dataStore.edit { it[Keys.pdfTextBannerSeen] = true }
+    suspend fun setLoadImages(mode: String) = context.dataStore.edit { it[Keys.loadImages] = mode }
     suspend fun setReadingSize(index: Int) = context.dataStore.edit { it[Keys.readingSize] = index }
 
     /** A display level brings the report text to its starting step (12.6). */

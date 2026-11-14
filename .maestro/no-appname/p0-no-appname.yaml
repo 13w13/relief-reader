@@ -131,6 +131,22 @@ onFlowStart:
       id: "tab_today"
     timeout: 15000
 
+# Following without an appname (lot 3, C): a line on what an appname adds, then the feed's
+# headlines on the followed countries, or a line saying there are none among the latest 20.
+- tapOn:
+    id: "tab_following"
+- extendedWaitUntil:
+    visible:
+      id: "following_headlines_only"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "(doc_.*|following_headlines_none)"
+    timeout: 30000
+- takeScreenshot: p0-05g-following-headlines
+- tapOn:
+    id: "tab_today"
+
 # A country page (debug deep link to Sudan): the banner says why, and opens Settings.
 - openLink: relais://country/220
 - extendedWaitUntil:

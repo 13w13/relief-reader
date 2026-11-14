@@ -77,6 +77,15 @@ import io.relais.app.data.LoadError
 import io.relais.app.data.ReportEntity
 import kotlinx.coroutines.launch
 
+/** Whether photos and report images load now ("Load images" and the network); true in tests. */
+val LocalImagesAllowed = androidx.compose.runtime.compositionLocalOf { true }
+
+/** The phone has no network: rows of reports that cannot be read show dimmed. */
+val LocalOffline = androidx.compose.runtime.compositionLocalOf { false }
+
+/** Addresses of the PDFs on the phone, for the rows dimmed offline. */
+val LocalPdfsOnPhone = androidx.compose.runtime.compositionLocalOf<Set<String>> { emptySet() }
+
 /** Top bar with an optional back arrow and the settings icon, as on every tab (M5 to M11). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -393,7 +402,7 @@ fun pdfLabel(report: ReportEntity): String? = report.pdf?.size?.let { size -> Di
 
 /** Kicker (theme-compose.md 5.1): FORMAT in bold ink, ORGANIZATION and TIME in ink 2, dot if new. */
 @Composable
-fun Kicker(report: ReportEntity, isNew: Boolean, onSourcePage: Long? = null) {
+fun Kicker(report: ReportEntity, isNew: Boolean, onSourcePage: Long? = null, muted: Boolean = false) {
     val cs = MaterialTheme.colorScheme
     val newLabel = stringResource(R.string.label_new)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -402,7 +411,7 @@ fun Kicker(report: ReportEntity, isNew: Boolean, onSourcePage: Long? = null) {
         }
         val format = Display.shortFormat(report.formatId, report.formatName)
         if (format.isNotBlank()) {
-            Text(format.uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = cs.onSurface, maxLines = 1)
+            Text(format.uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = if (muted) cs.onSurfaceVariant else cs.onSurface, maxLines = 1)
         }
         Text(
             listOf(kickerSource(report, onSourcePage), Display.kickerTime(report.dateCreated)).filter { it.isNotBlank() }.joinToString(" · ").uppercase(),
@@ -463,6 +472,9 @@ fun DocumentRow(
     val cs = MaterialTheme.colorScheme
     var menuOpen by remember { mutableStateOf(false) }
     val moreLabel = stringResource(R.string.action_more)
+    // Offline, a report with neither its text nor a PDF on the phone: the secondary colour, no
+    // label; a tap still opens its notice (lot 3, C).
+    val dimmed = io.relais.app.data.unreadableOffline(report, LocalOffline.current, LocalPdfsOnPhone.current)
     Column {
         Box {
             Column(
@@ -474,11 +486,11 @@ fun DocumentRow(
                     .padding(horizontal = Space.screen, vertical = Space.rowVertical),
                 verticalArrangement = Arrangement.spacedBy(Space.kickerGap),
             ) {
-                Kicker(report, isNew && !isRead, onSourcePage)
+                Kicker(report, isNew && !isRead, onSourcePage, muted = dimmed)
                 Text(
                     title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = if (isRead) FontWeight.SemiBold else FontWeight.Bold),
-                    color = if (isRead) cs.onSurfaceVariant else cs.onSurface,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = if (isRead || dimmed) FontWeight.SemiBold else FontWeight.Bold),
+                    color = if (isRead || dimmed) cs.onSurfaceVariant else cs.onSurface,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )

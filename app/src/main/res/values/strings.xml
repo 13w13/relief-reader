@@ -591,4 +591,11 @@
     <string name="restore_done">Library restored. Saved reports load their text when you open them.</string>
     <string name="restore_not_backup">This file isn\'t a Re.L backup.</string>
     <string name="restore_newer">This backup comes from a newer version of Re.L. Update the app first.</string>
+    <!-- Lot 3, C (revue-ux-v0.3.md, section 9). -->
+    <string name="settings_load_images">Load images</string>
+    <string name="load_images_always">Always</string>
+    <string name="load_images_wifi">Wi-Fi only</string>
+    <string name="load_images_never">Never</string>
+    <string name="following_headlines_only">Headlines only. Add an appname in Settings to see every report for your countries.</string>
+    <string name="following_headlines_none">No headline about your countries among ReliefWeb\'s latest 20.</string>
 </resources>

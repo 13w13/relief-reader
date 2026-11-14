@@ -166,6 +166,33 @@ class ScreenshotTest {
         shoot("today-pile-long-title-dark", dark = true) { TodayPile(headlines, readIds = emptySet(), page = 0) }
     }
 
+    /** "Load images: Never", or Wi-Fi only on mobile data: the cards without photo or grey frame (lot 3, C). */
+    @Test
+    fun pileWithoutImages() {
+        val headlines = reports("headlines.json").take(6)
+        shoot("today-pile-no-images") {
+            androidx.compose.runtime.CompositionLocalProvider(io.relais.app.ui.LocalImagesAllowed provides false) {
+                TodayPile(headlines, readIds = emptySet(), page = 0)
+            }
+        }
+    }
+
+    /** Offline: the second row has neither its text nor a PDF on the phone, and shows dimmed. */
+    @Test
+    fun rowsOffline() {
+        val docs = reports("sudan-reports.json").take(4)
+        val unreadable = docs[1].copy(bodyHtml = null, files = emptyList())
+        shoot("rows-offline") {
+            androidx.compose.runtime.CompositionLocalProvider(io.relais.app.ui.LocalOffline provides true) {
+                Column {
+                    DocumentRow(docs[0].copy(bodyHtml = "<p>Text</p>"), onClick = {})
+                    DocumentRow(unreadable, onClick = {})
+                    DocumentRow(docs[2].copy(bodyHtml = "<p>Text</p>"), onClick = {})
+                }
+            }
+        }
+    }
+
     /** The end of a report opened from the pile: "Headline 2 of 6", Next, Previous headline. */
     @Test
     fun headlineNav() {

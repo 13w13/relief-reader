@@ -232,6 +232,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
         c.repository.expireHistoryOlderThan(days)
     }
     fun setReadingSize(index: Int) = viewModelScope.launch { c.settings.setReadingSize(index) }
+    fun setLoadImages(mode: io.relais.app.data.LoadImages) = viewModelScope.launch { c.settings.setLoadImages(mode.name) }
     fun setDisplay(d: DisplaySize) = viewModelScope.launch { c.settings.setDisplay(d.name, d.reportStep.ordinal) }
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
     fun clearHistory() = viewModelScope.launch { c.repository.clearHistory() }
@@ -403,6 +404,23 @@ fun SettingsScreen(nav: Nav) {
                 onDisplay = vm::setDisplay,
                 preview = true,
             )
+            // "Load images" (lot 3, C): the photos of the headlines and the images of reports.
+            SettingText(stringResource(R.string.settings_load_images))
+            FlowRow(Modifier.padding(horizontal = 16.dp).testTag("load_images"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val mode = io.relais.app.data.LoadImages.of(s.loadImages)
+                listOf(
+                    io.relais.app.data.LoadImages.ALWAYS to R.string.load_images_always,
+                    io.relais.app.data.LoadImages.WIFI to R.string.load_images_wifi,
+                    io.relais.app.data.LoadImages.NEVER to R.string.load_images_never,
+                ).forEach { (m, label) ->
+                    FilterChip(
+                        selected = mode == m,
+                        onClick = { vm.setLoadImages(m) },
+                        label = { Text(stringResource(label)) },
+                        modifier = Modifier.testTag("load_images_" + m.name.lowercase()),
+                    )
+                }
+            }
             HorizontalDivider(Modifier.padding(top = 8.dp))
 
             SectionHeader(stringResource(R.string.settings_library))

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.BorderStroke
@@ -438,6 +440,16 @@ class FollowingViewModel(private val c: AppContainer) : ViewModel() {
 
     private val selected = MutableStateFlow(PageFilter.ALL)
 
+    /** With an appname, the feed; without one, the feed's headlines on the followed countries (lot 3, C). */
+    val hasAccess: StateFlow<Boolean> = c.repository.access.stateIn(viewModelScope, SharingStarted.Eagerly, c.repository.hasAccess)
+
+    /** In headlines mode: ReliefWeb's latest headlines whose countries are followed, newest first. */
+    val headlines: StateFlow<List<ReportEntity>?> = combine(
+        c.dao.observeHeadlines(fromRss = true, since = 0),
+        c.dao.observeFollowed(),
+    ) { all, followed -> headlinesOnFollowed(all, followed.map { it.name }) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /**
      * The scroll of the feed, kept here so that Back from a report finds the same place
      * (founder, 13/11). Only another filter moves it.
@@ -516,6 +528,8 @@ fun FollowingScreen(nav: Nav) {
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val lastSyncAt by vm.lastSyncAt.collectAsStateWithLifecycle()
+    val hasAccess by vm.hasAccess.collectAsStateWithLifecycle()
+    val headlines by vm.headlines.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val pull = rememberPull(lastSyncAt, snackbar) { vm.refresh() }
     val groups = remember(feed) { feed.orEmpty().let(::twinGroups) }
@@ -538,6 +552,12 @@ fun FollowingScreen(nav: Nav) {
                                 sources.map { source -> FollowedName(source.shortname, "following_name_source_${source.sourceId}") { nav.source(source.sourceId, source.shortname) } },
                             onManage = nav::manageFollowing,
                         )
+                    }
+                    if (!hasAccess) {
+                        // Headlines mode (lot 3, C): the feed's headlines on the followed
+                        // countries, under a line that says what an appname adds.
+                        headlinesOnly(headlines, nav)
+                        return@LazyColumn
                     }
                     stickyHeader(key = "filters") { FilterRow(filters, filter, vm::select) }
                     val reports = feed ?: return@LazyColumn
@@ -562,6 +582,37 @@ fun FollowingScreen(nav: Nav) {
                 }
             }
         }
+    }
+}
+
+/**
+ * The feed's headlines whose countries are followed: the match is on the names, as the feed
+ * gives them (revue-ux-v0.3.md, section 9).
+ */
+internal fun headlinesOnFollowed(headlines: List<ReportEntity>, followed: List<String>): List<ReportEntity> {
+    val names = followed.map { it.trim().lowercase() }.toSet()
+    if (names.isEmpty()) return emptyList()
+    return headlines.filter { h -> h.countries.any { it.name.trim().lowercase() in names } || h.primaryCountryName?.trim()?.lowercase() in names }
+}
+
+/** Following without an appname: the line, then the headlines, or why there are none. */
+private fun LazyListScope.headlinesOnly(headlines: List<ReportEntity>?, nav: Nav) {
+    item(key = "headlines_only") {
+        Text(
+            stringResource(R.string.following_headlines_only),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Space.screen, vertical = Space.s).testTag("following_headlines_only"),
+        )
+    }
+    val list = headlines ?: return
+    if (list.isEmpty()) {
+        item(key = "headlines_none") {
+            Box(Modifier.testTag("following_headlines_none")) { EmptyState(stringResource(R.string.following_headlines_none)) }
+        }
+    }
+    items(list, key = { "h" + it.id }) { report ->
+        DocumentRow(report, onClick = { nav.report(report.id) }, title = report.displayTitle)
     }
 }
 

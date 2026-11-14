@@ -96,6 +96,9 @@ class AppContainer(private val context: Context) {
         transaction = { block -> database.withTransaction { block() } },
     )
 
+    /** Online or not, mobile data or not: "Load images" and the rows dimmed offline (lot 3, C). */
+    val network = io.relais.app.data.NetworkMonitor(context, scope)
+
     /** The Library in one file: export and restore (lot 3). */
     val libraryBackup = io.relais.app.data.LibraryBackupStore(dao) { block -> database.withTransaction { block() } }
 

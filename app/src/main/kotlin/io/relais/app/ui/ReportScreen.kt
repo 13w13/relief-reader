@@ -335,10 +335,12 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
     BackHandler(enabled = passage != null) { dismissSelection() }
 
     val hasPlace = place != null
-    val rows: List<ReportRow> = remember(report, state.blocks, state.notFound, state.error, state.twins, hasPlace) {
+    // "Load images": the photo, the images of the text and the PDF's first page (lot 3, C).
+    val imagesAllowed = LocalImagesAllowed.current
+    val rows: List<ReportRow> = remember(report, state.blocks, state.notFound, state.error, state.twins, hasPlace, imagesAllowed) {
         buildList {
             if (report == null) return@buildList
-            if (report.imageUrl != null) add(ReportRow.Photo)
+            if (report.imageUrl != null && imagesAllowed) add(ReportRow.Photo)
             add(ReportRow.Header)
             // With its own text, the file is a line under the dates; without, the card stays
             // above the first page (revue-densite-v0.3.md, change 7).
@@ -890,7 +892,7 @@ internal fun FilesSection(
                             .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraSmall),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (thumbnail != null) {
+                        if (thumbnail != null && LocalImagesAllowed.current) {
                             AsyncImage(model = thumbnail, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         } else {
                             Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1024,7 +1026,7 @@ internal fun FileLines(
 @Composable
 private fun NoBodyPreview(report: ReportEntity) {
     Column(Modifier.padding(Space.screen)) {
-        val preview = report.files.firstNotNullOfOrNull { it.previewLarge ?: it.previewSmall }
+        val preview = report.files.firstNotNullOfOrNull { it.previewLarge ?: it.previewSmall }?.takeIf { LocalImagesAllowed.current }
         if (preview != null) {
             AsyncImage(
                 model = preview,
@@ -1161,12 +1163,14 @@ fun BlockView(
                 BlockText(annotated(block.spans, ranges), body.copy(fontStyle = FontStyle.Italic), Modifier, onSelect, clearSignal)
             }
             is Block.Table -> TableView(block)
-            is Block.Image -> AsyncImage(
-                model = block.url,
-                contentDescription = block.alt,
-                contentScale = ContentScale.FillWidth,
-                modifier = padding.fillMaxWidth(),
-            )
+            is Block.Image -> if (LocalImagesAllowed.current) {
+                AsyncImage(
+                    model = block.url,
+                    contentDescription = block.alt,
+                    contentScale = ContentScale.FillWidth,
+                    modifier = padding.fillMaxWidth(),
+                )
+            }
             Block.Rule -> HorizontalDivider(padding, color = MaterialTheme.colorScheme.outlineVariant)
         }
         highlights.mapNotNull { it.note }.forEach { note ->

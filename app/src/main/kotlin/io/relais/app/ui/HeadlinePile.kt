@@ -135,8 +135,9 @@ fun HeadlinePile(
     val context = LocalContext.current
     val preview = LocalInspectionMode.current
     val canPrefetch by rememberUpdatedState(prefetchNext)
-    LaunchedEffect(pager.settledPage, headlines) {
-        if (preview || !canPrefetch()) return@LaunchedEffect
+    val images = LocalImagesAllowed.current
+    LaunchedEffect(pager.settledPage, headlines, images) {
+        if (preview || !images || !canPrefetch()) return@LaunchedEffect
         val url = headlines.getOrNull(pager.settledPage + 1)?.imageUrl ?: return@LaunchedEffect
         SingletonImageLoader.get(context).enqueue(ImageRequest.Builder(context).data(url).build())
     }
@@ -225,7 +226,9 @@ private fun HeadlineCard(
                     }
                 },
         ) {
-            Box(Modifier.fillMaxWidth().aspectRatio(LocalDisplaySize.current.heroRatio).background(extra.image)) {
+            // "Load images" off, or Wi-Fi only on mobile data: no photo and no grey frame, on every
+            // card alike, so that they keep one height (lot 3, C).
+            if (LocalImagesAllowed.current) Box(Modifier.fillMaxWidth().aspectRatio(LocalDisplaySize.current.heroRatio).background(extra.image)) {
                 if (report.imageUrl != null) {
                     AsyncImage(
                         model = report.imageUrl,
