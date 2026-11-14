@@ -50,7 +50,7 @@ class PdfLayoutTest {
         val doc = PdfLayout.document(
             listOf(
                 page(
-                    line("Northland: Situation Report No. 7", 40f, 60f, size = 18f, bold = true),
+                    line("Noravia: Situation Report No. 7", 40f, 60f, size = 18f, bold = true),
                     line("Left column first line", 40f, 110f),
                     line("Right column first line", 320f, 110f),
                     line("left column second line", 40f, 123f),
@@ -60,7 +60,7 @@ class PdfLayoutTest {
         )
         val blocks = doc.pages[0].blocks
         assertEquals(BlockKind.HEADING, blocks[0].kind)
-        assertEquals("Northland: Situation Report No. 7", blocks[0].text)
+        assertEquals("Noravia: Situation Report No. 7", blocks[0].text)
         assertEquals("Left column first line left column second line", blocks[1].text)
         assertEquals("Right column first line right column second line", blocks[2].text)
     }
@@ -69,7 +69,7 @@ class PdfLayoutTest {
     fun runningHeadersAndPageNumbersAreDropped() {
         val pages = (1..3).map { n ->
             page(
-                line("Northland Situation Report | $n", 40f, 30f, size = 8f),
+                line("Noravia Situation Report | $n", 40f, 30f, size = 8f),
                 line("Body text of page $n goes here.", 40f, 300f),
                 line("Page $n of 3", 270f, 780f, size = 8f),
             )
@@ -211,8 +211,8 @@ class PdfLayoutTest {
     fun aGridOfShortCellsIsOneTable() {
         val rows = listOf(
             listOf("District", "Displaced", "Water", "Health"),
-            listOf("Eastvale", "4,100", "3,200", "1,150"),
-            listOf("Riverside", "2,300", "1,900", "800"),
+            listOf("Osmira", "4,100", "3,200", "1,150"),
+            listOf("Tarvel", "2,300", "1,900", "800"),
             listOf("Total", "6,400", "5,100", "1,950"),
         )
         val glyphs = rows.flatMapIndexed { r, cells -> cells.mapIndexed { c, cell -> line(cell, 40f + 130 * c, 200f + 18 * r, size = 9f) } }

@@ -43,7 +43,7 @@ class PdfBoxTextTest {
         val doc = read("sitrep-two-columns.pdf")
         assertEquals(4, doc.pages.size)
         assertTrue(doc.hasText)
-        assertEquals(TextBlock(BlockKind.HEADING, "Northland: Situation Report No. 7"), doc.pages[0].blocks.first())
+        assertEquals(TextBlock(BlockKind.HEADING, "Noravia: Situation Report No. 7"), doc.pages[0].blocks.first())
         val all = doc.pages.flatMap { it.blocks }.map { it.text }
         assertTrue(all.none { it.contains("Relais test document") || it.matches(Regex("Page \\d of 4")) })
         assertTrue(doc.texts(0).contains("HIGHLIGHTS"))
@@ -64,7 +64,7 @@ class PdfBoxTextTest {
         val doc = read("sitrep-two-columns.pdf")
         val table = doc.pages[1].blocks.single { it.kind == BlockKind.TABLE }
         assertEquals("District · Displaced · Water · Health · Shelter", table.text.lines().first())
-        assertTrue(table.text.contains("Eastvale · 4,100 · 3,200 · 1,150 · 620"))
+        assertTrue(table.text.contains("Osmira · 4,100 · 3,200 · 1,150 · 620"))
         assertEquals(Figure.TABLE, doc.pages[1].figure)
         assertEquals(Figure.FIGURE, doc.pages[2].figure)
         assertNull(doc.pages[3].figure)

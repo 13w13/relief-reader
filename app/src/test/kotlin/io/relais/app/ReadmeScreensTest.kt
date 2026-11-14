@@ -118,11 +118,11 @@ class ReadmeScreensTest {
     private fun at(hour: Int, minute: Int, daysAgo: Long = 0): Long =
         LocalDate.now(zone).minusDays(daysAgo).atTime(LocalTime.of(hour, minute)).atZone(zone).toInstant().toEpochMilli()
 
-    private val coordination = SourceLite(990101, "HCO", "Humanitarian Coordination Office")
-    private val riverlands = SourceLite(990102, "RRN", "Riverlands Relief Network")
-    private val health = SourceLite(990103, "OHA", "Open Health Alliance")
-    private val food = SourceLite(990104, "FAN", "Food Assistance Network")
-    private val shelter = SourceLite(990105, "WSP", "Water and Shelter Partners")
+    // Made-up organizations (art director, 14/11): no name close to a real agency.
+    private val nco = SourceLite(990101, "NCO", "Noravia Coordination Office")
+    private val nwp = SourceLite(990102, "NWP", "Noravia Water Partners")
+    private val nhn = SourceLite(990103, "NHN", "Noravia Health Network")
+    private val kfm = SourceLite(990104, "KFM", "Kestrova Food Monitor")
 
     private fun report(
         id: Long,
@@ -148,27 +148,30 @@ class ReadmeScreensTest {
     )
 
     private val hero = report(
-        1, "$REGION: Floods displace 8,000 people in two districts", REGION, coordination, 8, "News and Press Release",
+        1, "$REGION: Floods displace 8,000 people in two districts", REGION, nco, 10, "Situation Report",
         at(7, 40), headline = true,
-        summary = "Floods displaced about 8,000 people in Eastvale and Riverside districts. " +
-            "Partners repaired the borehole of Eastvale camp, which now serves 3,200 people.",
+        summary = "Families who left the river banks now live in two collective centres. " +
+            "Water trucking reached 12,400 people in the northern camps.",
     )
 
+    /** The last visit, at 06:20: what came after it has the blue dot, unless already read. */
+    private val lastVisit get() = at(6, 20)
+
+    // The new headlines of this morning, one of them already read (greyed, no dot).
     private val todayRows = listOf(
-        report(2, "$OTHER: Market prices after the October harvest", OTHER, food, 3, "Analysis", at(7, 5)) to false,
-        report(3, "$THIRD: Cold wave preparedness, Situation Report No. 3", THIRD, coordination, 10, "Situation Report", at(6, 30), pdfBytes = 1_240_000) to false,
-        report(4, "$REGION: Flood response plan, November 2026 to January 2027", REGION, riverlands, 4, "Appeal", at(6, 10), pdfBytes = 2_310_000) to false,
-        report(5, "$OTHER: Rapid health assessment in three camps", OTHER, health, 5, "Assessment", at(17, 20, daysAgo = 1)) to true,
+        report(2, "$OTHER: Market prices after the October harvest", OTHER, kfm, 3, "Analysis", at(7, 5)) to false,
+        report(3, "$REGION: Shelter needs in Osmira and Tarvel, rapid assessment", REGION, nwp, 5, "Assessment", at(6, 50), pdfBytes = 880_000) to true,
+        report(4, "$REGION: Water trucking reaches 12,400 people in the northern camps", REGION, nwp, 8, "News and Press Release", at(6, 30)) to false,
     )
 
     private val followingRows = listOf(
-        report(11, "$REGION: Situation Report No. 7", REGION, coordination, 10, "Situation Report", at(7, 30), pdfBytes = 5_755) to true,
-        report(12, "$REGION: Shelter needs in Eastvale and Riverside, rapid assessment", REGION, shelter, 5, "Assessment", at(6, 50), pdfBytes = 880_000) to true,
-        report(13, "$THIRD: Cold wave preparedness, Situation Report No. 3", THIRD, coordination, 10, "Situation Report", at(6, 30), pdfBytes = 1_240_000) to true,
-        report(14, "$REGION: Flood response plan, November 2026 to January 2027", REGION, riverlands, 4, "Appeal", at(6, 10), pdfBytes = 2_310_000) to false,
-        report(15, "$OTHER: Water points in the northern camps, October 2026", OTHER, shelter, 12, "Map", at(15, 45, daysAgo = 1), pdfBytes = 640_000) to false,
-        report(16, "$REGION: What the floods mean for the winter harvest", REGION, food, 3, "Analysis", at(11, 15, daysAgo = 1)) to false,
-        report(17, "$THIRD: Measles vaccination reaches 41,000 children", THIRD, health, 8, "News and Press Release", at(9, 0, daysAgo = 1)) to false,
+        report(11, "$REGION: Situation Report No. 7", REGION, nco, 10, "Situation Report", at(7, 30), pdfBytes = 1_180_000) to false,
+        report(12, "$OTHER: Market prices after the October harvest", OTHER, kfm, 3, "Analysis", at(7, 5)) to false,
+        report(13, "$REGION: Shelter needs in Osmira and Tarvel, rapid assessment", REGION, nwp, 5, "Assessment", at(6, 50), pdfBytes = 880_000) to false,
+        report(14, "$REGION: Flood response plan, November 2026 to January 2027", REGION, nco, 4, "Appeal", at(6, 10), pdfBytes = 2_310_000) to false,
+        report(15, "$REGION: Water points in the northern camps, October 2026", REGION, nwp, 12, "Map", at(15, 45, daysAgo = 1), pdfBytes = 640_000) to false,
+        report(16, "$REGION: Cholera prevention in two collective centres", REGION, nhn, 8, "News and Press Release", at(11, 15, daysAgo = 1)) to false,
+        report(17, "$OTHER: Food security outlook, November 2026 to February 2027", OTHER, kfm, 3, "Analysis", at(9, 0, daysAgo = 1), pdfBytes = 1_520_000) to false,
     )
 
     // --- How each screen is drawn ---------------------------------------------------------------
@@ -215,12 +218,12 @@ class ReadmeScreensTest {
                                 Text("Updated 07:45", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             LinearProgressIndicator(
-                                progress = { 1f / 5 },
+                                progress = { 1f / 4 },
                                 modifier = Modifier.width(64.dp).height(4.dp).clip(CircleShape),
                                 trackColor = MaterialTheme.colorScheme.outlineVariant,
                             )
                             Text(
-                                stringResource(R.string.today_progress, 1, 5),
+                                stringResource(R.string.today_progress, 1, 4),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(start = Space.s),
@@ -230,7 +233,7 @@ class ReadmeScreensTest {
                     item { SectionHeader(stringResource(R.string.today_new_headlines)) }
                     item { HeadlineHero(hero, isRead = false, onClick = {}) }
                     items(todayRows) { (row, read) ->
-                        DocumentRow(row, onClick = {}, isNew = !read, isRead = read, title = row.displayTitle)
+                        DocumentRow(row, onClick = {}, isNew = row.dateCreated > lastVisit && !read, isRead = read, title = row.displayTitle)
                     }
                 }
             }
@@ -241,16 +244,16 @@ class ReadmeScreensTest {
     private fun Following() = WithBottomBar(FollowingRoute) {
         ScreenScaffold(title = stringResource(R.string.following_title), onSettings = {}) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding)) {
-                item { FollowedLine(listOf(REGION, OTHER, THIRD, riverlands.shortname), onManage = {}) }
+                item { FollowedLine(listOf(REGION, OTHER, nwp.shortname), onManage = {}) }
                 item { FilterRow(PageFilter.FEEDS, PageFilter.ALL, onSelect = {}) }
-                items(followingRows) { (row, new) -> DocumentRow(row, onClick = {}, isNew = new) }
+                items(followingRows) { (row, read) -> DocumentRow(row, onClick = {}, isNew = row.dateCreated > lastVisit && !read, isRead = read) }
             }
         }
     }
 
     @Composable
     private fun PdfText() {
-        val sentence = "Floods displaced about 8,000 people in Eastvale and Riverside districts."
+        val sentence = "Floods displaced about 8,000 people in Osmira and Tarvel districts."
         val marked = rows.filterIsInstance<TextRow.Body>().first { sentence in it.item.text }
         val start = marked.item.text.indexOf(sentence)
         Column(Modifier.fillMaxSize()) {
@@ -263,7 +266,7 @@ class ReadmeScreensTest {
                     })
                 }
             }
-            PdfTextBottomBar(0, pages.size, 5_755, onTextSize = {})
+            PdfTextBottomBar(0, pages.size, 5_731, onTextSize = {})
         }
     }
 
@@ -286,10 +289,9 @@ class ReadmeScreensTest {
     fun pdfTextDark() = shoot("screen-pdf-text-dark", dark = true) { PdfText() }
 
     private companion object {
-        /** Made-up regions: the test PDF tells the story of [REGION]. */
-        const val REGION = "Northland"
-        const val OTHER = "Valdera"
-        const val THIRD = "Corran"
+        /** Made-up countries: the test PDF tells the story of [REGION] (art director, 14/11). */
+        const val REGION = "Noravia"
+        const val OTHER = "Kestrova"
         const val PHOTO_URL = "https://relais.test/readme/headline-sample.png"
     }
 }
