@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -113,6 +114,51 @@ internal fun crisisLine(crisis: DisasterInfo): String = listOfNotNull(
 ).joinToString(" · ")
 
 /** "Ebola Outbreak" for "Central/Eastern Africa: Ebola Outbreak - May 2026": no place, no date (10.2). */
+/** "Regional crises": the topics, featured first; an error of their own when they cannot load. */
+private fun androidx.compose.foundation.lazy.LazyListScope.regionalCrises(
+    topics: List<io.relais.api.TopicInfo>,
+    loaded: Boolean,
+    failed: Boolean,
+    followed: Set<Long>,
+    onToggle: (io.relais.api.TopicInfo, Boolean) -> Unit,
+    onRetry: () -> Unit,
+) {
+    if (!failed && loaded && topics.isEmpty()) return
+    item(key = "regional") { SectionHeader(stringResource(R.string.topics_section), if (loaded && !failed) topics.size.toString() else null) }
+    item(key = "regional_note") {
+        Text(
+            stringResource(R.string.topic_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
+    if (failed) {
+        item(key = "regional_failed") {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("topics_failed"), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.topics_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.action_try_again)) }
+            }
+        }
+        return
+    }
+    items(topics, key = { "t" + it.id }) { topic ->
+        val checked = topic.id in followed
+        Row(
+            Modifier.fillMaxWidth().clickable { onToggle(topic, !checked) }.padding(horizontal = 8.dp).testTag("pick_topic_${topic.id}"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = checked, onCheckedChange = { onToggle(topic, it) })
+            Text(topic.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
+        }
+    }
+}
+
 internal fun crisisShort(name: String): String =
     name.replace(Regex("^[^:]+:\\s*"), "").replace(Regex("\\s*[-\u2013]\\s*[A-Za-z]{3,9}\\.? \\d{4}$"), "").ifBlank { name }
 
@@ -296,8 +342,17 @@ class PickCrisesViewModel(private val c: AppContainer) : ViewModel() {
     ) { crises, followed, l, e -> PickCrisesState(crises, followed.map { it.disasterId }.toSet(), l, e) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PickCrisesState(loading = true))
 
+    // Regional crises (topics, lot 3): loaded on their own, so that a failure stays in their
+    // section and the rest of the picker works. Declared before init: viewModelScope runs on
+    // Main.immediate, so loadTopics() starts in the constructor (review of PR 19).
+    val topics = MutableStateFlow<List<io.relais.api.TopicInfo>?>(null)
+    val topicsFailed = MutableStateFlow(false)
+    val followedTopics: StateFlow<Set<Long>> = c.dao.observeFollowedTopics().map { list -> list.map { it.topicId }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     init {
         load()
+        loadTopics()
     }
 
     fun load() = viewModelScope.launch {
@@ -315,6 +370,18 @@ class PickCrisesViewModel(private val c: AppContainer) : ViewModel() {
     fun toggle(crisis: DisasterInfo, follow: Boolean) = viewModelScope.launch {
         if (follow) c.repository.followDisaster(crisis) else c.repository.unfollowDisaster(crisis.id)
     }
+
+    fun loadTopics(force: Boolean = false) = viewModelScope.launch {
+        topicsFailed.value = false
+        runCatching { c.repository.topics(force) }
+            .onSuccess { topics.value = it }
+            .onFailure { topicsFailed.value = true }
+    }
+
+    fun toggleTopic(topic: io.relais.api.TopicInfo, follow: Boolean) = viewModelScope.launch {
+        runCatching { if (follow) c.repository.followTopic(topic.id, topic.title) else c.repository.unfollowTopic(topic.id) }
+            .onFailure { topicsFailed.value = true }
+    }
 }
 
 /**
@@ -329,6 +396,10 @@ fun PickCrisesScreen(nav: Nav) {
     var query by rememberSaveable { mutableStateOf("") }
     val all = state.crises.orEmpty()
     val matches = all.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) || it.countries.any { c -> c.name.contains(query.trim(), ignoreCase = true) } }
+    val topics by vm.topics.collectAsStateWithLifecycle()
+    val topicsFailed by vm.topicsFailed.collectAsStateWithLifecycle()
+    val followedTopics by vm.followedTopics.collectAsStateWithLifecycle()
+    val topicMatches = topics.orEmpty().filter { query.isBlank() || it.title.contains(query.trim(), ignoreCase = true) }
 
     ScreenScaffold(title = stringResource(R.string.pick_crises_title), onBack = { nav.back() }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -348,6 +419,8 @@ fun PickCrisesScreen(nav: Nav) {
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             LoadErrorBanner(state.error, onRetry = { vm.load() }, onOpenSettings = nav::settings, persistent = state.crises == null)
             LazyColumn(Modifier.weight(1f).testTag("pick_crises")) {
+                // Regional crises first (topics, lot 3): editors' pages that span countries.
+                regionalCrises(topicMatches, topics != null, topicsFailed, followedTopics, onToggle = vm::toggleTopic, onRetry = { vm.loadTopics(force = true) })
                 if (state.crises != null && matches.isEmpty()) {
                     item {
                         // A search with no match is often a conflict (passe-v0.2.md 1.2): say so, offer countries.

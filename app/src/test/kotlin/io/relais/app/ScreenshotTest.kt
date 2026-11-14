@@ -283,6 +283,24 @@ class ScreenshotTest {
         }
     }
 
+    /** A regional crisis (lot 3): its head, made up, then documents. */
+    @Test
+    fun topicHead() {
+        val topic = io.relais.api.TopicInfo(
+            id = 7, title = "Noravia Regional Displacement Crisis", changedAt = System.currentTimeMillis() - 2 * 86_400_000L,
+            introductionHtml = "<p>Floods and fighting have pushed families from Noravia into Kestrova and Ostland. " +
+                "This page gathers the situation reports, maps and appeals of the three countries.</p>",
+            rivers = listOf(io.relais.api.TopicRiver("Situation reports", "https://reliefweb.int/updates?advanced-search=(PC990)")),
+        )
+        val docs = reports("sudan-reports.json").take(4)
+        shoot("topic-head") {
+            LazyColumn {
+                item { io.relais.app.ui.TopicHead(topic) }
+                items(docs) { DocumentRow(it, onClick = {}) }
+            }
+        }
+    }
+
     @Test
     fun report() {
         val report = reports("report-full.json").first()

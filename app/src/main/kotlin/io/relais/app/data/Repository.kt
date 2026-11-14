@@ -230,6 +230,17 @@ class Repository(
             offset += response.data.size
             page++
         } while (response.data.isNotEmpty() && offset < response.totalCount && page < 3)
+        // Each followed regional crisis: one request, the OR of its lists (lot 3, budget). A
+        // failure skips that topic; a cancelled sync stops (review of PR 19).
+        dao.followedTopics().forEach { topic ->
+            try {
+                fetchTopic(topic.topicId, topic.rivers, since)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The next sync tries again.
+            }
+        }
         settings.setLastSyncAt(now)
         settings.setLastHeadlinesRefreshAt(now)
         // Alerts look at what was posted since the previous sync; the first sync announces nothing.
@@ -760,6 +771,86 @@ class Repository(
         }
     }
 
+    // --- Regional crises (topics, lot 3) ---------------------------------------------------
+
+    /**
+     * The regional crises to choose from, featured first then by title: one request, kept 24
+     * hours. Throws when they cannot be loaded; the picker shows it in its own section.
+     */
+    suspend fun topics(force: Boolean = false): List<io.relais.api.TopicInfo> =
+        cachedJson("topics:list", ONE_DAY, TOPICS, force) {
+            io.relais.api.Topics.list(api { it.topics(Requests.topics()) })
+        }.sortedWith(compareByDescending<io.relais.api.TopicInfo> { it.featured }.thenBy { it.title.lowercase() })
+
+    /**
+     * A topic with its introduction and lists: one request, kept 24 hours. A followed topic
+     * takes its current lists, title and address, so that the sync follows what the editors
+     * changed (review of PR 19).
+     */
+    suspend fun topic(id: Long, force: Boolean = false): io.relais.api.TopicInfo {
+        val info = cachedJson("topic:$id", ONE_DAY, io.relais.api.TopicInfo.serializer(), force) {
+            io.relais.api.Topics.one(api { it.topic(id) }) ?: throw ApiException.NotFound()
+        }
+        dao.followedTopic(id)?.let { followed ->
+            if (followed.rivers != info.rivers || followed.title != info.title || followed.urlAlias != info.urlAlias) {
+                dao.upsertFollowedTopic(followed.copy(title = info.title, urlAlias = info.urlAlias, rivers = info.rivers))
+            }
+        }
+        return info
+    }
+
+    /** Follows a topic and brings its last 7 days: its page request, then one request. */
+    suspend fun followTopic(id: Long, title: String) {
+        if (dao.followedTopic(id) != null) return
+        val now = System.currentTimeMillis()
+        val info = topic(id)
+        dao.upsertFollowedTopic(FollowedTopicEntity(id, info.title.ifBlank { title }, info.urlAlias, info.rivers, followedAt = now, lastVisitAt = now - SEVEN_DAYS))
+        if (hasAccess) {
+            try {
+                fetchTopic(id, info.rivers, now - SEVEN_DAYS)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The next sync brings them.
+            }
+        }
+    }
+
+    suspend fun unfollowTopic(id: Long) {
+        dao.deleteFollowedTopic(id)
+        dao.deleteReportTopics(id)
+    }
+
+    suspend fun markTopicVisited(id: Long) {
+        val t = dao.followedTopic(id) ?: return
+        dao.upsertFollowedTopic(t.copy(lastVisitAt = System.currentTimeMillis()))
+    }
+
+    /** One request: the topic's lists in OR, since [since], with the full text; each report linked to it. */
+    private suspend fun fetchTopic(id: Long, rivers: List<io.relais.api.TopicRiver>, since: Long) {
+        val filter = io.relais.api.Topics.followFilter(rivers) ?: return
+        val response = api { it.reports(Requests.topicFeed(filter, since = Instant.ofEpochMilli(since), limit = 50, full = true)) }
+        saveReports(response.data)
+        dao.insertReportTopics(response.data.map { ReportTopicEntity(it.id, id) })
+    }
+
+    /**
+     * The documents of one of the topic's lists ([river], its index), or of all those the app
+     * can read (null): one request when the page asks.
+     */
+    suspend fun topicReports(info: io.relais.api.TopicInfo, river: Int?): List<ReportEntity> {
+        val query = if (river == null) {
+            Requests.topicFeed(io.relais.api.Topics.followFilter(info.rivers) ?: return emptyList())
+        } else {
+            val parsed = info.rivers.getOrNull(river)?.let { io.relais.api.RiverQuery.parse(it.url) } ?: return emptyList()
+            Requests.topicFeed(parsed.filter, parsed.query)
+        }
+        val response = api { it.reports(query) }
+        saveReports(response.data, full = false)
+        val byId = dao.reportsByIds(response.data.map { it.id }).associateBy { it.id }
+        return response.data.mapNotNull { byId[it.id] }
+    }
+
     // --- Countries -------------------------------------------------------------------
 
     /** M2: the list of countries, from the API, or bundled with the app when offline. */
@@ -1016,6 +1107,7 @@ class Repository(
         dao.deleteOldFeedItems(now - THIRTY_DAYS)
         dao.deleteOldReports(now - THIRTY_DAYS)
         dao.deleteOrphanFts()
+        dao.deleteOrphanReportTopics()
     }
 
     companion object {
@@ -1054,6 +1146,7 @@ val Scope.prefix: String get() = when (kind) {
 data class SuggestedSource(val source: SourceInfo, val count: Int)
 
 private val SUGGESTIONS = kotlinx.serialization.builtins.ListSerializer(SuggestedSource.serializer())
+private val TOPICS = kotlinx.serialization.builtins.ListSerializer(io.relais.api.TopicInfo.serializer())
 private val SOURCE_NAMES = kotlinx.serialization.builtins.MapSerializer(kotlinx.serialization.serializer<Long>(), kotlinx.serialization.serializer<String>())
 
 fun io.relais.api.ApiItem<io.relais.api.SourceFields>.toSourceInfo(): SourceInfo = SourceInfo(

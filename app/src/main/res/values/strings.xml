@@ -598,4 +598,14 @@
     <string name="load_images_never">Never</string>
     <string name="following_headlines_only">Headlines only. Add an appname in Settings to see every report for your countries.</string>
     <string name="following_headlines_none">No headline about your countries among ReliefWeb\'s latest 20.</string>
+    <!-- Regional crises (ReliefWeb topics, lot 3, equipe/produit/fiche-topics.md). -->
+    <string name="topics_section">Regional crises</string>
+    <string name="topic_note">Grouped by ReliefWeb editors across countries.</string>
+    <string name="topic_updated">Updated %1$s</string>
+    <string name="topic_lists_skipped">Some lists of this page can\'t be shown yet. Open on ReliefWeb.</string>
+    <string name="topic_list_n">List %1$d</string>
+    <string name="topic_list_empty">Nothing in this list for now.</string>
+    <string name="topic_show_more">Show more</string>
+    <string name="topic_show_less">Show less</string>
+    <string name="topics_failed">ReliefWeb\'s regional crises can\'t be loaded right now.</string>
 </resources>

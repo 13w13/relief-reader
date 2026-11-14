@@ -277,6 +277,11 @@ class ManageFollowingViewModel(private val c: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val crises: StateFlow<List<io.relais.app.data.FollowedDisasterRow>> = c.repository.observeFollowedDisasterRows()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** Followed regional crises (topics, lot 3). */
+    val topics: StateFlow<List<io.relais.app.data.FollowedTopicEntity>> = c.dao.observeFollowedTopics()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun unfollowTopic(id: Long) = viewModelScope.launch { c.repository.unfollowTopic(id) }
     val loading = MutableStateFlow(false)
     val error = MutableStateFlow<LoadError?>(null)
     val lastSyncAt: StateFlow<Long> = c.settings.flow.map { it.lastSyncAt }
@@ -309,6 +314,7 @@ fun ManageFollowingScreen(nav: Nav) {
     val sources by vm.sources.collectAsStateWithLifecycle()
     val rows by vm.rows.collectAsStateWithLifecycle()
     val crises by vm.crises.collectAsStateWithLifecycle()
+    val topics by vm.topics.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val lastSyncAt by vm.lastSyncAt.collectAsStateWithLifecycle()
@@ -322,7 +328,7 @@ fun ManageFollowingScreen(nav: Nav) {
                 LazyColumn(Modifier.fillMaxSize().testTag("page_manage_following")) {
                     val list = rows ?: return@LazyColumn
                     // theme-compose.md 10.2: one list, the countries then the disasters, each with its type.
-                    if (list.isEmpty() && crises.isEmpty()) {
+                    if (list.isEmpty() && crises.isEmpty() && topics.isEmpty()) {
                         item {
                             EmptyState(stringResource(R.string.following_empty), stringResource(R.string.today_choose_countries), nav::pickCountries)
                         }
@@ -384,6 +390,24 @@ fun ManageFollowingScreen(nav: Nav) {
                             )
                         }
                     }
+                    // Regional crises (topics, lot 3): each opens its page; a menu to stop following.
+                    if (topics.isNotEmpty()) {
+                        item(key = "topics") { SectionHeader(stringResource(R.string.topics_section)) }
+                        items(topics, key = { "t" + it.topicId }) { topic ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    topic.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.weight(1f).clickable { nav.topic(topic.topicId, topic.title) }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp).testTag("followed_topic_${topic.topicId}"),
+                                )
+                                OverflowMenu { close ->
+                                    DropdownMenuItem(text = { Text(stringResource(R.string.following_stop)) }, onClick = { close(); vm.unfollowTopic(topic.topicId) })
+                                }
+                            }
+                            HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = Hairline, color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
                     // Organizations (13.2): after countries and crises, with their choice and a menu.
                     item(key = "organizations") { SectionHeader(stringResource(R.string.following_organizations)) }
                     items(sources, key = { "o" + it.first.sourceId }) { (source, newCount) ->
@@ -432,6 +456,8 @@ class FollowingViewModel(private val c: AppContainer) : ViewModel() {
     val sources: StateFlow<List<io.relais.app.data.FollowedSourceEntity>> = c.dao.observeFollowedSources()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val crises: StateFlow<List<io.relais.app.data.FollowedDisasterRow>> = c.dao.observeFollowedDisasterRows()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val topics: StateFlow<List<io.relais.app.data.FollowedTopicEntity>> = c.dao.observeFollowedTopics()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val loading = MutableStateFlow(false)
     val error = MutableStateFlow<LoadError?>(null)
@@ -522,6 +548,7 @@ fun FollowingScreen(nav: Nav) {
     val sources by vm.sources.collectAsStateWithLifecycle()
     val rows by vm.rows.collectAsStateWithLifecycle()
     val crises by vm.crises.collectAsStateWithLifecycle()
+    val topics by vm.topics.collectAsStateWithLifecycle()
     val feed by vm.feed.collectAsStateWithLifecycle()
     val filters by vm.filters.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
@@ -541,7 +568,7 @@ fun FollowingScreen(nav: Nav) {
             Refreshable(loading = loading, onRefresh = pull, modifier = Modifier.fillMaxSize()) {
                 LazyColumn(Modifier.fillMaxSize().testTag("page_following"), state = list) {
                     val countries = rows ?: return@LazyColumn
-                    if (countries.isEmpty() && crises.isEmpty() && sources.isEmpty()) {
+                    if (countries.isEmpty() && crises.isEmpty() && sources.isEmpty() && topics.isEmpty()) {
                         item(key = "empty") { FollowEmpty(nav) }
                         return@LazyColumn
                     }
@@ -549,7 +576,8 @@ fun FollowingScreen(nav: Nav) {
                         FollowedLine(
                             countries.map { FollowedName(it.name, "following_name_country_${it.countryId}") { nav.country(it.countryId, it.name) } } +
                                 crises.map { FollowedName(crisisShort(it.disaster.name), "following_name_crisis_${it.disaster.disasterId}") { nav.crisis(it.disaster.disasterId, it.disaster.name) } } +
-                                sources.map { source -> FollowedName(source.shortname, "following_name_source_${source.sourceId}") { nav.source(source.sourceId, source.shortname) } },
+                                sources.map { source -> FollowedName(source.shortname, "following_name_source_${source.sourceId}") { nav.source(source.sourceId, source.shortname) } } +
+                                topics.map { t -> FollowedName(t.title, "following_name_topic_${t.topicId}") { nav.topic(t.topicId, t.title) } },
                             onManage = nav::manageFollowing,
                         )
                     }
@@ -999,7 +1027,7 @@ private fun ScopeScreen(scope: Scope, name: String, initial: PageFilter, nav: Na
 
 /** "Follow" or "Following", in the top bar (12.2). */
 @Composable
-private fun FollowChip(following: Boolean, onClick: () -> Unit) {
+internal fun FollowChip(following: Boolean, onClick: () -> Unit) {
     FilterChip(
         selected = following,
         onClick = onClick,

@@ -72,6 +72,37 @@ class ReliefWebClient(
     /** An organization with its description and country (v0.3). */
     suspend fun source(id: Long): ApiItem<SourceFields> = one("sources", id, SourceFields.serializer())
 
+    /**
+     * Regional crises (topics, lot 3): the whole answer as raw JSON, read item by item by
+     * [Topics], so that an item without `fields` or of another shape is skipped, not the list.
+     */
+    suspend fun topics(query: ApiQuery): kotlinx.serialization.json.JsonElement {
+        val name = requireAppname()
+        val body = query.toJson().toString()
+        val response = send {
+            http.post("$baseUrl/topics") {
+                parameter("appname", name)
+                header(HttpHeaders.Accept, "application/json")
+                setBody(TextContent(body, ContentType.Application.Json))
+            }
+        }
+        return raw(response)
+    }
+
+    /** One topic with its introduction and its lists (rivers), as raw JSON. */
+    suspend fun topic(id: Long): kotlinx.serialization.json.JsonElement {
+        val name = requireAppname()
+        val response = send {
+            http.get("$baseUrl/topics/$id") {
+                parameter("appname", name)
+                parameter("profile", "full")
+                parameter("slim", 1)
+                header(HttpHeaders.Accept, "application/json")
+            }
+        }
+        return raw(response)
+    }
+
     /** One document of [resource] with every field (`profile=full`), or throws [ApiException.NotFound]. */
     private suspend fun <T> one(resource: String, id: Long, serializer: KSerializer<T>): ApiItem<T> {
         val name = requireAppname()
@@ -134,7 +165,27 @@ class ReliefWebClient(
         }
     }
 
+    /** The answer as JSON, with the same errors as [decode]. */
+    private suspend fun raw(response: HttpResponse): kotlinx.serialization.json.JsonElement {
+        val text = text(response)
+        return try {
+            RelaisJson.parseToJsonElement(text)
+        } catch (e: Exception) {
+            throw ApiException.Server(response.status.value, "Unreadable response: ${e::class.simpleName}")
+        }
+    }
+
     private suspend fun <T> decode(response: HttpResponse, serializer: KSerializer<T>): ApiResponse<T> {
+        val text = text(response)
+        return try {
+            RelaisJson.decodeFromString(ApiResponse.serializer(serializer), text)
+        } catch (e: Exception) {
+            throw ApiException.Server(response.status.value, "Unreadable response: ${e::class.simpleName}")
+        }
+    }
+
+    /** The body of a 200 answer, or the error it says. */
+    private suspend fun text(response: HttpResponse): String {
         val text = try {
             response.bodyAsText()
         } catch (e: CancellationException) {
@@ -145,11 +196,7 @@ class ReliefWebClient(
         val status = response.status.value
         if (text.trimStart().startsWith("<")) throw ApiException.Blocked()
         when {
-            status == 200 -> return try {
-                RelaisJson.decodeFromString(ApiResponse.serializer(serializer), text)
-            } catch (e: Exception) {
-                throw ApiException.Server(status, "Unreadable response: ${e::class.simpleName}")
-            }
+            status == 200 -> return text
             status == 400 -> throw ApiException.BadRequest(errorMessage(text) ?: "Bad request")
             status == 403 -> throw ApiException.AccessDenied(errorMessage(text) ?: "Access denied")
             status == 404 -> throw ApiException.NotFound()

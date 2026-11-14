@@ -74,6 +74,9 @@ data class BackupHighlight(
 
 @Serializable data class BackupSource(val id: Long, val shortname: String, val name: String, val reportsOnly: Boolean = false)
 
+/** A followed regional crisis (topic): its lists travel with it, translated when read. */
+@Serializable data class BackupTopic(val id: Long, val title: String = "", val urlAlias: String? = null, val rivers: List<io.relais.api.TopicRiver> = emptyList())
+
 @Serializable
 data class LibraryBackup(
     val app: String = LibraryBackupFormat.APP,
@@ -85,6 +88,7 @@ data class LibraryBackup(
     val countries: List<BackupCountry> = emptyList(),
     val crises: List<BackupCrisis> = emptyList(),
     val sources: List<BackupSource> = emptyList(),
+    val topics: List<BackupTopic> = emptyList(),
 ) {
     /** What the confirmation names: "12 saved, 140 in history, 40 highlights and 6 followed." */
     data class Counts(val saved: Int, val history: Int, val highlights: Int, val followed: Int)
@@ -97,7 +101,7 @@ data class LibraryBackup(
         readings.count { it.savedAt != null },
         readings.count { it.inHistory && keptInHistory(it, now, historyDays) },
         highlights.size,
-        countries.size + crises.size + sources.size,
+        countries.size + crises.size + sources.size + topics.size,
     )
 }
 
@@ -171,6 +175,7 @@ class LibraryBackupStore(
             countries = dao.followed().map { BackupCountry(it.countryId, it.name) },
             crises = dao.followedDisasters().map { BackupCrisis(it.disasterId, it.name, it.glide) },
             sources = dao.followedSources().map { BackupSource(it.sourceId, it.shortname, it.name, it.reportsOnly) },
+            topics = dao.followedTopics().map { BackupTopic(it.topicId, it.title, it.urlAlias, it.rivers) },
         )
     }
 
@@ -210,6 +215,11 @@ class LibraryBackupStore(
             backup.crises.forEach {
                 if (dao.followedDisaster(it.id) == null) {
                     dao.upsertFollowedDisaster(FollowedDisasterEntity(it.id, it.name, now, lastVisitAt = since, glide = it.glide))
+                }
+            }
+            backup.topics.filter { it.title.isNotBlank() }.forEach {
+                if (dao.followedTopic(it.id) == null) {
+                    dao.upsertFollowedTopic(FollowedTopicEntity(it.id, it.title, it.urlAlias, it.rivers, followedAt = now, lastVisitAt = since))
                 }
             }
             backup.sources.forEach {
