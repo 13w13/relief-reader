@@ -1,6 +1,9 @@
 name: README screenshots
-# The two screenshots of the public README (v0.3.1): "Connect to ReliefWeb" and Today, drawn by
-# ReadmeScreenshotTest on made-up fixtures (tools/make_fixtures.py), never on real reports.
+# The screenshots of the README and of the F-Droid listing, never drawn on real reports:
+# - ReadmeScreensTest: Today, Following and a PDF read as text, light and dark (screen-*.png), on
+#   its own made-up data. docs/readme/screens-light.webp and screens-dark.webp assemble them with
+#   the art director's readme_triptyque.py; the light ones are the F-Droid phoneScreenshots.
+# - ReadmeScreenshotTest: Connect, About and other states, on made-up fixtures (make_fixtures.py).
 # The artifact storage quota was hit on 12/11: the images are also printed in base64 in the
 # log, between BEGIN and END lines, to be decoded with `base64 -d`.
 # A push to the branch readme-shots runs it too: a manual run needs the file on main first.
@@ -26,7 +29,7 @@ jobs:
       - name: Replace the fixtures with made-up ones
         run: python3 tools/make_fixtures.py
       - name: Draw the screenshots
-        run: ./gradlew --no-daemon :app:testDebugUnitTest -Proborazzi.test.record=true --tests 'io.relais.app.ReadmeScreenshotTest'
+        run: ./gradlew --no-daemon :app:testDebugUnitTest -Proborazzi.test.record=true --tests 'io.relais.app.ReadmeScreenshotTest' --tests 'io.relais.app.ReadmeScreensTest'
       - name: Print the screenshots
         run: |
           for f in app/build/outputs/roborazzi/readme/*.png; do
