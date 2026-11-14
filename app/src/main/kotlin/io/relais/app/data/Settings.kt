@@ -64,6 +64,10 @@ data class Settings(
     val alertDay: String = "",
     val alertScopes: Set<String> = emptySet(),
     val alertCount: Int = 0,
+    /** "Download PDFs on Wi-Fi": the PDFs of the newest key documents of what you follow (PreloadWorker). */
+    val preloadPdfs: Boolean = true,
+    /** The space for the PDFs of reports not saved, in MB (issue 6): one of PdfCache.CAPS_MB. */
+    val pdfCapMb: Int = PdfCache.DEFAULT_CAP_MB,
 )
 
 /**
@@ -112,6 +116,8 @@ class SettingsStore(private val context: Context) {
         val alertDay = stringPreferencesKey("alert_day")
         val alertScopes = stringSetPreferencesKey("alert_scopes")
         val alertCount = intPreferencesKey("alert_count")
+        val preloadPdfs = booleanPreferencesKey("preload_pdfs")
+        val pdfCapMb = intPreferencesKey("pdf_cap_mb")
         fun country(id: Long) = stringPreferencesKey("country_$id")
     }
 
@@ -146,6 +152,8 @@ class SettingsStore(private val context: Context) {
             alertDay = p[Keys.alertDay].orEmpty(),
             alertScopes = p[Keys.alertScopes].orEmpty(),
             alertCount = p[Keys.alertCount] ?: 0,
+            preloadPdfs = p[Keys.preloadPdfs] ?: true,
+            pdfCapMb = p[Keys.pdfCapMb] ?: PdfCache.DEFAULT_CAP_MB,
         )
     }
 
@@ -214,6 +222,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setWhatsNewSeen(versionCode: Int) = context.dataStore.edit { it[Keys.whatsNewSeen] = versionCode }
     suspend fun countSelectionTip() = context.dataStore.edit { it[Keys.selectionTips] = (it[Keys.selectionTips] ?: 0) + 1 }
     suspend fun setAlerts(on: Boolean) = context.dataStore.edit { it[Keys.alerts] = on }
+    suspend fun setPreloadPdfs(on: Boolean) = context.dataStore.edit { it[Keys.preloadPdfs] = on }
+    suspend fun setPdfCapMb(mb: Int) = context.dataStore.edit { it[Keys.pdfCapMb] = mb }
 
     /** Keeps the 50 latest hidden pins: older ones have long left the 30-day window. */
     suspend fun hidePin(reportId: Long) = context.dataStore.edit { p ->

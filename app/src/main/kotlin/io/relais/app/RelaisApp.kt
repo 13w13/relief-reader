@@ -25,6 +25,7 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -39,6 +40,7 @@ class RelaisApp : Application() {
         container = AppContainer(this)
         createNotificationChannel()
         Work.schedulePeriodicSync(this)
+        container.scope.launch { io.relais.app.work.PreloadWorker.schedule(this@RelaisApp, container.settings.current().preloadPdfs) }
     }
 
     private fun createNotificationChannel() {
@@ -101,6 +103,12 @@ class AppContainer(private val context: Context) {
         context, dao, okHttp, scope, userAgent,
         onSaved = { url, reportId, file -> pdfText.extractLater(url, reportId, file) },
         onDeleted = { url -> pdfText.forget(url) },
+        capBytes = { io.relais.app.data.PdfCache.capBytes(settings.current().pdfCapMb) },
+        // Saved and highlighted reports keep their PDF, whatever the cap.
+        protectedReports = {
+            dao.observeSaved().first().map { it.reading.reportId }.toSet() +
+                dao.observeAllHighlights().first().map { it.reportId }.toSet()
+        },
     )
 
     val popular = Popular(context, okHttp, userAgent, repository, dao, config = { remoteConfig.current })
