@@ -235,6 +235,14 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     fun setDisplay(d: DisplaySize) = viewModelScope.launch { c.settings.setDisplay(d.name, d.reportStep.ordinal) }
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
     fun clearHistory() = viewModelScope.launch { c.repository.clearHistory() }
+
+    /** The Library as a file: its name and its JSON (lot 3). */
+    suspend fun backup(): Pair<String, String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        io.relais.app.data.LibraryBackupFormat.fileName(now) to io.relais.app.data.LibraryBackupFormat.encode(c.libraryBackup.export(now))
+    }
+
+    suspend fun restore(backup: io.relais.app.data.LibraryBackup) = c.libraryBackup.restore(backup, System.currentTimeMillis())
     fun deletePdfs(keep: Set<Long>) = viewModelScope.launch { c.pdfs.deleteAll(keep) }
 }
 
@@ -251,9 +259,26 @@ fun SettingsScreen(nav: Nav) {
     var editingAppname by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val appnameSaved = stringResource(R.string.settings_appname_saved)
+    // A backup file picked for a restore, waiting for its confirmation.
+    var pendingRestore by remember { mutableStateOf<io.relais.app.data.LibraryBackup?>(null) }
+    val notBackup = stringResource(R.string.restore_not_backup)
+    val newerBackup = stringResource(R.string.restore_newer)
+    val restored = stringResource(R.string.restore_done)
+    val backupChooser = stringResource(R.string.settings_backup)
+    val pickBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = readBackupFile(context, uri)
+            when (val parsed = text?.let { io.relais.app.data.LibraryBackupFormat.parse(it) } ?: io.relais.app.data.LibraryBackupFormat.Parsed.NotBackup) {
+                is io.relais.app.data.LibraryBackupFormat.Parsed.Ok -> pendingRestore = parsed.backup
+                io.relais.app.data.LibraryBackupFormat.Parsed.Newer -> snackbar.showSnackbar(newerBackup)
+                io.relais.app.data.LibraryBackupFormat.Parsed.NotBackup -> snackbar.showSnackbar(notBackup)
+            }
+        }
     var confirmClear by remember { mutableStateOf(false) }
     // The keep asked for, the reports it removes, and its label ("90 days", "1 year").
     var shortenHistory by remember { mutableStateOf<Triple<Int, Int, Int>?>(null) }
+    }
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -389,6 +414,21 @@ fun SettingsScreen(nav: Nav) {
             TextButton(onClick = { confirmClear = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
                 Text(stringResource(R.string.settings_clear_history))
             }
+            // The Library in one file, for a new phone (lot 3): shared where the reader chooses.
+            TextButton(
+                onClick = {
+                    scope.launch {
+                        val (name, json) = vm.backup()
+                        shareBackup(context, name, json, backupChooser)
+                    }
+                },
+                modifier = Modifier.padding(horizontal = 8.dp).testTag("library_backup"),
+            ) { Text(stringResource(R.string.settings_backup)) }
+            SettingText(stringResource(R.string.settings_backup_note), secondary = true)
+            TextButton(
+                onClick = { pickBackup.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                modifier = Modifier.padding(horizontal = 8.dp).testTag("library_restore"),
+            ) { Text(stringResource(R.string.settings_restore)) }
             HorizontalDivider()
 
             SectionHeader(stringResource(R.string.settings_storage))
@@ -407,6 +447,24 @@ fun SettingsScreen(nav: Nav) {
 
     showWhatsNew?.let { release -> WhatsNewSheet(release, onDismiss = { showWhatsNew = null }) }
 
+    pendingRestore?.let { backup ->
+        val n = backup.counts
+        AlertDialog(
+            onDismissRequest = { pendingRestore = null },
+            title = { Text(stringResource(R.string.restore_title)) },
+            text = { Text(stringResource(R.string.restore_text, n.saved, n.history, n.highlights, n.followed)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingRestore = null
+                    scope.launch {
+                        vm.restore(backup)
+                        snackbar.showSnackbar(restored)
+                    }
+                }, modifier = Modifier.testTag("restore_confirm")) { Text(stringResource(R.string.restore_action)) }
+            },
+            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text(stringResource(R.string.report_cancel)) } },
+        )
+    }
     shortenHistory?.let { (days, removed, label) ->
         AlertDialog(
             onDismissRequest = { shortenHistory = null },
@@ -603,4 +661,37 @@ fun OnboardingFlow() {
             TextButton(onClick = { finish(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.digest_not_now)) }
         }
     }
+}
+
+/** The text of a picked file, or null when it cannot be read or is far larger than a backup. */
+private suspend fun readBackupFile(context: android.content.Context, uri: android.net.Uri): String? =
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                // Read in steps up to the limit (readNBytes needs Android 13).
+                val out = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    out.write(buffer, 0, n)
+                    if (out.size() > io.relais.app.data.LibraryBackupFormat.MAX_BYTES) return@use null
+                }
+                out.toString(Charsets.UTF_8.name())
+            }
+        }.getOrNull()
+    }
+
+/** Writes the backup in the app's cache and opens Android's share menu on it. */
+private fun shareBackup(context: android.content.Context, fileName: String, json: String, title: String) {
+    val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+    dir.listFiles()?.forEach { it.delete() }
+    val file = java.io.File(dir, fileName).apply { writeText(json) }
+    val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("application/json")
+        .putExtra(android.content.Intent.EXTRA_SUBJECT, fileName)
+        .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    send.clipData = android.content.ClipData.newRawUri(fileName, uri)
+    context.startActivity(android.content.Intent.createChooser(send, title))
 }

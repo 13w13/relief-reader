@@ -147,6 +147,9 @@ fun HeadlinePile(
     // that the page does not jump from one card to the next.
     var cardHeight by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
+    // A country line under the summary on some card of the week: every card keeps room for it,
+    // so that the summary keeps its two lines and the cards their height (founder's phone, 14/11).
+    val reserveCountry = remember(headlines) { headlines.any { pileCountry(it) != null } }
     Column(Modifier.fillMaxWidth().testTag("headline_pile")) {
         HorizontalPager(
             state = pager,
@@ -166,6 +169,7 @@ fun HeadlinePile(
                     onPrevious = if (page > 0) ({ go(page - 1) }) else null,
                     onNext = { go(page + 1) },
                     menu = menu,
+                    reserveCountry = reserveCountry,
                     modifier = Modifier.onSizeChanged { if (it.height > cardHeight) cardHeight = it.height },
                 )
             } else {
@@ -196,6 +200,8 @@ private fun HeadlineCard(
     onPrevious: (() -> Unit)?,
     onNext: () -> Unit,
     menu: (@Composable ColumnScope.(report: ReportEntity, close: () -> Unit) -> Unit)?,
+    /** Room for a country line under the summary, when a card of the week has one. */
+    reserveCountry: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -245,8 +251,8 @@ private fun HeadlineCard(
             val bodyHeight = with(LocalDensity.current) {
                 type.labelSmall.lineHeight.takeOrElse { 16.sp }.toDp() +
                     type.displaySmall.lineHeight.takeOrElse { 30.sp }.toDp() * 3 +
-                    type.bodyMedium.lineHeight.takeOrElse { 22.sp }.toDp() * 2
-            } + 16.dp + Space.screen * 2
+                    type.bodyMedium.lineHeight.takeOrElse { 22.sp }.toDp() * (if (reserveCountry) 3 else 2)
+            } + (if (reserveCountry) 24.dp else 16.dp) + Space.screen * 2
             Column(
                 Modifier.fillMaxWidth().heightIn(min = bodyHeight).padding(Space.screen),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -259,10 +265,10 @@ private fun HeadlineCard(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
-                // Two lines of summary, or one and the country when the title does not name it.
+                // Two lines of summary, then the country when the title does not name it.
                 val country = pileCountry(report)
                 report.headlineSummary?.let {
-                    Text(it, style = type.bodyMedium, color = cs.onSurfaceVariant, maxLines = if (country != null) 1 else 2, overflow = TextOverflow.Ellipsis)
+                    Text(it, style = type.bodyMedium, color = cs.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 if (country != null) Text(country, style = type.bodyMedium, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
