@@ -40,13 +40,25 @@ data class TopicInfo(
 )
 
 object Topics {
-    /** A topic from one item of the API's answer; null without an id or a title. */
-    fun info(item: ApiItem<JsonElement>): TopicInfo? {
-        val f = item.fields as? JsonObject ?: return null
+    /** Every readable topic of a list answer (`{"data":[{"id":…,"fields":{…}}, …]}`). */
+    fun list(answer: JsonElement): List<TopicInfo> =
+        ((answer as? JsonObject)?.get("data") as? JsonArray).orEmpty().mapNotNull { item(it) }
+
+    /** The topic of a one-item answer, or null. */
+    fun one(answer: JsonElement): TopicInfo? = list(answer).firstOrNull()
+
+    /** One item: an id (number or text) and its fields; anything missing or of another shape gives null. */
+    fun item(element: JsonElement): TopicInfo? {
+        val obj = element as? JsonObject ?: return null
+        val id = (obj["id"] as? JsonPrimitive)?.let { it.longOrNull ?: it.contentOrNull?.toLongOrNull() } ?: return null
+        return info(id, obj["fields"] as? JsonObject ?: return null)
+    }
+
+    private fun info(id: Long, f: JsonObject): TopicInfo? {
         val title = f.text("title")?.takeIf { it.isNotBlank() } ?: return null
         val date = f["date"] as? JsonObject
         return TopicInfo(
-            id = item.id,
+            id = id,
             title = title.trim(),
             urlAlias = f.text("url_alias"),
             featured = f.flag("featured"),

@@ -342,6 +342,14 @@ class PickCrisesViewModel(private val c: AppContainer) : ViewModel() {
     ) { crises, followed, l, e -> PickCrisesState(crises, followed.map { it.disasterId }.toSet(), l, e) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PickCrisesState(loading = true))
 
+    // Regional crises (topics, lot 3): loaded on their own, so that a failure stays in their
+    // section and the rest of the picker works. Declared before init: viewModelScope runs on
+    // Main.immediate, so loadTopics() starts in the constructor (review of PR 19).
+    val topics = MutableStateFlow<List<io.relais.api.TopicInfo>?>(null)
+    val topicsFailed = MutableStateFlow(false)
+    val followedTopics: StateFlow<Set<Long>> = c.dao.observeFollowedTopics().map { list -> list.map { it.topicId }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     init {
         load()
         loadTopics()
@@ -362,13 +370,6 @@ class PickCrisesViewModel(private val c: AppContainer) : ViewModel() {
     fun toggle(crisis: DisasterInfo, follow: Boolean) = viewModelScope.launch {
         if (follow) c.repository.followDisaster(crisis) else c.repository.unfollowDisaster(crisis.id)
     }
-
-    // Regional crises (topics, lot 3): loaded on their own, so that a failure stays in their
-    // section and the rest of the picker works.
-    val topics = MutableStateFlow<List<io.relais.api.TopicInfo>?>(null)
-    val topicsFailed = MutableStateFlow(false)
-    val followedTopics: StateFlow<Set<Long>> = c.dao.observeFollowedTopics().map { list -> list.map { it.topicId }.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun loadTopics(force: Boolean = false) = viewModelScope.launch {
         topicsFailed.value = false

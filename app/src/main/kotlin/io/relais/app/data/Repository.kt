@@ -230,8 +230,17 @@ class Repository(
             offset += response.data.size
             page++
         } while (response.data.isNotEmpty() && offset < response.totalCount && page < 3)
-        // Each followed regional crisis: one request, the OR of its lists (lot 3, budget).
-        dao.followedTopics().forEach { topic -> runCatching { fetchTopic(topic.topicId, topic.rivers, since) } }
+        // Each followed regional crisis: one request, the OR of its lists (lot 3, budget). A
+        // failure skips that topic; a cancelled sync stops (review of PR 19).
+        dao.followedTopics().forEach { topic ->
+            try {
+                fetchTopic(topic.topicId, topic.rivers, since)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The next sync tries again.
+            }
+        }
         settings.setLastSyncAt(now)
         settings.setLastHeadlinesRefreshAt(now)
         // Alerts look at what was posted since the previous sync; the first sync announces nothing.
@@ -770,14 +779,25 @@ class Repository(
      */
     suspend fun topics(force: Boolean = false): List<io.relais.api.TopicInfo> =
         cachedJson("topics:list", ONE_DAY, TOPICS, force) {
-            api { it.topics(Requests.topics()) }.data.mapNotNull { io.relais.api.Topics.info(it) }
+            io.relais.api.Topics.list(api { it.topics(Requests.topics()) })
         }.sortedWith(compareByDescending<io.relais.api.TopicInfo> { it.featured }.thenBy { it.title.lowercase() })
 
-    /** A topic with its introduction and lists: one request, kept 24 hours. */
-    suspend fun topic(id: Long, force: Boolean = false): io.relais.api.TopicInfo =
-        cachedJson("topic:$id", ONE_DAY, io.relais.api.TopicInfo.serializer(), force) {
-            io.relais.api.Topics.info(api { it.topic(id) }) ?: throw ApiException.NotFound()
+    /**
+     * A topic with its introduction and lists: one request, kept 24 hours. A followed topic
+     * takes its current lists, title and address, so that the sync follows what the editors
+     * changed (review of PR 19).
+     */
+    suspend fun topic(id: Long, force: Boolean = false): io.relais.api.TopicInfo {
+        val info = cachedJson("topic:$id", ONE_DAY, io.relais.api.TopicInfo.serializer(), force) {
+            io.relais.api.Topics.one(api { it.topic(id) }) ?: throw ApiException.NotFound()
         }
+        dao.followedTopic(id)?.let { followed ->
+            if (followed.rivers != info.rivers || followed.title != info.title || followed.urlAlias != info.urlAlias) {
+                dao.upsertFollowedTopic(followed.copy(title = info.title, urlAlias = info.urlAlias, rivers = info.rivers))
+            }
+        }
+        return info
+    }
 
     /** Follows a topic and brings its last 7 days: its page request, then one request. */
     suspend fun followTopic(id: Long, title: String) {
@@ -785,7 +805,15 @@ class Repository(
         val now = System.currentTimeMillis()
         val info = topic(id)
         dao.upsertFollowedTopic(FollowedTopicEntity(id, info.title.ifBlank { title }, info.urlAlias, info.rivers, followedAt = now, lastVisitAt = now - SEVEN_DAYS))
-        if (hasAccess) runCatching { fetchTopic(id, info.rivers, now - SEVEN_DAYS) }
+        if (hasAccess) {
+            try {
+                fetchTopic(id, info.rivers, now - SEVEN_DAYS)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The next sync brings them.
+            }
+        }
     }
 
     suspend fun unfollowTopic(id: Long) {

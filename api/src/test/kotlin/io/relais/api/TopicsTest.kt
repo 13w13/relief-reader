@@ -54,12 +54,13 @@ class TopicsTest {
         assertNull(RiverQuery.parse("https://reliefweb.int/updates?view=videos"))
     }
 
-    private fun item(fields: String): ApiItem<JsonElement> =
-        RelaisJson.decodeFromString(ApiResponse.serializer(JsonElement.serializer()), """{"data":[{"id":"7","fields":$fields}]}""").data.single()
+    private fun answer(items: String): JsonElement = RelaisJson.parseToJsonElement("""{"totalCount":1,"data":[$items]}""")
+
+    private fun item(fields: String): JsonElement = answer("""{"id":"7","fields":$fields}""")
 
     @Test
     fun aTopicIsReadTolerantly() {
-        val topic = Topics.info(
+        val topic = Topics.one(
             item(
                 """{"title":" Sudan Regional Crisis ","featured":"1","url_alias":"https://reliefweb.int/topics/sudan",
                 "date":{"changed":"2026-11-12T08:00:00+00:00"},"introduction-html":"<p>Intro</p>",
@@ -75,9 +76,18 @@ class TopicsTest {
         assertEquals(2, topic.rivers.size)
         assertEquals("", topic.rivers[1].title)
         // Without a title, or with fields of another shape: no topic, no crash.
-        assertNull(Topics.info(item("""{"featured":true}""")))
-        assertNull(Topics.info(item("""[1,2]""")))
-        assertFalse(Topics.info(item("""{"title":"T","featured":{"x":1},"rivers":{"a":1}}"""))!!.featured)
+        assertNull(Topics.one(item("""{"featured":true}""")))
+        assertNull(Topics.one(item("""[1,2]""")))
+        assertFalse(Topics.one(item("""{"title":"T","featured":{"x":1},"rivers":{"a":1}}"""))!!.featured)
+    }
+
+    @Test
+    fun anItemWithoutFieldsIsSkippedNotTheList() {
+        // Review of PR 19: one broken item no longer fails the whole list.
+        val list = Topics.list(answer("""{"id":1},{"id":"x","fields":{"title":"No id"}},"text",{"id":2,"fields":{"title":"Kept"}}"""))
+        assertEquals(listOf(2L), list.map { it.id })
+        assertEquals(emptyList<TopicInfo>(), Topics.list(RelaisJson.parseToJsonElement("""{"data":{"not":"a list"}}""")))
+        assertEquals(emptyList<TopicInfo>(), Topics.list(RelaisJson.parseToJsonElement("[]")))
     }
 
     @Test
