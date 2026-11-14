@@ -13,9 +13,13 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.relais.api.Requests
+import io.relais.app.AppContainer
 import io.relais.app.container
 import io.relais.app.data.PdfCache
 import io.relais.app.data.Preload
+import io.relais.app.data.PreloadFailures
+import io.relais.app.data.Preloaded
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -24,7 +28,8 @@ import java.util.concurrent.TimeUnit
  * "Download PDFs on Wi-Fi": the PDFs of the newest key documents of what the reader follows
  * (countries, crises, organizations), with their text read, so that they open offline in the
  * morning. No API request: the reports come from the database the sync fills; only their files
- * are downloaded, on an unmetered network, under the cap of Settings (data/PdfCache.kt).
+ * are downloaded, on an unmetered network, under the cap of Settings (data/PdfCache.kt). When
+ * WorkManager stops the worker, the download in progress stops with it.
  */
 class PreloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
@@ -33,17 +38,52 @@ class PreloadWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         if (!settings.preloadPdfs) return Result.success()
         // Files cleared by Android leave the database and the search index first (issue 5).
         c.pdfs.forgetMissing()
+        val now = System.currentTimeMillis()
         // The documents of Following's Key view: reports and the editors' headlines.
         val reports = c.dao.observeFollowingFeed(false, Requests.REPORT_FORMATS, true, Preload.CANDIDATES).first()
-        val downloaded = c.dao.pdfs().filter { File(it.path).exists() }.map { it.url }.toSet()
-        val plan = Preload.plan(reports, downloaded, c.pdfs.cacheBytes(), PdfCache.capBytes(settings.pdfCapMb), System.currentTimeMillis())
-        for (item in plan) {
-            // The rule of the daily Most read file: nothing on a metered network.
-            if (isStopped || c.pdfs.isMetered()) break
-            val file = c.pdfs.download(item.url, item.reportId, Preload.MAX_FILE_BYTES) ?: continue
-            runCatching { c.pdfText.ensure(item.url, item.reportId, file) }
+        val recent = Preload.recent(reports, now)
+        val onPhone = c.dao.pdfs().filter { File(it.path).exists() }.associate { it.url to File(it.path) }
+
+        // A PDF downloaded by a pass that stopped before its text was read: read it now, offline.
+        for (item in Preload.unread(recent, onPhone.keys, c.pdfText.readUrls())) {
+            if (isStopped) return Result.success()
+            readText(c, item, onPhone.getValue(item.url))
+        }
+
+        val failures = PreloadFailures.of(applicationContext)
+        val items = Preload.candidates(recent, onPhone.keys, failures.read(), now)
+        val room = Preload.room(c.pdfs.cacheBytes(), PdfCache.capBytes(settings.pdfCapMb))
+        // The rule of the daily Most read file: nothing on a metered network.
+        Preload.run(items, room, stop = { isStopped || c.pdfs.isMetered() }) { item ->
+            when (val result = c.pdfs.download(item.url, item.reportId, Preload.MAX_FILE_BYTES)) {
+                is Preloaded.Saved -> {
+                    val bytes = result.file.length()
+                    readText(c, item, result.file)
+                    bytes
+                }
+                Preloaded.TooLarge -> {
+                    failures.record(item.url, System.currentTimeMillis(), permanent = true)
+                    null
+                }
+                Preloaded.Failed -> {
+                    failures.record(item.url, System.currentTimeMillis(), permanent = false)
+                    null
+                }
+                Preloaded.Busy -> null
+            }
         }
         return Result.success()
+    }
+
+    /** Reads a PDF's text; a stopped worker stops here too. A PDF whose text fails opens all the same. */
+    private suspend fun readText(c: AppContainer, item: Preload.Item, file: File) {
+        try {
+            c.pdfText.ensure(item.url, item.reportId, file)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // The text view tries again when the reader opens the PDF.
+        }
     }
 
     companion object {
@@ -68,10 +108,14 @@ class PreloadWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             manager.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)
         }
 
-        /** After a sync, the new reports of what the reader follows, at the next Wi-Fi. */
+        /**
+         * After a sync, the new reports of what the reader follows, at the next Wi-Fi. A pass
+         * already waiting or running is kept: it reads the database when it runs, and replacing
+         * it would stop a download half way.
+         */
         fun afterSync(context: Context) {
             val request = OneTimeWorkRequestBuilder<PreloadWorker>().setConstraints(constraints()).build()
-            WorkManager.getInstance(context).enqueueUniqueWork(AFTER_SYNC, ExistingWorkPolicy.REPLACE, request)
+            WorkManager.getInstance(context).enqueueUniqueWork(AFTER_SYNC, ExistingWorkPolicy.KEEP, request)
         }
     }
 }

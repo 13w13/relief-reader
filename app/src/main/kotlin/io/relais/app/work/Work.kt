@@ -92,7 +92,7 @@ private suspend fun maybeCleanup(context: Context) {
     c.repository.cleanup(s.historyDays)
     // PDFs whose file is gone, and texts left without a PDF, leave the search index (issue 5).
     c.pdfs.forgetMissing()
-    c.pdfText.forgetAllExcept(c.dao.pdfs().map { it.url }.toSet())
+    c.pdfText.forgetAllExcept(c.pdfs.protectedReportIds()) { c.dao.pdfs().map { it.url }.toSet() }
     c.settings.setLastCleanupAt(now)
 }
 

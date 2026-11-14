@@ -139,12 +139,21 @@ class PdfTextStore(context: Context, private val scope: CoroutineScope) {
         scope.launch { dao.delete(url) }
     }
 
-    /** Forgets the text of every PDF not in [keep]: files gone before the cleanup removed their text (issue 5). */
-    suspend fun forgetAllExcept(keep: Set<String>): Int {
-        val gone = dao.urls().filter { it !in keep }
-        gone.forEach { dao.delete(it) }
+    /**
+     * Forgets the texts left without a PDF on the phone (issue 5), except those of [keepReports]
+     * (saved or highlighted: see PdfDownloader.forgetMissing). The texts are listed before
+     * [onPhone] is asked, so a PDF downloaded in between keeps its text.
+     */
+    suspend fun forgetAllExcept(keepReports: Set<Long>, onPhone: suspend () -> Set<String>): Int {
+        val docs = dao.docKeys()
+        val keep = onPhone()
+        val gone = docs.filter { it.url !in keep && it.reportId !in keepReports }
+        gone.forEach { dao.delete(it.url) }
         return gone.size
     }
+
+    /** The PDFs whose text was read, with or without text found. */
+    suspend fun readUrls(): Set<String> = dao.docKeys().mapTo(HashSet()) { it.url }
 
     /** PDFs read on the phone that hold every word of [text]: one hit per report, its first page. */
     suspend fun search(text: String): List<PdfHit> {

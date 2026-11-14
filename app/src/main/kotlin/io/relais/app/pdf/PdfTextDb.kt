@@ -79,6 +79,8 @@ data class PdfPreviewRow(val reportId: Long, val preview: String)
 
 data class PdfPagesRow(val url: String, val pageCount: Int)
 
+data class PdfDocKey(val url: String, val reportId: Long)
+
 @Dao
 abstract class PdfTextDao {
     @Query("SELECT * FROM pdf_doc WHERE url = :url")
@@ -150,8 +152,8 @@ abstract class PdfTextDao {
     @Query("SELECT url, pageCount FROM pdf_doc WHERE pageCount > 0 AND version >= 3")
     abstract fun observePageCounts(): Flow<List<PdfPagesRow>>
 
-    @Query("SELECT url FROM pdf_doc")
-    abstract suspend fun urls(): List<String>
+    @Query("SELECT url, reportId FROM pdf_doc")
+    abstract suspend fun docKeys(): List<PdfDocKey>
 }
 
 @Database(entities = [PdfDocEntity::class, PdfPageEntity::class, PdfPageFtsEntity::class], version = 1, exportSchema = false)
