@@ -123,6 +123,15 @@ class MigrationTest {
                 dao.upsertFollowedSource(FollowedSourceEntity(9417, "ACAPS", "ACAPS", "Academic and Research Institution", reportsOnly = false, followedAt = 1, lastVisitAt = 1))
                 dao.setSourceReportsOnly(9417, true)
                 assertTrue(dao.followedSource(9417)!!.reportsOnly)
+
+                // The tables of version 4 (lot 3, regional crises) are there and writable.
+                assertTrue(dao.followedTopics().isEmpty())
+                val rivers = listOf(io.relais.api.TopicRiver("Situation reports", "https://reliefweb.int/updates?advanced-search=(PC220)"))
+                dao.upsertFollowedTopic(FollowedTopicEntity(7, "Sudan Regional Crisis", null, rivers, followedAt = 1, lastVisitAt = 1))
+                assertEquals(rivers, dao.followedTopic(7)!!.rivers)
+                dao.insertReportTopics(listOf(ReportTopicEntity(2, 7)))
+                // A report brought by the topic joins the feed of Following.
+                assertTrue(dao.observeFollowingFeed(true, listOf(-1L), false, 100).first().any { it.id == 2L })
             }
         } finally {
             db.close()

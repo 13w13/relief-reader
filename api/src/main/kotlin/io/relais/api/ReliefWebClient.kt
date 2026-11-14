@@ -72,6 +72,14 @@ class ReliefWebClient(
     /** An organization with its description and country (v0.3). */
     suspend fun source(id: Long): ApiItem<SourceFields> = one("sources", id, SourceFields.serializer())
 
+    /** Regional crises (topics, lot 3): their fields as raw JSON, read tolerantly by [Topics]. */
+    suspend fun topics(query: ApiQuery): ApiResponse<kotlinx.serialization.json.JsonElement> =
+        post("topics", query, kotlinx.serialization.json.JsonElement.serializer())
+
+    /** One topic with its introduction and its lists (rivers). */
+    suspend fun topic(id: Long): ApiItem<kotlinx.serialization.json.JsonElement> =
+        one("topics", id, kotlinx.serialization.json.JsonElement.serializer())
+
     /** One document of [resource] with every field (`profile=full`), or throws [ApiException.NotFound]. */
     private suspend fun <T> one(resource: String, id: Long, serializer: KSerializer<T>): ApiItem<T> {
         val name = requireAppname()

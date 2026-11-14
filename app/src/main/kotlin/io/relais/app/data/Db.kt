@@ -153,6 +153,24 @@ data class FollowedSourceEntity(
 )
 
 /** Reading state of a report: history, saved, position, read mark. */
+/**
+ * A followed regional crisis (topic, lot 3): its lists as the site gives them, translated into
+ * filters when read (RiverQuery), so that a better translation needs no migration.
+ */
+@Entity(tableName = "followed_topic")
+data class FollowedTopicEntity(
+    @PrimaryKey val topicId: Long,
+    val title: String,
+    val urlAlias: String?,
+    val rivers: List<io.relais.api.TopicRiver>,
+    val followedAt: Long,
+    val lastVisitAt: Long,
+)
+
+/** Which followed topic brought a report: the request of the topic itself says so. */
+@Entity(tableName = "report_topic", primaryKeys = ["reportId", "topicId"], indices = [Index("topicId")])
+data class ReportTopicEntity(val reportId: Long, val topicId: Long)
+
 @Entity(tableName = "reading")
 data class ReadingEntity(
     @PrimaryKey val reportId: Long,
@@ -472,7 +490,8 @@ interface RelaisDao {
         "SELECT * FROM report r WHERE r.fromRss = 0 AND " +
             "(r.primaryCountryId IN (SELECT countryId FROM followed_country) OR " +
             "EXISTS (SELECT 1 FROM followed_disaster d WHERE " + IN_DISASTER_R + ") OR " +
-            "EXISTS (SELECT 1 FROM followed_source s WHERE " + IN_SOURCE_R + " AND " + SOURCE_ADDS_R + ")) AND " +
+            "EXISTS (SELECT 1 FROM followed_source s WHERE " + IN_SOURCE_R + " AND " + SOURCE_ADDS_R + ") OR " +
+            "EXISTS (SELECT 1 FROM report_topic t WHERE t.reportId = r.id AND t.topicId IN (SELECT topicId FROM followed_topic))) AND " +
             "(:allFormats OR r.formatId IN (:formatIds) OR (:headlines AND r.isHeadline)) " +
             "ORDER BY r.dateCreated DESC LIMIT :limit",
     )
@@ -510,6 +529,32 @@ interface RelaisDao {
 
     @Upsert
     suspend fun upsertFollowedSource(source: FollowedSourceEntity)
+
+    // Regional crises (topics, lot 3)
+    @Upsert
+    suspend fun upsertFollowedTopic(topic: FollowedTopicEntity)
+
+    @Query("SELECT * FROM followed_topic ORDER BY title")
+    fun observeFollowedTopics(): Flow<List<FollowedTopicEntity>>
+
+    @Query("SELECT * FROM followed_topic ORDER BY title")
+    suspend fun followedTopics(): List<FollowedTopicEntity>
+
+    @Query("SELECT * FROM followed_topic WHERE topicId = :id")
+    suspend fun followedTopic(id: Long): FollowedTopicEntity?
+
+    @Query("DELETE FROM followed_topic WHERE topicId = :id")
+    suspend fun deleteFollowedTopic(id: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertReportTopics(rows: List<ReportTopicEntity>)
+
+    @Query("DELETE FROM report_topic WHERE topicId = :id")
+    suspend fun deleteReportTopics(id: Long)
+
+    /** Links to reports the cleanup removed. */
+    @Query("DELETE FROM report_topic WHERE reportId NOT IN (SELECT id FROM report)")
+    suspend fun deleteOrphanReportTopics()
 
     @Query("DELETE FROM followed_source WHERE sourceId = :id")
     suspend fun unfollowSource(id: Long)
@@ -708,6 +753,7 @@ private object Codecs {
     val sources: KSerializer<List<SourceLite>> = ListSerializer(SourceLite.serializer())
     val files: KSerializer<List<FileLite>> = ListSerializer(FileLite.serializer())
     val strings: KSerializer<List<String>> = ListSerializer(String.serializer())
+    val rivers: KSerializer<List<io.relais.api.TopicRiver>> = ListSerializer(io.relais.api.TopicRiver.serializer())
 }
 
 class Converters {
@@ -715,6 +761,7 @@ class Converters {
     private val sources get() = Codecs.sources
     private val files get() = Codecs.files
     private val strings get() = Codecs.strings
+    private val rivers get() = Codecs.rivers
 
     @TypeConverter fun refsToJson(value: List<Ref>): String = RelaisJson.encodeToString(refs, value)
     @TypeConverter fun jsonToRefs(value: String): List<Ref> = RelaisJson.decodeFromString(refs, value)
@@ -722,6 +769,8 @@ class Converters {
     @TypeConverter fun jsonToSources(value: String): List<SourceLite> = RelaisJson.decodeFromString(sources, value)
     @TypeConverter fun filesToJson(value: List<FileLite>): String = RelaisJson.encodeToString(files, value)
     @TypeConverter fun jsonToFiles(value: String): List<FileLite> = RelaisJson.decodeFromString(files, value)
+    @TypeConverter fun riversToJson(value: List<io.relais.api.TopicRiver>): String = RelaisJson.encodeToString(rivers, value)
+    @TypeConverter fun jsonToRivers(value: String): List<io.relais.api.TopicRiver> = runCatching { RelaisJson.decodeFromString(rivers, value) }.getOrDefault(emptyList())
     @TypeConverter fun stringsToJson(value: List<String>): String = RelaisJson.encodeToString(strings, value)
     @TypeConverter fun jsonToStrings(value: String): List<String> = RelaisJson.decodeFromString(strings, value)
 }
@@ -731,7 +780,7 @@ class Converters {
         ReportEntity::class, FeedItemEntity::class, FeedMetaEntity::class, CountryEntity::class,
         FollowedCountryEntity::class, ReadingEntity::class, PdfEntity::class, ApiUsageEntity::class,
         ReportFtsEntity::class, HighlightEntity::class, HighlightFtsEntity::class, FollowedDisasterEntity::class,
-        FollowedSourceEntity::class,
+        FollowedSourceEntity::class, FollowedTopicEntity::class, ReportTopicEntity::class,
     ],
     version = DB_VERSION,
     exportSchema = true,
@@ -781,7 +830,23 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+/** Version 4 (lot 3): followed regional crises and the reports each brought. Two tables added. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `followed_topic` (`topicId` INTEGER NOT NULL, `title` TEXT NOT NULL, " +
+                "`urlAlias` TEXT, `rivers` TEXT NOT NULL, `followedAt` INTEGER NOT NULL, `lastVisitAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`topicId`))",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `report_topic` (`reportId` INTEGER NOT NULL, `topicId` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`reportId`, `topicId`))",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_report_topic_topicId` ON `report_topic` (`topicId`)")
+    }
+}
+
+val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 
 /** Version of the schema; app/schemas holds one JSON file per version. */
-const val DB_VERSION = 3
+const val DB_VERSION = 4

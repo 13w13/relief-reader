@@ -181,6 +181,29 @@ object Requests {
         Facet("theme.id", limit = 25),
     )
 
+    /**
+     * The regional crises to choose from (topics, lot 3). No filter on `status` and no sort: the
+     * values and sortable fields are not known without a real answer; the app sorts by title.
+     */
+    fun topics(): ApiQuery = ApiQuery(
+        preset = null,
+        limit = 200,
+        sort = emptyList(),
+        fields = listOf("id", "title", "featured", "url_alias", "date.changed"),
+    )
+
+    /**
+     * The reports of a topic's list, or of a followed topic ([filter], the OR of its lists), the
+     * newest first; [since] for the sync and the follow (7 days), with the full text then.
+     */
+    fun topicFeed(filter: Filter?, query: String? = null, since: Instant? = null, limit: Int = 30, full: Boolean = false): ApiQuery = ApiQuery(
+        limit = limit,
+        query = query?.takeIf { it.isNotBlank() },
+        sort = Sorts.NEWEST,
+        filter = Filters.and(filter, since?.let { Filters.dateRange("date.created", from = it) }),
+        fields = if (full) Fields.REPORT_FULL else Fields.REPORT_CARD,
+    )
+
     /** M2 Pick countries: the whole list, sorted by name. */
     fun countries(): ApiQuery = ApiQuery(
         preset = null,

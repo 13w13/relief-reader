@@ -109,7 +109,7 @@ fun FilterRow(
 
 /** A pill of the row: outlined in ink 2, or filled primaryContainer and SemiBold when active. */
 @Composable
-private fun FilterPill(label: String, active: Boolean, onClick: () -> Unit, tag: String) {
+internal fun FilterPill(label: String, active: Boolean, onClick: () -> Unit, tag: String) {
     val cs = MaterialTheme.colorScheme
     Surface(
         shape = CircleShape,

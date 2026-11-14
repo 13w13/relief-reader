@@ -68,6 +68,8 @@ import kotlin.reflect.KClass
 // The overview of a country, opened from its page; `since` is the page's last visit, for the dots.
 @Serializable data class OverviewRoute(val id: Long, val name: String, val since: Long = Long.MAX_VALUE)
 @Serializable data class SourceRoute(val id: Long, val name: String = "", val filter: String = "")
+/** A regional crisis (ReliefWeb topic, lot 3). */
+@Serializable data class TopicRoute(val id: Long, val title: String = "")
 @Serializable object PickSourcesRoute
 @Serializable object LicencesRoute
 @Serializable object MostReadRoute
@@ -133,6 +135,7 @@ class Nav(private val controller: NavHostController) {
     fun country(id: Long, name: String, filter: PageFilter? = null) = controller.navigate(CountryRoute(id, name, filter?.name.orEmpty()))
     fun crisis(id: Long, name: String, filter: PageFilter? = null) = controller.navigate(CrisisRoute(id, name, filter?.name.orEmpty()))
     fun source(id: Long, name: String, filter: PageFilter? = null) = controller.navigate(SourceRoute(id, name, filter?.name.orEmpty()))
+    fun topic(id: Long, title: String) = controller.navigate(TopicRoute(id, title))
     fun pickSources() = controller.navigate(PickSourcesRoute) { launchSingleTop = true }
     fun licences() = controller.navigate(LicencesRoute) { launchSingleTop = true }
     fun overview(id: Long, name: String, since: Long) = controller.navigate(OverviewRoute(id, name, since))
@@ -246,6 +249,10 @@ fun MainScreen() {
                     SourceScreen(route.id, route.name, route.filter, nav)
                 }
                 composable<PickSourcesRoute> { PickSourcesScreen(nav) }
+                composable<TopicRoute> {
+                    val route = it.toRoute<TopicRoute>()
+                    TopicScreen(route.id, route.title, nav)
+                }
                 composable<LicencesRoute> { LicencesScreen(nav) }
                 composable<ManageFollowingRoute> { ManageFollowingScreen(nav) }
                 composable<CrisisRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<CrisisRoute>(basePath = "relais://crisis")) else emptyList()) {
