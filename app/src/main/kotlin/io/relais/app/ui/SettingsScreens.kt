@@ -275,10 +275,10 @@ fun SettingsScreen(nav: Nav) {
                 io.relais.app.data.LibraryBackupFormat.Parsed.NotBackup -> snackbar.showSnackbar(notBackup)
             }
         }
+    }
     var confirmClear by remember { mutableStateOf(false) }
     // The keep asked for, the reports it removes, and its label ("90 days", "1 year").
     var shortenHistory by remember { mutableStateOf<Triple<Int, Int, Int>?>(null) }
-    }
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
