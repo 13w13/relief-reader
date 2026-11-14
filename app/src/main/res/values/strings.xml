@@ -189,7 +189,7 @@
     <string name="library_search">Search your library</string>
     <string name="library_organization">Organization</string>
     <string name="library_theme">Theme</string>
-    <string name="library_group_by">Group by: %1$s</string>
+    <string name="library_group_title">Group by</string>
     <string name="group_date">Date</string>
     <string name="library_saved_on">Saved %1$s</string>
     <string name="library_offline">Available offline</string>
@@ -386,7 +386,7 @@
     <string name="selection_add_note">Add a note</string>
     <string name="library_highlights">Highlights</string>
     <string name="library_search_highlights">Search your highlights</string>
-    <string name="library_highlights_empty">No highlights yet. In a report, tap the highlighter, then a paragraph, and select a passage.</string>
+    <string name="library_highlights_empty">No highlights yet. In a report, choose Highlight in the menu, then tap a paragraph and select a passage.</string>
     <string name="label_unofficial">Unofficial</string>
     <string name="report_document_title">Document title</string>
     <string name="text_size">Text size</string>
@@ -570,4 +570,15 @@
     </plurals>
     <string name="older_every_one">That\'s every headline on your phone.</string>
     <string name="older_feed_limit">ReliefWeb\'s feed keeps only the 20 latest. Add an appname to see older ones.</string>
+    <!-- What's new in 0.4 (equipe/produit/notes-v0.4.0.md). -->
+    <string name="whats_new_04_lead_1">Leaf through the headlines.</string>
+    <string name="whats_new_04_text_1">Swipe the cards on Today, or tap Next in a report.</string>
+    <string name="whats_new_04_lead_2">A shorter Today.</string>
+    <string name="whats_new_04_text_2">Your countries and the report filters are in Following.</string>
+    <string name="whats_new_04_lead_3">The highlighter moved.</string>
+    <string name="whats_new_04_text_3">Find Highlight in the report\'s menu, top right.</string>
+    <string name="whats_new_04_lead_4">PDFs ready offline.</string>
+    <string name="whats_new_04_text_4">On Wi-Fi, Re.L downloads recent PDFs. Turn it off in Settings.</string>
+    <string name="whats_new_04_lead_5">Settings apply at once.</string>
+    <string name="whats_new_04_text_5">Type your appname and tap Save.</string>
 </resources>

@@ -13,6 +13,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,6 +81,11 @@ class PdfTextStore(context: Context, private val scope: CoroutineScope) {
         rows.reversed().associate { it.reportId to it.preview }
     }
 
+    /** The page count of each PDF read on the phone, by URL: list rows show it when the API did not. */
+    val pageCounts: StateFlow<Map<String, Int>> = dao.observePageCounts()
+        .map { rows -> rows.associate { it.url to it.pageCount } }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     fun observeDoc(url: String): Flow<PdfDocEntity?> = dao.observeDoc(url)
 
     /** After a download: reads the text in the background. */
@@ -132,6 +139,22 @@ class PdfTextStore(context: Context, private val scope: CoroutineScope) {
         scope.launch { dao.delete(url) }
     }
 
+    /**
+     * Forgets the texts left without a PDF on the phone (issue 5), except those of [keepReports]
+     * (saved or highlighted: see PdfDownloader.forgetMissing). The texts are listed before
+     * [onPhone] is asked, so a PDF downloaded in between keeps its text.
+     */
+    suspend fun forgetAllExcept(keepReports: Set<Long>, onPhone: suspend () -> Set<String>): Int {
+        val docs = dao.docKeys()
+        val keep = onPhone()
+        val gone = docs.filter { it.url !in keep && it.reportId !in keepReports }
+        gone.forEach { dao.delete(it.url) }
+        return gone.size
+    }
+
+    /** The PDFs whose text was read, with or without text found. */
+    suspend fun readUrls(): Set<String> = dao.docKeys().mapTo(HashSet()) { it.url }
+
     /** PDFs read on the phone that hold every word of [text]: one hit per report, its first page. */
     suspend fun search(text: String): List<PdfHit> {
         val query = PdfSearch.ftsQuery(text) ?: return emptyList()
@@ -150,10 +173,12 @@ class PdfTextStore(context: Context, private val scope: CoroutineScope) {
         val bytes = file.length()
         var stop: PdfStop? = null
         var tooHeavy = false
+        var pdfPages = 0
         val doc = if (bytes > PdfLimits.MAX_FILE_BYTES) null else try {
             _progress.update { it + (url to 0f) }
             val read = PdfBoxText.read(file) { done, total -> _progress.update { it + (url to done.toFloat() / total) } }
             stop = read.stop
+            pdfPages = read.pageCount
             if (read.pages.isEmpty()) null else PdfLayout.document(read.pages)
         } catch (e: CancellationException) {
             throw e
@@ -172,7 +197,8 @@ class PdfTextStore(context: Context, private val scope: CoroutineScope) {
             url = url,
             reportId = reportId,
             status = status,
-            pageCount = doc?.pages?.size ?: 0,
+            // The pages of the PDF, even when the reading stopped at a limit: list rows show it.
+            pageCount = if (doc != null) pdfPages else 0,
             chars = doc?.pages?.sumOf { it.chars } ?: 0,
             version = EXTRACTOR_VERSION,
             fileBytes = bytes,
@@ -191,7 +217,7 @@ class PdfTextStore(context: Context, private val scope: CoroutineScope) {
             },
             pages.map { page -> page.blocks.joinToString("\n") { it.text } },
         )
-        Log.i(TAG, "Read ${entity.pageCount} pages in $millis ms, status $status" + (stop?.let { ", stopped by the $it limit" } ?: ""))
+        Log.i(TAG, "Read ${pages.size} of ${entity.pageCount} pages in $millis ms, status $status" + (stop?.let { ", stopped by the $it limit" } ?: ""))
         return entity
     }
 
@@ -206,8 +232,9 @@ class PdfTextStore(context: Context, private val scope: CoroutineScope) {
         /**
          * Bump to read every PDF again after a change in PdfLayout or PdfBoxText.
          * 2: bullets bigger than their text no longer make headings (v0.2.1).
+         * 3: pageCount is the PDF's page count, even when the reading stops at a limit (list rows).
          */
-        const val EXTRACTOR_VERSION = 2
+        const val EXTRACTOR_VERSION = 3
         private const val TAG = "PdfText"
 
         /**

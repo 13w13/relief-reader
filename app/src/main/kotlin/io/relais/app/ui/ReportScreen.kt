@@ -980,11 +980,14 @@ internal fun FileLines(
             val onPhone = downloaded.containsKey(file.url)
             val tooLarge = !onPhone && (PdfDownloader.tooLarge(file.size) || downloads[file.url] is DownloadState.TooLarge)
             val name = if (report.files.size == 1) null else file.description?.removePrefix("- ")?.ifBlank { null } ?: file.filename
-            val facts = listOfNotNull(
-                name ?: type,
-                file.pages?.takeIf { it > 0 }?.let { stringResource(R.string.report_pages, it.toInt()) },
-                Display.size(file.size),
-            ).joinToString(" · ")
+            // One PDF: the line of the lists (pdf/PdfFacts.kt), with the pages read on the phone
+            // when the API gives none. Several files: each with its name.
+            val facts = (if (report.files.size == 1 && file.url == report.pdf?.url) io.relais.app.pdf.pdfFactsText(report) else null)
+                ?: listOfNotNull(
+                    name ?: type,
+                    file.pages?.takeIf { it > 0 }?.let { stringResource(R.string.report_pages, it.toInt()) },
+                    Display.size(file.size),
+                ).joinToString(" · ")
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("file_row"), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
                 Column(Modifier.weight(1f).padding(horizontal = Space.s)) {

@@ -392,7 +392,8 @@ fun SettingsScreen(nav: Nav) {
             HorizontalDivider()
 
             SectionHeader(stringResource(R.string.settings_storage))
-            SettingText(stringResource(R.string.settings_pdfs, Display.size(state.pdfBytes) ?: "0 KB"))
+            // The space the PDFs take, their cap and the Wi-Fi preload (ui/PdfStorage.kt).
+            PdfStorageSection()
             TextButton(
                 enabled = state.pdfCount > 0,
                 onClick = { confirmPdfs = true },

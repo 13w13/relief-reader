@@ -44,6 +44,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             val last = c.settings.current().lastSyncAt
             if (System.currentTimeMillis() - last >= SKIP_IF_SYNCED_WITHIN) c.repository.sync()
             c.popular.refresh()
+            // The new documents of what the reader follows: their PDFs at the next Wi-Fi.
+            if (c.settings.current().preloadPdfs) PreloadWorker.afterSync(applicationContext)
             // A new interval from the valve takes effect from the next run.
             Work.schedulePeriodicSync(applicationContext)
             maybeCleanup(applicationContext)
@@ -88,6 +90,9 @@ private suspend fun maybeCleanup(context: Context) {
     val now = System.currentTimeMillis()
     if (now - s.lastCleanupAt < 24 * 3_600_000L) return
     c.repository.cleanup(s.historyDays)
+    // PDFs whose file is gone, and texts left without a PDF, leave the search index (issue 5).
+    c.pdfs.forgetMissing()
+    c.pdfText.forgetAllExcept(c.pdfs.protectedReportIds()) { c.dao.pdfs().map { it.url }.toSet() }
     c.settings.setLastCleanupAt(now)
 }
 

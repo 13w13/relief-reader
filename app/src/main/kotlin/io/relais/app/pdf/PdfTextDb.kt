@@ -77,6 +77,10 @@ data class PdfHitRow(val url: String, val page: Int, val reportId: Long, val tex
 
 data class PdfPreviewRow(val reportId: Long, val preview: String)
 
+data class PdfPagesRow(val url: String, val pageCount: Int)
+
+data class PdfDocKey(val url: String, val reportId: Long)
+
 @Dao
 abstract class PdfTextDao {
     @Query("SELECT * FROM pdf_doc WHERE url = :url")
@@ -140,6 +144,16 @@ abstract class PdfTextDao {
 
     @Query("SELECT reportId, preview FROM pdf_doc WHERE status = 1 AND preview IS NOT NULL ORDER BY extractedAt")
     abstract fun observePreviews(): Flow<List<PdfPreviewRow>>
+
+    /**
+     * The page count of each PDF read on the phone, for the list rows. Before version 3 it was
+     * the pages read, fewer than the PDF's when the reading stopped at a limit: not shown.
+     */
+    @Query("SELECT url, pageCount FROM pdf_doc WHERE pageCount > 0 AND version >= 3")
+    abstract fun observePageCounts(): Flow<List<PdfPagesRow>>
+
+    @Query("SELECT url, reportId FROM pdf_doc")
+    abstract suspend fun docKeys(): List<PdfDocKey>
 }
 
 @Database(entities = [PdfDocEntity::class, PdfPageEntity::class, PdfPageFtsEntity::class], version = 1, exportSchema = false)
