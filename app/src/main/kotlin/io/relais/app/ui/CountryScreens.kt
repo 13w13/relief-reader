@@ -1166,7 +1166,7 @@ internal fun SheetGroup(title: String) {
 /** Values with their counts ("UNHCR 526"); beyond 10, the 10 most frequent, then "Show all (23)". */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChipGroup(values: List<Pair<Long, Int>>, selected: Set<Long>, label: (Long) -> String, onToggle: (Long) -> Unit) {
+internal fun ChipGroup(values: List<Pair<Long, Int>>, selected: Set<Long>, label: (Long) -> String, onToggle: (Long) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val shown = if (expanded || values.size <= 10) values else values.take(10)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

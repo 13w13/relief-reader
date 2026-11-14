@@ -173,6 +173,7 @@
     <string name="filter_show_results">Show results</string>
     <string name="results_none">No reports for \"%1$s\". Try fewer words or check the spelling.</string>
     <string name="results_clear_filters">Clear filters</string>
+    <string name="results_none_filters">No reports for \"%1$s\" with these filters. Try fewer filters.</string>
     <string name="results_load_more">Load more</string>
     <string name="results_headlines_title">All headlines</string>
     <string name="format_appeal">Appeal</string>

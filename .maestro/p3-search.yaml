@@ -83,6 +83,13 @@ onFlowComplete:
 - swipe:
     start: 50%, 90%
     end: 50%, 25%
+# Since lot 3, Organization (with its search field) and Theme come after Country.
+- scrollUntilVisible:
+    element:
+      id: "search_sources_field"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: p3-08b-sheet-organization
 - scrollUntilVisible:
     element:
       text: "Past 7 days"

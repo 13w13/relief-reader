@@ -37,6 +37,9 @@ import io.relais.app.ui.headlinesNote
 import io.relais.app.ui.RelaisTheme
 import io.relais.app.ui.FilesSection
 import io.relais.app.ui.FileLines
+import io.relais.app.ui.FilterSheet
+import io.relais.app.data.SearchParams
+import io.relais.api.FacetValue
 import io.relais.app.ui.GroupBy
 import io.relais.app.ui.LibraryFacet
 import io.relais.app.ui.LibraryFilterSheet
@@ -198,6 +201,29 @@ class ScreenshotTest {
         )
         shoot("library-filter-sheet") {
             Column { LibraryFilterSheet(state, onFacet = {}, onGroupBy = {}, onClear = {}) }
+        }
+    }
+
+    /** Search's filter sheet (lot 3): Organization, with its field, and Theme after Country. */
+    @Test
+    fun searchFilterSheet() {
+        val facets = mapOf(
+            "primary_country.id" to listOf(FacetValue("220", 412), FacetValue("13", 96)),
+            "source.id" to listOf(FacetValue("990101", 88), FacetValue("990102", 41), FacetValue("990104", 17)),
+            "theme.id" to listOf(FacetValue("4595", 120), FacetValue("4593", 77), FacetValue("4604", 35)),
+            "format.id" to listOf(FacetValue("10", 140)),
+        )
+        shoot("search-filter-sheet") {
+            Column {
+                FilterSheet(
+                    params = SearchParams(text = "cholera", sourceIds = setOf(990101L), themeIds = setOf(4595L)),
+                    facets = facets,
+                    countryNames = mapOf(220L to "Sudan", 13L to "Chad"),
+                    onApply = {},
+                    sourceNames = mapOf(990101L to "NCO", 990102L to "NWP", 990104L to "KFM"),
+                    themeNames = mapOf(4595L to "Health", 4593L to "Food and Nutrition", 4604L to "Water Sanitation Hygiene"),
+                )
+            }
         }
     }
 

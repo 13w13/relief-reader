@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.relais.app.ui
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -191,6 +192,11 @@ data class ResultsState(
     val countryNames: Map<Long, String> = emptyMap(),
     val loading: Boolean = false,
     val error: LoadError? = null,
+    /** Names for the sheet's organizations and themes (lot 3): results, phone, then a request. */
+    val sourceNames: Map<Long, String> = emptyMap(),
+    val themeNames: Map<Long, String> = emptyMap(),
+    /** Organizations found by "Search organizations", for one absent from the facet. */
+    val sourceMatches: List<Long> = emptyList(),
 )
 
 /**
@@ -241,6 +247,43 @@ class ResultsViewModel(private val c: AppContainer, query: String, headlinesOnly
         load(offset = 0)
     }
 
+    /**
+     * The sheet opens: names from the reports on the phone, then one request (kept 24 hours)
+     * for the organizations of the facet still without one.
+     */
+    fun loadSheetNames() {
+        viewModelScope.launch {
+            val (sources, themes) = runCatching { c.repository.knownTagNames() }.getOrDefault(emptyMap<Long, String>() to emptyMap())
+            val s = _state.value
+            _state.value = s.copy(sourceNames = sources + s.sourceNames, themeNames = themes + s.themeNames)
+            val missing = _state.value.facets["source.id"].orEmpty().mapNotNull { it.value.toLongOrNull() }.filter { it !in _state.value.sourceNames }
+            if (missing.isNotEmpty()) {
+                val found = runCatching { c.repository.sourceNames(missing) }.getOrDefault(emptyMap())
+                _state.value = _state.value.copy(sourceNames = _state.value.sourceNames + found)
+            }
+        }
+    }
+
+    private var sourceSearch: kotlinx.coroutines.Job? = null
+
+    /** "Search organizations" in the sheet: matches by name, after a short pause in the typing. */
+    fun findSources(text: String) {
+        sourceSearch?.cancel()
+        if (text.trim().length < 2) {
+            _state.value = _state.value.copy(sourceMatches = emptyList())
+            return
+        }
+        sourceSearch = viewModelScope.launch {
+            kotlinx.coroutines.delay(400)
+            val found = runCatching { c.repository.searchSources(text) }.getOrDefault(emptyList())
+            val s = _state.value
+            _state.value = s.copy(
+                sourceMatches = found.map { it.id },
+                sourceNames = s.sourceNames + found.associate { it.id to it.shortname.ifBlank { it.name } },
+            )
+        }
+    }
+
     fun loadMore() {
         val s = _state.value
         if (s.loading || s.reports.size >= s.totalCount) return
@@ -260,6 +303,9 @@ class ResultsViewModel(private val c: AppContainer, query: String, headlinesOnly
                     totalCount = page.totalCount,
                     facets = if (offset == 0) page.facets else current.facets,
                     loading = false,
+                    // The results name most of their organizations and themes.
+                    sourceNames = page.reports.flatMap { it.sources }.associate { it.id to it.shortname.ifBlank { it.name } } + current.sourceNames,
+                    themeNames = page.reports.flatMap { it.themes }.associate { it.id to it.name } + current.themeNames,
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(loading = false, error = e.toLoadError())
@@ -277,7 +323,7 @@ fun ResultsScreen(query: String, headlinesOnly: Boolean, nav: Nav, reportsOnly: 
     var showFilters by remember { mutableStateOf(false) }
     val params = state.params
     val activeFilters = params.countryIds.size + FORMAT_GROUPS.count { (_, ids) -> params.formatIds.containsAll(ids) } +
-        params.languageIds.size + (if (params.postedDays != null) 1 else 0)
+        params.languageIds.size + (if (params.postedDays != null) 1 else 0) + params.sourceIds.size + params.themeIds.size
     val title = when {
         headlinesOnly -> stringResource(R.string.results_headlines_title)
         reportsOnly -> stringResource(R.string.today_latest_reports)
@@ -326,6 +372,12 @@ fun ResultsScreen(query: String, headlinesOnly: Boolean, nav: Nav, reportsOnly: 
                                 vm.search(params.copy(countryIds = params.countryIds - id))
                             }
                         }
+                        params.sourceIds.forEach { id ->
+                            RemovableChip(state.sourceNames[id] ?: id.toString()) { vm.search(params.copy(sourceIds = params.sourceIds - id)) }
+                        }
+                        params.themeIds.forEach { id ->
+                            RemovableChip(state.themeNames[id] ?: id.toString()) { vm.search(params.copy(themeIds = params.themeIds - id)) }
+                        }
                         FORMAT_GROUPS.filter { (_, ids) -> params.formatIds.containsAll(ids) }.forEach { (label, ids) ->
                             RemovableChip(stringResource(label)) { vm.search(params.copy(formatIds = params.formatIds - ids.toSet())) }
                         }
@@ -341,7 +393,7 @@ fun ResultsScreen(query: String, headlinesOnly: Boolean, nav: Nav, reportsOnly: 
             if (!state.loading && state.error == null && state.reports.isEmpty()) {
                 item {
                     EmptyState(
-                        stringResource(R.string.results_none, query),
+                        stringResource(if (activeFilters > 0) R.string.results_none_filters else R.string.results_none, query),
                         if (activeFilters > 0) stringResource(R.string.results_clear_filters) else null,
                         if (activeFilters > 0) {
                             { vm.search(SearchParams(text = query, headlinesOnly = headlinesOnly)) }
@@ -366,12 +418,17 @@ fun ResultsScreen(query: String, headlinesOnly: Boolean, nav: Nav, reportsOnly: 
     }
 
     if (showFilters) {
+        LaunchedEffect(Unit) { vm.loadSheetNames() }
         ModalBottomSheet(onDismissRequest = { showFilters = false }) {
             FilterSheet(
                 params = params,
                 facets = state.facets,
                 countryNames = state.countryNames,
                 onApply = { vm.search(it); showFilters = false },
+                sourceNames = state.sourceNames,
+                themeNames = state.themeNames,
+                sourceMatches = state.sourceMatches,
+                onFindSources = vm::findSources,
             )
         }
     }
@@ -396,11 +453,15 @@ private fun facetCount(facets: Map<String, List<FacetValue>>, field: String, ids
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FilterSheet(
+internal fun FilterSheet(
     params: SearchParams,
     facets: Map<String, List<FacetValue>>,
     countryNames: Map<Long, String>,
     onApply: (SearchParams) -> Unit,
+    sourceNames: Map<Long, String> = emptyMap(),
+    themeNames: Map<Long, String> = emptyMap(),
+    sourceMatches: List<Long> = emptyList(),
+    onFindSources: (String) -> Unit = {},
 ) {
     var draft by remember(params) { mutableStateOf(params) }
     Column(
@@ -419,6 +480,38 @@ private fun FilterSheet(
                     },
                     label = { Text(if (count > 0) "$name $count" else name) },
                 )
+            }
+        }
+
+        // Organization and Theme (lot 3, fiche-recherche-filtres.md), in the order of the sheet:
+        // Country, Organization, Theme, Format, Language, Posted.
+        fun counts(field: String): List<Pair<Long, Int>> =
+            facets[field].orEmpty().mapNotNull { (value, count) -> value.toLongOrNull()?.let { it to count } }
+        Text(stringResource(R.string.library_organization), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
+        var sourceText by rememberSaveable { mutableStateOf("") }
+        OutlinedTextField(
+            value = sourceText,
+            onValueChange = { sourceText = it; onFindSources(it) },
+            label = { Text(stringResource(R.string.source_search)) },
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("search_sources_field"),
+        )
+        // The facet's organizations with a name, those found by the field, and those chosen.
+        val sources = (
+            counts("source.id").filter { it.first in sourceNames } +
+                sourceMatches.filter { it in sourceNames }.map { it to 0 } +
+                draft.sourceIds.map { it to 0 }
+            ).distinctBy { it.first }
+        ChipGroup(sources, draft.sourceIds, { sourceNames[it] ?: it.toString() }) { id ->
+            draft = draft.copy(sourceIds = if (id in draft.sourceIds) draft.sourceIds - id else draft.sourceIds + id)
+        }
+
+        val themes = (counts("theme.id").filter { it.first in themeNames } + draft.themeIds.map { it to 0 }).distinctBy { it.first }
+        if (themes.isNotEmpty()) {
+            Text(stringResource(R.string.library_theme), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
+            ChipGroup(themes, draft.themeIds, { themeNames[it] ?: it.toString() }) { id ->
+                draft = draft.copy(themeIds = if (id in draft.themeIds) draft.themeIds - id else draft.themeIds + id)
             }
         }
 
@@ -470,7 +563,7 @@ private fun FilterSheet(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = {
-                draft = draft.copy(countryIds = emptySet(), formatIds = emptySet(), languageIds = emptySet(), postedDays = null)
+                draft = draft.copy(countryIds = emptySet(), formatIds = emptySet(), languageIds = emptySet(), postedDays = null, sourceIds = emptySet(), themeIds = emptySet())
             }) { Text(stringResource(R.string.filter_clear_all)) }
             Button(onClick = { onApply(draft) }, modifier = Modifier.padding(start = 8.dp)) {
                 Text(stringResource(R.string.filter_show_results))

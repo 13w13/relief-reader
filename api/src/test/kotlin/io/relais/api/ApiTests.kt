@@ -123,6 +123,18 @@ class ApiTests {
     }
 
     @Test
+    fun searchFiltersOrganizationsAndThemesAndAsksTheirFacets() {
+        val json = Requests.search("cholera", sourceIds = listOf(1503L, 2345L), themeIds = listOf(4595L)).toJson().toString()
+        // Two organizations in OR within the field, the theme with them in AND.
+        assertTrue(json, json.contains("\"field\":\"source.id\",\"value\":[1503,2345],\"operator\":\"OR\""))
+        assertTrue(json, json.contains("\"field\":\"theme.id\",\"value\":4595"))
+        // The first page brings their facets; the next pages do not.
+        assertTrue(json, json.contains("\"field\":\"source.id\",\"limit\":30"))
+        assertTrue(json, json.contains("\"field\":\"theme.id\",\"limit\":25"))
+        assertFalse(Requests.search("cholera", offset = 20).toJson().containsKey("facets"))
+    }
+
+    @Test
     fun apiDatesHaveNoZ() {
         assertEquals("2026-11-07T10:20:30+00:00", ApiDates.format(Instant.parse("2026-11-07T10:20:30.456Z")))
         assertEquals(Instant.parse("2026-11-05T00:00:00Z").toEpochMilli(), ApiDates.parse("2026-11-05T00:00:00+00:00"))
