@@ -50,6 +50,17 @@ object WhatsNew {
                 Line(R.string.whats_new_03_lead_4, R.string.whats_new_03_text_4),
             ),
         ),
+        Release(
+            versionCode = 11,
+            label = "0.4",
+            lines = listOf(
+                Line(R.string.whats_new_04_lead_1, R.string.whats_new_04_text_1),
+                Line(R.string.whats_new_04_lead_2, R.string.whats_new_04_text_2),
+                Line(R.string.whats_new_04_lead_3, R.string.whats_new_04_text_3),
+                Line(R.string.whats_new_04_lead_4, R.string.whats_new_04_text_4),
+                Line(R.string.whats_new_04_lead_5, R.string.whats_new_04_text_5),
+            ),
+        ),
     )
 
     /** The lines of exactly this version, for the sheet after an update; null: no sheet. */

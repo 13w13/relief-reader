@@ -133,7 +133,7 @@ onFlowComplete:
     timeout: 10000
 - back
 - extendedWaitUntil:
-    visible: "No highlights yet. In a report, tap the highlighter, then a paragraph, and select a passage."
+    visible: "No highlights yet. In a report, choose Highlight in the menu, then tap a paragraph and select a passage."
     timeout: 15000
 - takeScreenshot: p5-14-highlights-empty
 
