@@ -316,7 +316,7 @@ fun LibraryScreen(nav: Nav) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var openFacet by remember { mutableStateOf<LibraryFacet?>(null) }
-    var filterSheet by remember { mutableStateOf(false) }
+    var filterSheet by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     // The pager holds the current view: a swipe or a tap on a tab moves it.
     val pager = rememberPagerState { LibraryView.entries.size }
     OnPageSettled(pager) { vm.setView(LibraryView.entries[it]) }

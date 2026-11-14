@@ -577,7 +577,7 @@ internal fun FollowedLine(names: List<FollowedName>, onManage: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val style = MaterialTheme.typography.bodySmall
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(start = Space.screen, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = Space.screen, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f)) {
             val width = constraints.maxWidth
             val labels = names.map { it.label }
@@ -593,7 +593,7 @@ internal fun FollowedLine(names: List<FollowedName>, onManage: () -> Unit) {
                         color = cs.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false).heightIn(min = 44.dp).clickable(onClick = name.open)
+                        modifier = Modifier.weight(1f, fill = false).heightIn(min = 48.dp).clickable(onClick = name.open)
                             .wrapContentHeight(Alignment.CenterVertically).testTag(name.tag),
                     )
                 }
@@ -602,7 +602,7 @@ internal fun FollowedLine(names: List<FollowedName>, onManage: () -> Unit) {
                         " +${names.size - shown}",
                         style = style,
                         color = cs.onSurfaceVariant,
-                        modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onManage).wrapContentHeight(Alignment.CenterVertically),
+                        modifier = Modifier.heightIn(min = 48.dp).clickable(onClick = onManage).wrapContentHeight(Alignment.CenterVertically),
                     )
                 }
             }

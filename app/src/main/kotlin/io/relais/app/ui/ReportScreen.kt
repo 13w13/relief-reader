@@ -467,6 +467,10 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                 }) {
                     Icon(Icons.Rounded.Share, contentDescription = stringResource(R.string.report_share))
                 }
+            }
+            // The menu whether or not the report has a ReliefWeb link: the highlighter and the
+            // text size do not need one (review of PR 13).
+            if (report != null) {
                 OverflowMenu { close ->
                     if (!report.fromRss && state.blocks.isNotEmpty()) {
                         DropdownMenuItem(
@@ -489,7 +493,7 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                         leadingIcon = { Icon(Icons.Rounded.FormatSize, contentDescription = null) },
                         onClick = { close(); showTextSize = true },
                     )
-                    DropdownMenuItem(text = { Text(openOnRwLabel) }, onClick = { close(); safeOpen(uriHandler, shareUrl) })
+                    if (shareUrl != null) DropdownMenuItem(text = { Text(openOnRwLabel) }, onClick = { close(); safeOpen(uriHandler, shareUrl) })
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.action_mark_unread)) },
                         onClick = { close(); vm.markUnread() },

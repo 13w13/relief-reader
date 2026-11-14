@@ -315,7 +315,6 @@
     <string name="crisis_listed">Listed on ReliefWeb %1$s</string>
     <string name="crisis_description_by">Description by ReliefWeb editors</string>
     <string name="crisis_description_more">Read the full description</string>
-    <string name="crisis_description_less">Show less</string>
     <plurals name="crisis_new">
         <item quantity="one">%d new report</item>
         <item quantity="other">%d new reports</item>

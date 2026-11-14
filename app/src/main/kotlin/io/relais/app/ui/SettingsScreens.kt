@@ -135,7 +135,8 @@ fun AppnameForm(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
-    var value by remember { mutableStateOf("") }
+    // Kept across a rotation while the form stays open (review of PR 13).
+    var value by rememberSaveable { mutableStateOf("") }
     var checking by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<AccessCheck?>(null) }
 

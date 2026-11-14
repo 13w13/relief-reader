@@ -135,7 +135,7 @@ fun textRows(pages: List<PdfTextPage>, total: Int = pages.size): List<TextRow> =
     if (last != null && total > pages.size) add(TextRow.End(last.index, total))
 }
 
-private fun TextRow.key(): String = when (this) {
+internal fun TextRow.key(): String = when (this) {
     is TextRow.Marker -> "m$page"
     is TextRow.Body -> "b$page.$block"
     is TextRow.Link -> "l$page.${figure.name}"
