@@ -343,7 +343,7 @@ object Requests {
     }
 
     /** "Follow an organization": organizations whose name, short name or long name match [text]. */
-    fun searchSources(text: String, limit: Int = 10): ApiQuery = ApiQuery(
+    fun searchSources(text: String, limit: Int = 20): ApiQuery = ApiQuery(
         preset = null,
         limit = limit,
         query = text.trim(),

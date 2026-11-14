@@ -263,11 +263,11 @@ class PickSourcesViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    /** From 3 letters, after 300 ms without typing (13.2). */
+    /** From 2 letters (acronyms such as HI), after 300 ms without typing: one request. */
     fun setQuery(text: String) {
         query.value = text
         search?.cancel()
-        if (text.trim().length < 3) {
+        if (text.trim().length < 2) {
             results.value = null
             return
         }

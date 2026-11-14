@@ -622,10 +622,14 @@ class Repository(
 
     suspend fun markSourceVisited(id: Long) = dao.markSourceVisited(id, System.currentTimeMillis())
 
-    /** "Search organizations": one request per search, from 3 letters (13.2). */
+    /**
+     * "Search organizations": one request per search, from 2 letters, for the acronyms of two
+     * (HI, WV). It asks for 20 and shows the 10 best by [SourceRanking].
+     */
     suspend fun searchSources(text: String): List<SourceInfo> {
-        if (text.trim().length < 3) return emptyList()
-        return api { it.sources(Requests.searchSources(text)) }.data.map { it.toSourceInfo() }
+        if (text.trim().length < 2) return emptyList()
+        val found = api { it.sources(Requests.searchSources(text, limit = SourceRanking.ASKED)) }.data.map { it.toSourceInfo() }
+        return SourceRanking.rank(text, found)
     }
 
     /**
