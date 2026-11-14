@@ -84,6 +84,23 @@ private val TABS = listOf(
     Tab(LibraryRoute, LibraryRoute::class, R.string.tab_library, Icons.Rounded.Bookmarks, "tab_library"),
 )
 
+/** The bottom bar of the four tabs; also drawn by the README screenshots. */
+@Composable
+internal fun MainBottomBar(isSelected: (KClass<*>) -> Boolean, onTab: (route: Any, selected: Boolean) -> Unit) {
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+        TABS.forEach { tab ->
+            val selected = isSelected(tab.routeClass)
+            NavigationBarItem(
+                selected = selected,
+                onClick = { onTab(tab.route, selected) },
+                icon = { Icon(tab.icon, contentDescription = null) },
+                modifier = Modifier.testTag(tab.tag),
+                label = { Text(stringResource(tab.label)) },
+            )
+        }
+    }
+}
+
 /** Actions shared by every screen. */
 class Nav(private val controller: NavHostController) {
     fun back() = controller.popBackStack()
@@ -144,18 +161,12 @@ fun MainScreen() {
         // The top bars of each screen handle the status bar; the navigation bar handles the bottom.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (!reading) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                TABS.forEach { tab ->
-                    val selected = destination?.hierarchy?.any { it.hasRoute(tab.routeClass) } == true
-                    NavigationBarItem(
-                        selected = selected,
-                        // Tapped again, the current tab goes back to its root (revue-lecteur-v0.2.md, defect 8).
-                        onClick = { if (selected) nav.toRoot(tab.route) else nav.tab(tab.route) },
-                        icon = { Icon(tab.icon, contentDescription = null) },
-                        modifier = Modifier.testTag(tab.tag),
-                        label = { Text(stringResource(tab.label)) },
-                    )
-                }
+            if (!reading) {
+                MainBottomBar(
+                    isSelected = { route -> destination?.hierarchy?.any { it.hasRoute(route) } == true },
+                    // Tapped again, the current tab goes back to its root (revue-lecteur-v0.2.md, defect 8).
+                    onTab = { route, selected -> if (selected) nav.toRoot(route) else nav.tab(route) },
+                )
             }
         },
     ) { padding ->

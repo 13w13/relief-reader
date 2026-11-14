@@ -1,3 +1,5 @@
+<img src="docs/readme/icon.svg" width="64" height="64" alt="">
+
 # Re.L, an unofficial ReliefWeb reader for Android
 
 **Not affiliated with ReliefWeb or OCHA.**
@@ -8,9 +10,11 @@ ReliefWeb closed its mobile apps in 2018, so I built a reader app.
 
 Re.L is a preview, built in the open in my free time, to stay closer to the humanitarian news. A lot is still missing, and feedback is welcome: [open an issue](https://github.com/13w13/relief-reader/issues). This is a personal project, not connected to my employer.
 
-<img src="docs/screenshots/today.png" width="260" alt="Today, the first page of Re.L"> <img src="docs/screenshots/connect.png" width="260" alt="The Connect to ReliefWeb screen">
+<a href="https://github.com/13w13/relief-reader/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/download-apk-dark.svg"><img src="docs/readme/download-apk-light.svg" height="44" alt="Download the APK"></picture></a>
 
-*Screenshots use made-up sample data.*
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens-dark.webp"><img src="docs/readme/screens-light.webp" width="100%" alt="Three screens of Re.L: Today with the large headline, Following, and a PDF report read as text with one sentence highlighted"></picture>
+
+*Today, Following and a PDF read as text. Screenshots use made-up sample data.*
 
 ## What it does
 

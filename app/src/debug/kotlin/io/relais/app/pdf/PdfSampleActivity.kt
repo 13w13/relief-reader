@@ -91,9 +91,9 @@ class PdfSampleActivity : Activity() {
         val TITLES = mapOf(
             "test-sitrep" to "Test Situation Report No. 1 (test document)",
             "test-scan" to "Scanned communiqué without text (test document)",
-            "sitrep-two-columns" to "Northland: Situation Report No. 7 (test document)",
+            "sitrep-two-columns" to "Noravia: Situation Report No. 7 (test document)",
             "scan-no-text" to "Scanned letter without text (test document)",
-            "long-25-pages" to "Northland long report (test document)",
+            "long-25-pages" to "Noravia long report (test document)",
             "french-one-column" to "Rapport d'essai : Nordland (document de test)",
         )
     }

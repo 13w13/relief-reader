@@ -55,16 +55,16 @@ class PdfSearchTest {
     @Test
     fun libraryExtractComesFromTheParagraphOfTheWord() {
         // Blocks of a page are stored one per line: a heading must not run into the text.
-        val page = "Generated for the Relais tests · 1 to 7 November 2026\nWater and sanitation\nWater trucking reached 4,200 people in Site A."
+        val page = "Made-up sample report · 1 to 7 November 2026\nWater and sanitation\nWater trucking reached 4,200 people in Site A."
         assertEquals("Water trucking reached 4,200 people in Site A.", PdfSearch.paragraphWith(page, listOf("trucking")))
     }
 
     @Test
     fun snippetCutsAroundTheWord() {
-        val text = "Intro words come first. " + "Filler ".repeat(20) + "The borehole of Eastvale camp now serves 3,200 people. " + "More ".repeat(30)
+        val text = "Intro words come first. " + "Filler ".repeat(20) + "The borehole of Osmira camp now serves 3,200 people. " + "More ".repeat(30)
         val snippet = PdfSearch.snippet(text, listOf("borehole"))
         assertTrue(snippet, snippet.startsWith("…"))
-        assertTrue(snippet, snippet.contains("The borehole of Eastvale camp"))
+        assertTrue(snippet, snippet.contains("The borehole of Osmira camp"))
         assertTrue(snippet, snippet.endsWith("…"))
     }
 

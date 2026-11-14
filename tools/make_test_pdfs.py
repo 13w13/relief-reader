@@ -5,7 +5,7 @@
 
 The files go to app/src/debug/assets/test-pdf/: the debug build seeds them for the Maestro
 flow (relaispdf://sample/<name>), and the unit tests read them from there. The content is
-invented for the tests ("Northland" is a fictional region): no text of a real report.
+invented for the tests ("Noravia" is a fictional region): no text of a real report.
 
 - sitrep-two-columns.pdf  4 pages: title across the page, then two columns, a table drawn
                           with lines (page 2), a page that is mostly an image (page 3),
@@ -175,7 +175,7 @@ def gray_image(w, h, seed, text_like=False):
 
 SENTENCES = [
     "Water trucking reached 12,400 people in the northern camps during the reporting period.",
-    "Partners repaired two hand pumps and one borehole in Eastvale district.",
+    "Partners repaired two hand pumps and one borehole in Osmira district.",
     "The health cluster recorded fewer cases of acute watery diarrhoea than in September.",
     "Mobile clinics visited eleven villages that had been cut off by the floods.",
     "Shelter kits were handed out to families whose homes were damaged in the storm.",
@@ -184,7 +184,7 @@ SENTENCES = [
     "Food distributions covered 61 per cent of the planned caseload this month.",
     "Nutrition screening found higher rates of acute malnutrition among children under five.",
     "Protection teams referred 140 people to specialised services.",
-    "Prices of staple foods increased in the main market of Northland town.",
+    "Prices of staple foods increased in the main market of Noravia town.",
     "Rains are expected to continue until the end of November.",
     "Partners call for funding to keep water services running through the dry season.",
     "A joint assessment is planned for the hill villages next week.",
@@ -260,19 +260,19 @@ def two_columns(page, rnd, top, bottom, items, interleave=False):
 
 def sitrep():
     rnd = random.Random(7)
-    title = "Northland Situation Report No. 7"
+    title = "Noravia Situation Report No. 7"
     pages = [Page() for _ in range(4)]
     for i, p in enumerate(pages):
         chrome(p, i + 1, len(pages), title)
 
     # Page 1: title across the page, highlights, then two columns.
     p = pages[0]
-    p.text(40, 770, "Northland: Situation Report No. 7", size=20, bold=True)
-    p.text(40, 748, "Generated for the Relais tests · Covers 1 to 31 October 2026", size=10)
+    p.text(40, 770, "Noravia: Situation Report No. 7", size=20, bold=True)
+    p.text(40, 748, "Made-up sample report · Covers 1 to 31 October 2026", size=10)
     p.rect(40, 640, 515, 92, fill=0.93)
     p.text(52, 714, "HIGHLIGHTS", size=11, bold=True)
     bullets = [
-        "• Floods displaced about 8,000 people in Eastvale and Riverside districts.",
+        "• Floods displaced about 8,000 people in Osmira and Tarvel districts.",
         "• Water trucking and borehole repairs are the first needs named by families.",
         "• The response plan is 38 per cent funded.",
     ]
@@ -280,7 +280,7 @@ def sitrep():
         p.text(52, 696 - 16 * j, b, size=10)
     items = [("h", "Situation overview")]
     items += [("p", paragraph(rnd, 4)) for _ in range(2)]
-    items += [("h", HEADINGS[0]), ("p", "Partners repaired the borehole of Eastvale camp, which now serves 3,200 people. " + paragraph(rnd, 2))]
+    items += [("h", HEADINGS[0]), ("p", "Partners repaired the borehole of Osmira camp, which now serves 3,200 people. " + paragraph(rnd, 2))]
     items += [("p", paragraph(rnd, 3)), ("h", HEADINGS[1]), ("p", paragraph(rnd, 4)), ("p", paragraph(rnd, 3))]
     items += [("h", HEADINGS[5]), ("p", paragraph(rnd, 3)), ("p", paragraph(rnd, 4)), ("h", HEADINGS[6])]
     items += [("p", paragraph(rnd, 4)), ("p", paragraph(rnd, 3)), ("p", paragraph(rnd, 4)), ("p", paragraph(rnd, 4))]
@@ -295,10 +295,10 @@ def sitrep():
     cols = [40, 160, 260, 360, 460, 555]
     rows = [
         ["District", "Displaced", "Water", "Health", "Shelter"],
-        ["Eastvale", "4,100", "3,200", "1,150", "620"],
-        ["Riverside", "2,300", "1,900", "800", "410"],
+        ["Osmira", "4,100", "3,200", "1,150", "620"],
+        ["Tarvel", "2,300", "1,900", "800", "410"],
         ["Hillside", "900", "450", "390", "120"],
-        ["Northland town", "700", "650", "300", "80"],
+        ["Noravia town", "700", "650", "300", "80"],
         ["Total", "8,000", "6,200", "2,640", "1,230"],
     ]
     top = 300
@@ -350,7 +350,7 @@ def test_sitrep():
         chrome(p, i + 1, len(pages), title)
     p = pages[0]
     p.text(40, 770, "TEST SITUATION REPORT No. 1", size=20, bold=True)
-    p.text(40, 748, "Generated for the Relais tests · 1 to 7 November 2026", size=10)
+    p.text(40, 748, "Made-up sample report · 1 to 7 November 2026", size=10)
     left = [("h", "Water and sanitation")] + [("p", t + " " + TEST_LEFT[(k + 1) % 4].replace("Water trucking reached 4,200 people in Site A.", "")) for k, t in enumerate(TEST_LEFT)]
     right = [("h", "Health")] + [("p", t + " " + TEST_RIGHT[(k + 1) % 4]) for k, t in enumerate(TEST_RIGHT)]
     kept, p.ops = p.ops, []
@@ -407,7 +407,7 @@ def scan():
 
 def long_doc():
     rnd = random.Random(25)
-    title = "Northland long report"
+    title = "Noravia long report"
     total = 25
     pages = [Page() for _ in range(total)]
     rest = []

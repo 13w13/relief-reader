@@ -82,7 +82,7 @@ class PdfTextScreenshotTest {
     ) {
         Column(Modifier.fillMaxSize()) {
             val cs = MaterialTheme.colorScheme
-            PdfTopBar("Northland Situation Report No. 7", PdfMode.TEXT, true, {}, {}, {}, cs.surface, cs.onSurface)
+            PdfTopBar("Noravia Situation Report No. 7", PdfMode.TEXT, true, {}, {}, {}, cs.surface, cs.onSurface)
             if (search != null) {
                 val matches = PdfSearch.find(pages, search)
                 PdfSearchField(search, {}, matches.size, 0, {}, {}, {})
@@ -94,7 +94,7 @@ class PdfTextScreenshotTest {
                     PdfTextContent(rows, rememberLazyListState(firstRow), onOpenPdf = {}, marks = marks)
                 }
             }
-            PdfTextBottomBar(page, pageCount, 5_755, onTextSize = {})
+            PdfTextBottomBar(page, pageCount, 5_731, onTextSize = {})
         }
     }
 
@@ -144,7 +144,7 @@ class PdfTextScreenshotTest {
     private fun report(id: Long, title: String, org: String) = io.relais.app.data.ReportEntity(
         id = id, title = title, headlineTitle = null, headlineSummary = null, imageUrl = null, imageCaption = null,
         imageCopyright = null, urlAlias = null, origin = null, dateCreated = System.currentTimeMillis() - 3_600_000L,
-        dateOriginal = null, primaryCountryId = null, primaryCountryName = "Northland", countries = emptyList(),
+        dateOriginal = null, primaryCountryId = null, primaryCountryName = "Noravia", countries = emptyList(),
         sources = listOf(io.relais.app.data.SourceLite(1, org, org)), formatId = 10, formatName = "Situation Report",
         themes = emptyList(), languages = listOf("en"),
         files = listOf(io.relais.app.data.FileLite(url = "https://relais.test/$id.pdf", size = 5_755, mimetype = "application/pdf")),
@@ -153,8 +153,8 @@ class PdfTextScreenshotTest {
 
     @Test
     fun listRowWithPdfPreview() = shoot("pdf-text-10-list-preview") {
-        val withPdf = report(1, "Northland: Situation Report No. 7 (test document)", "OCHA")
-        val without = report(2, "Northland: Flash Update No. 3 (test document)", "OCHA")
+        val withPdf = report(1, "Noravia: Situation Report No. 7 (test document)", "OCHA")
+        val without = report(2, "Noravia: Flash Update No. 3 (test document)", "OCHA")
         val preview = PdfTextStore.preview(DocText(pages.map { PageText(it.blocks, it.figure) }, true)).orEmpty()
         androidx.compose.runtime.CompositionLocalProvider(LocalPdfPreviews provides mapOf(1L to preview)) {
             Column {
@@ -166,7 +166,7 @@ class PdfTextScreenshotTest {
 
     @Test
     fun libraryFoundInPdfs() = shoot("pdf-text-11-library-found-in-pdfs") {
-        val doc = report(1, "Northland: Situation Report No. 7 (test document)", "OCHA")
+        val doc = report(1, "Noravia: Situation Report No. 7 (test document)", "OCHA")
         val text = pages[0].blocks.first { it.text.contains("borehole") }.text
         val snippet = PdfSearch.snippet(text, listOf("borehole"), before = 50, after = 60)
         Column {
@@ -179,7 +179,7 @@ class PdfTextScreenshotTest {
     fun textLoading() = shoot("pdf-text-8-loading") {
         Column(Modifier.fillMaxSize()) {
             val cs = MaterialTheme.colorScheme
-            PdfTopBar("Northland Situation Report No. 7", PdfMode.TEXT, false, {}, {}, null, cs.surface, cs.onSurface)
+            PdfTopBar("Noravia Situation Report No. 7", PdfMode.TEXT, false, {}, {}, null, cs.surface, cs.onSurface)
             PdfTextLoading(0.4f, onOpenPdf = {})
         }
     }
@@ -202,7 +202,7 @@ class PdfTextScreenshotTest {
         val extra = LocalRelaisColors.current
         Column(Modifier.fillMaxSize().background(extra.pdfBackground)) {
             // A scan: no switch and no search, as in the app (DA review, D9).
-            PdfTopBar("Northland Situation Report No. 7", PdfMode.PDF, false, {}, {}, null, extra.pdfBar, Color(0xFFF2F2F2))
+            PdfTopBar("Noravia Situation Report No. 7", PdfMode.PDF, false, {}, {}, null, extra.pdfBar, Color(0xFFF2F2F2))
             Text(
                 stringResource(message),
                 color = Color(0xFFF2F2F2),
