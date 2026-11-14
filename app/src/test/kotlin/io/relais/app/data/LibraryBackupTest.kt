@@ -167,7 +167,7 @@ class LibraryBackupTest {
         assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":"Other","kind":"library-backup","version":1,"exportedAt":0}"""))
         assertEquals(LibraryBackupFormat.Parsed.Newer, LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":0}"""))
         // An unknown field of the same version is ignored.
-        val ok = LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":1,"exportedAt":5,"topics":[{"id":1}]}""")
+        val ok = LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":1,"exportedAt":5,"bookmarks":[{"id":1}]}""")
         assertEquals(5L, (ok as LibraryBackupFormat.Parsed.Ok).backup.exportedAt)
     }
 

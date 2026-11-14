@@ -75,7 +75,7 @@ data class BackupHighlight(
 @Serializable data class BackupSource(val id: Long, val shortname: String, val name: String, val reportsOnly: Boolean = false)
 
 /** A followed regional crisis (topic): its lists travel with it, translated when read. */
-@Serializable data class BackupTopic(val id: Long, val title: String, val urlAlias: String? = null, val rivers: List<io.relais.api.TopicRiver> = emptyList())
+@Serializable data class BackupTopic(val id: Long, val title: String = "", val urlAlias: String? = null, val rivers: List<io.relais.api.TopicRiver> = emptyList())
 
 @Serializable
 data class LibraryBackup(
@@ -217,7 +217,7 @@ class LibraryBackupStore(
                     dao.upsertFollowedDisaster(FollowedDisasterEntity(it.id, it.name, now, lastVisitAt = since, glide = it.glide))
                 }
             }
-            backup.topics.forEach {
+            backup.topics.filter { it.title.isNotBlank() }.forEach {
                 if (dao.followedTopic(it.id) == null) {
                     dao.upsertFollowedTopic(FollowedTopicEntity(it.id, it.title, it.urlAlias, it.rivers, followedAt = now, lastVisitAt = since))
                 }
