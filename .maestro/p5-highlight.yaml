@@ -71,14 +71,11 @@ onFlowComplete:
     timeout: 15000
 - takeScreenshot: p5-08-highlighted
 
-# 5.5 Library, Highlights, search "measles".
+# 5.5 Library, Highlights: the passage. Since v0.4 search shows from ten items on.
 - back
 - tapOn:
     id: "tab_library"
 - tapOn: "Highlights"
-- tapOn: "Search your highlights"
-- inputText: "measles"
-- hideKeyboard
 - extendedWaitUntil:
     visible: "Note: for the health note"
     timeout: 15000
@@ -107,9 +104,6 @@ onFlowComplete:
 - tapOn:
     id: "tab_library"
 - tapOn: "Highlights"
-- tapOn: "Search your highlights"
-- inputText: "measles"
-- hideKeyboard
 - extendedWaitUntil:
     visible: "Note: for the health note"
     timeout: 15000

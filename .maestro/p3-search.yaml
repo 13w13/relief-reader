@@ -174,13 +174,13 @@ onFlowComplete:
 - tapOn:
     id: "tab_library"
 - tapOn: "History"
-- tapOn: "Search your library"
-- inputText: "measles"
-- hideKeyboard
+# Since v0.4 the Library search shows from ten items on: History lists this report alone.
 - extendedWaitUntil:
     visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
     timeout: 15000
-- takeScreenshot: p3-12-library-measles
+- assertNotVisible:
+    id: "library_search"
+- takeScreenshot: p3-12-library-history
 
 # 3.9 The same, offline, after a cold start.
 - setAirplaneMode: enabled
@@ -189,13 +189,10 @@ onFlowComplete:
 - tapOn:
     id: "tab_library"
 - tapOn: "History"
-- tapOn: "Search your library"
-- inputText: "measles"
-- hideKeyboard
 - extendedWaitUntil:
     visible: ".*Vaccine-preventable disease outbreaks in Darfur.*"
     timeout: 15000
-- takeScreenshot: p3-13-library-measles-offline
+- takeScreenshot: p3-13-library-history-offline
 
 # 3.10 Search offline. The expected text ("You're offline. Search needs a connection.
 # Reports you've read or saved are searchable in Library.") is in strings.xml
