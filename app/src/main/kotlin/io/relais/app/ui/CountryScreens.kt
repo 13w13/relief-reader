@@ -1151,7 +1151,7 @@ private fun CountryFilterSheet(name: String, state: CountryState, onApply: (Coun
 
 /** Title of a group of the sheet: condensed capitals in ink 2, under a 1 dp rule. */
 @Composable
-private fun SheetGroup(title: String) {
+internal fun SheetGroup(title: String) {
     Column(Modifier.padding(top = 8.dp)) {
         HorizontalDivider(thickness = Hairline, color = MaterialTheme.colorScheme.outlineVariant)
         Text(

@@ -500,7 +500,7 @@ internal fun LibraryFilterSheet(state: LibraryState, onFacet: (LibraryFacet) -> 
     val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().padding(bottom = Space.xl).verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(horizontal = Space.screen), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.results_filters), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.results_filters), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             TextButton(onClick = onClear) { Text(stringResource(R.string.filter_clear_all)) }
         }
         state.view.facets().forEach { facet ->
@@ -510,19 +510,24 @@ internal fun LibraryFilterSheet(state: LibraryState, onFacet: (LibraryFacet) -> 
                     .testTag("library_facet_" + facet.name.lowercase()),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(FACET_LABELS.getValue(facet)), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                if (selected.isNotEmpty()) {
-                    Text(selected.sorted().joinToString(", "), style = MaterialTheme.typography.bodySmall, color = cs.primary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                }
+                // The label, then the values chosen, then the arrow, always at the right edge.
+                Text(stringResource(FACET_LABELS.getValue(facet)), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(end = Space.s))
+                Text(
+                    selected.sorted().joinToString(", "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                    modifier = Modifier.weight(1f),
+                )
                 Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = cs.onSurfaceVariant)
             }
         }
         if (state.view != LibraryView.HIGHLIGHTS) {
-            Text(
-                stringResource(R.string.library_group_by, stringResource(GROUP_LABELS.getValue(state.groupBy))),
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(start = Space.screen, end = Space.screen, top = Space.l, bottom = Space.s),
-            )
+            // As in the country page's sheet: condensed capitals under a hairline. The pills
+            // already say which grouping is on.
+            Box(Modifier.padding(horizontal = Space.screen).padding(bottom = Space.s)) { SheetGroup(stringResource(R.string.library_group_title)) }
             FlowRow(Modifier.padding(horizontal = Space.screen), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GroupBy.entries.forEach { g ->
                     FilterChip(

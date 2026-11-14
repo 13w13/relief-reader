@@ -130,7 +130,8 @@ class ScreenshotTest {
     @Test
     fun todayPileEndMore() {
         val headlines = reports("headlines.json")
-        shoot("today-pile-end-more") { TodayPile(headlines, readIds = headlines.take(2).map { it.id }.toSet(), page = headlines.size) }
+        // The first headline is new and not read: its line ends with the blue dot.
+        shoot("today-pile-end-more") { TodayPile(headlines, readIds = setOf(headlines[1].id, headlines[2].id), page = headlines.size) }
     }
 
     /** The end of a report opened from the pile: "Headline 2 of 6", Next, Previous headline. */
