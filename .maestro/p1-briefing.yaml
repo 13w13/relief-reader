@@ -26,36 +26,55 @@ onFlowComplete:
       PREFIX: p1
       DIGEST: allow
 
-# 1.5 Today after the first sync. Since v0.3 the headlines carry headline_(un)read_<id> and
-# can fill the whole screen on a first launch: either kind of row will do.
+# 1.5 Today after the first sync. Since v0.4 the headlines are a pile of cards: the card on
+# screen carries headline_(un)read_<id>, and the counter under it gives its place ("1 of 6").
+# A fresh install has read nothing: the pile opens on the first card.
 - extendedWaitUntil:
     visible:
       id: "(doc|headline_unread|headline_read)_.*"
     timeout: 90000
-- assertVisible: "0 of \\d+ read"
+- assertVisible: "Headlines"
+- assertVisible:
+    id: "pile_position"
+    text: "1 of \\d+"
 - takeScreenshot: p1-06-today
-# v0.3 (P14): Today opens on what is new. "New headlines" first; the other headlines of the
-# week are folded in one line ("8 earlier headlines this week"), unfolded here.
-- scrollUntilVisible:
-    element:
-      text: "New headlines"
-    direction: DOWN
-    timeout: 30000
-- runFlow:
-    when:
-      visible:
-        id: "today_earlier"
-    commands:
-      - tapOn:
-          id: "today_earlier"
-- takeScreenshot: p1-07-headlines
-- scrollUntilVisible:
-    element:
-      text: "\\d+ of \\d+ read"
-    direction: UP
-    timeout: 30000
 
-# 1.5b Pull to refresh (v0.1.2): the list comes back with its progress line.
+# 1.5a Leaf through the pile: the arrow, then a swipe across the card, then back to 1. The
+# swipe starts away from the edges, where Android has its back gesture. A quiet week may have
+# a single headline: the arrow then leads to the end card.
+- tapOn:
+    id: "pile_next"
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "(2 of \\d+|End)"
+    timeout: 10000
+- takeScreenshot: p1-07-pile-next
+- tapOn:
+    id: "pile_previous"
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "1 of \\d+"
+    timeout: 10000
+- swipe:
+    from:
+      id: "headline_unread_.*"
+    direction: LEFT
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "(2 of \\d+|End)"
+    timeout: 10000
+- tapOn:
+    id: "pile_previous"
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "1 of \\d+"
+    timeout: 10000
+
+# 1.5b Pull to refresh (v0.1.2): the pile comes back on the same card.
 - swipe:
     start: 50%, 40%
     end: 50%, 85%
@@ -63,37 +82,12 @@ onFlowComplete:
     visible:
       id: "(doc|headline_unread|headline_read)_.*"
     timeout: 60000
-- assertVisible: "\\d+ of \\d+ read"
+- assertVisible:
+    id: "pile_position"
+    text: "1 of \\d+"
 - takeScreenshot: p1-07b-pulled
 
-# 1.5c Swipe between rubrics (v0.1.2): All to Situation reports, then back. The swipe
-# crosses most of the screen (the pager snaps back under half a page) and starts away from
-# the edges, where Android has its back gesture.
-- swipe:
-    start: 85%, 55%
-    end: 10%, 55%
-    duration: 300
-- extendedWaitUntil:
-    visible:
-      id: "page_sitreps"
-    timeout: 15000
-- takeScreenshot: p1-07c-swiped-sitreps
-- swipe:
-    start: 15%, 55%
-    end: 90%, 55%
-    duration: 300
-- extendedWaitUntil:
-    visible:
-      id: "page_all"
-    timeout: 15000
-- assertVisible: "\\d+ of \\d+ read"
-
-# 1.6 Open a headline not read yet (tagged headline_unread_<id>).
-- scrollUntilVisible:
-    element:
-      id: "headline_unread_.*"
-    direction: DOWN
-    timeout: 30000
+# 1.6 Open the headline on screen (tagged headline_unread_<id>).
 - tapOn:
     id: "headline_unread_.*"
     index: 0
@@ -106,14 +100,26 @@ onFlowComplete:
 - assertVisible: "(Published|Posted on ReliefWeb) .*"
 - takeScreenshot: p1-08-report
 
-# 1.7 Down to the details and the links. The origin link exists only if the report has one.
+# 1.7 After the text, before Details: "Headline 1 of 6", Next and "Previous headline" (v0.4).
+- scrollUntilVisible:
+    element:
+      id: "headline_nav"
+    direction: DOWN
+    timeout: 120000
+    speed: 60
+- scrollUntilVisible:
+    element:
+      id: "headline_previous"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "HEADLINE 1 OF \\d+"
+- takeScreenshot: p1-09-headline-nav
 - scrollUntilVisible:
     element:
       text: "Details"
     direction: DOWN
-    timeout: 120000
-    speed: 60
-- takeScreenshot: p1-09-report-details
+    timeout: 30000
+- takeScreenshot: p1-09b-report-details
 - scrollUntilVisible:
     element:
       text: "Open on ReliefWeb"
@@ -127,15 +133,48 @@ onFlowComplete:
     optional: true
 - takeScreenshot: p1-10-report-links
 
-# 1.8 Back to Today: one headline read.
+# 1.7b Next replaces the report with the second headline, without stacking: Back then returns
+# to Today, on the card of that second headline. With a single headline this week, Next leads
+# to the older headlines instead: the step is skipped.
+- scrollUntilVisible:
+    element:
+      id: "headline_next"
+    direction: UP
+    timeout: 60000
+- runFlow:
+    when:
+      notVisible: "HEADLINE 1 OF 1"
+    commands:
+      - tapOn:
+          id: "headline_next"
+      - extendedWaitUntil:
+          visible:
+            id: "save_button"
+          timeout: 30000
+      - scrollUntilVisible:
+          element:
+            text: "HEADLINE 2 OF \\d+"
+          direction: DOWN
+          timeout: 120000
+          speed: 60
+      - takeScreenshot: p1-10b-second-headline
+
+# 1.8 Back to Today, on the card of the last headline read.
 - back
 - extendedWaitUntil:
-    visible: "1 of \\d+ read"
+    visible:
+      id: "tab_today"
     timeout: 15000
-- takeScreenshot: p1-11-one-read
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "(1 of 1|2 of \\d+)"
+    timeout: 15000
+- takeScreenshot: p1-11-back-on-card
 
 # 1.8b Most read on ReliefWeb: "See all" under the block of Today opens every line of the
 # file, grouped. The block is there only when the phone has the file (once a day, Wi-Fi).
+# "Most reports this week" stays under it (the founder, 14/11).
 - scrollUntilVisible:
     element:
       text: "Most read on ReliefWeb"
@@ -153,6 +192,10 @@ onFlowComplete:
           visible:
             id: "page_most_read"
           timeout: 30000
+      # The bottom bar keeps Today lit on a page opened from it (v0.4).
+      - assertVisible:
+          id: "tab_today"
+          selected: true
       - extendedWaitUntil:
           visible: "(What ReliefWeb visitors read most in the last 4 weeks.*|ReliefWeb's most-read list isn't available right now\\.)"
           timeout: 60000
@@ -164,73 +207,69 @@ onFlowComplete:
       - back
 - scrollUntilVisible:
     element:
-      text: "\\d+ of \\d+ read"
+      text: "Most reports this week"
+    direction: DOWN
+    timeout: 20000
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: "pile_next"
     direction: UP
     timeout: 30000
 
-# 1.9 No swipe-to-mark-read in this version: the menu of the large headline (now the next
-# unread one) does it. Since v0.2.2 rows have no overflow icon: a long press opens the menu.
-- scrollUntilVisible:
-    element:
-      id: "headline_unread_.*"
-    direction: DOWN
-    timeout: 30000
-- longPressOn:
-    id: "headline_unread_.*"
-    index: 0
-- tapOn: "Mark as read"
-- scrollUntilVisible:
-    element:
-      text: "\\d+ of \\d+ read"
-    direction: UP
-    timeout: 30000
-- extendedWaitUntil:
-    visible: "2 of \\d+ read"
-    timeout: 15000
-- takeScreenshot: p1-12-two-read
+# 1.9 Mark as read from the menu of a card: a long press. The next unread card, if any.
+- repeat:
+    while:
+      notVisible:
+        id: "headline_unread_.*"
+    times: 20
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: "pile_position"
+              text: "End"
+          commands:
+            - tapOn:
+                id: "pile_previous"
+      - runFlow:
+          when:
+            notVisible:
+              id: "pile_position"
+              text: "End"
+          commands:
+            - tapOn:
+                id: "pile_next"
+- runFlow:
+    when:
+      visible:
+        id: "headline_unread_.*"
+    commands:
+      - longPressOn:
+          id: "headline_unread_.*"
+          index: 0
+      - tapOn: "Mark as read"
+      - extendedWaitUntil:
+          visible:
+            id: "headline_read_.*"
+          timeout: 15000
+      - takeScreenshot: p1-12-marked-read
 
-# 1.10 Your countries. Following a country counts its reports of the last 7 days as new.
-# Every document counts, language twins once (v0.2.2): a line reads "Sudan · 6 new", and a
-# country with nothing new joins "Up to date: ...". "Most reports this week" above has lines
-# like "Sudan · 34 reports": the patterns leave them out.
-- scrollUntilVisible:
-    element:
-      text: "Your countries"
-    direction: DOWN
-    timeout: 60000
-- scrollUntilVisible:
-    element:
-      text: "Sudan · \\d+ new.*"
-    direction: DOWN
-    timeout: 30000
-- scrollUntilVisible:
-    element:
-      text: "(Lebanon · \\d+ new.*|Up to date: .*Lebanon.*)"
-    direction: DOWN
-    timeout: 15000
-- takeScreenshot: p1-13-your-countries
-
-# 1.11 The Sudan line opens the Sudan tab of Today; "Country page" opens the country.
-# The list keeps its scroll position when the tab changes: scroll back to the top.
-- tapOn: "Sudan · \\d+ new.*"
-- scrollUntilVisible:
-    element:
-      text: "Country page"
-    direction: UP
-    timeout: 30000
-- assertVisible: "New since your last visit"
-- takeScreenshot: p1-14-today-sudan
-- tapOn: "Country page"
+# 1.10 A country page opened from Today: the bottom bar keeps Today lit (v0.4). Since v0.2.2
+# the page opens on All, one list under the row of filters; documents posted since the last
+# visit carry the dot described as "New".
+- openLink: relais://country/220
 - extendedWaitUntil:
     visible:
       id: "doc_.*"
     timeout: 60000
 - assertVisible: "Humanitarian situation"
-# Since v0.2.2 the page opens on All, one list under the row of filters; documents posted
-# since the last visit carry the dot described as "New".
 - assertVisible:
     id: "page_all"
 - assertVisible: "New"
+- assertVisible:
+    id: "tab_today"
+    selected: true
 - takeScreenshot: p1-15-country-sudan
 - runFlow:
     file: common/filter.yaml
@@ -241,34 +280,37 @@ onFlowComplete:
       id: "doc_.*"
     timeout: 60000
 - takeScreenshot: p1-15b-country-sudan-key
-
-# 1.12 Back to the All tab, then open and close every headline left. Back leaves the
-# country page, then a second Back takes Today from the Sudan rubric to All.
 - back
-- runFlow:
-    when:
-      notVisible: "All"
-    commands:
-      - back
+
+# 1.12 Every headline read: from the end card, open and close each line left (tagged
+# pile_line_unread_<id>). Back stands on that headline's card; the arrow leads back to the end.
+- extendedWaitUntil:
+    visible:
+      id: "tab_today"
+    timeout: 15000
 - scrollUntilVisible:
     element:
-      text: "\\d+ of \\d+ read"
+      id: "pile_next"
     direction: UP
     timeout: 30000
-# "(\d+) of \1 read" matches "7 of 7 read": every headline of the week is read. The
-# headlines left are tagged headline_unread_<id>; "Earlier this week" stays unfolded.
 - repeat:
     while:
-      notVisible: "(\\d+) of \\1 read"
-    times: 20
+      notVisible:
+        id: "pile_position"
+        text: "End"
+    times: 25
     commands:
-      - scrollUntilVisible:
-          element:
-            id: "headline_unread_.*"
-          direction: DOWN
-          timeout: 30000
       - tapOn:
-          id: "headline_unread_.*"
+          id: "pile_next"
+- takeScreenshot: p1-13-pile-end
+- repeat:
+    while:
+      visible:
+        id: "pile_line_unread_.*"
+    times: 25
+    commands:
+      - tapOn:
+          id: "pile_line_unread_.*"
           index: 0
       - extendedWaitUntil:
           visible:
@@ -277,30 +319,31 @@ onFlowComplete:
       - back
       - extendedWaitUntil:
           visible:
-            id: "tab_today"
+            id: "pile_next"
           timeout: 15000
-      - scrollUntilVisible:
-          element:
-            text: "\\d+ of \\d+ read"
-          direction: UP
-          timeout: 15000
-- assertVisible: "(\\d+) of \\1 read"
-- scrollUntilVisible:
-    element:
-      text: "You're up to date"
-    direction: DOWN
-    timeout: 60000
-- scrollUntilVisible:
-    element:
-      text: "You've read this week's \\d+ headlines\\."
-    direction: DOWN
-    timeout: 30000
-- scrollUntilVisible:
-    element:
-      text: "All headlines"
-    direction: DOWN
-    timeout: 15000
+      - repeat:
+          while:
+            notVisible:
+              id: "pile_position"
+              text: "End"
+          times: 25
+          commands:
+            - tapOn:
+                id: "pile_next"
+- assertVisible: "You're up to date"
+- assertVisible:
+    id: "pile_older"
 - takeScreenshot: p1-16-up-to-date
+
+# 1.12b "Older headlines": with an appname, the search of headlines by date.
+- tapOn:
+    id: "pile_older"
+- extendedWaitUntil:
+    visible:
+      id: "doc_.*"
+    timeout: 60000
+- takeScreenshot: p1-16b-older-headlines
+- back
 
 # 1.13 Offline. Within 30 minutes of a sync, Today does not call the network on launch,
 # so the banner shows once Refresh tries and fails.
@@ -318,18 +361,9 @@ onFlowComplete:
     timeout: 30000
 - takeScreenshot: p1-17-offline
 
-# 1.14 A Sudan report from the sync opens offline, with its text. The country tabs sit at
-# the end of the rubric row: swipe it until Sudan shows (the distance varies per swipe).
-- repeat:
-    while:
-      notVisible: "Sudan"
-    times: 5
-    commands:
-      - swipe:
-          from:
-            id: "today_tabs"
-          direction: LEFT
-- tapOn: "Sudan"
+# 1.14 A Sudan report from the sync opens offline, with its text: the country page lists the
+# phone's documents.
+- openLink: relais://country/220
 - extendedWaitUntil:
     visible:
       id: "doc_.*"
@@ -343,6 +377,7 @@ onFlowComplete:
     timeout: 15000
 - assertNotVisible: "This report isn't saved on your phone. Connect to load it."
 - takeScreenshot: p1-18-offline-report
+- back
 - back
 
 # 1.15 Back online, the daily summary on command (debug build: relaisdebug://digest), then

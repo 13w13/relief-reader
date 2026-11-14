@@ -200,7 +200,7 @@ class ReportViewModel(private val c: AppContainer, private val id: Long, headlin
      * Opened from the pile of Today: its place among this week's headlines, as the pile counts
      * them, for the block "Headline 3 of 6" after the text (v0.4). Null otherwise.
      */
-    val place: StateFlow<HeadlinePlace?> = if (!headline) {
+    internal val place: StateFlow<HeadlinePlace?> = if (!headline) {
         MutableStateFlow(null)
     } else {
         c.repository.access.flatMapLatest { access ->

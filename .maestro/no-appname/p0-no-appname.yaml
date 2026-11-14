@@ -18,29 +18,127 @@ onFlowStart:
       PREFIX: p0
       DIGEST: skip
 
-# Today (v0.3): the headlines of the RSS feed under "New headlines", and on each visit one line
-# that says what needs an appname, with Settings.
+# Today: the headlines of the RSS feed in the pile (v0.4), and on each visit one line that says
+# what needs an appname, with Settings.
 - extendedWaitUntil:
     visible: "Headlines only\\. Add an appname in Settings to read full reports, country pages and search\\."
     timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "1 of \\d+"
+    timeout: 60000
+- assertVisible: "Headlines"
+- takeScreenshot: p0-05-today
+
+# The pile: the arrow moves to the second card, then back to the first.
+- tapOn:
+    id: "pile_next"
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "(2 of \\d+|End)"
+    timeout: 10000
+- tapOn:
+    id: "pile_previous"
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "1 of \\d+"
+    timeout: 10000
+
+# A headline opened from the pile ends with "Headline 1 of N"; Next replaces it with the second
+# one, and Back returns to Today on the second card. A week with one headline skips Next.
+- tapOn:
+    id: "headline_unread_.*"
+    index: 0
 - scrollUntilVisible:
     element:
-      text: "New headlines"
+      id: "headline_nav"
     direction: DOWN
-    timeout: 30000
-- takeScreenshot: p0-05-today
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: "headline_previous"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "HEADLINE 1 OF \\d+"
+- takeScreenshot: p0-05b-headline-nav
+- runFlow:
+    when:
+      notVisible: "HEADLINE 1 OF 1"
+    commands:
+      - tapOn:
+          id: "headline_next"
+      - scrollUntilVisible:
+          element:
+            text: "HEADLINE 2 OF \\d+"
+          direction: DOWN
+          timeout: 60000
+      - takeScreenshot: p0-05c-second-headline
+- back
+- extendedWaitUntil:
+    visible:
+      id: "pile_position"
+      text: "(1 of 1|2 of \\d+)"
+    timeout: 15000
+- takeScreenshot: p0-05d-back-on-card
+
+# The end card: the week's titles, then "Older headlines", which lists the feed's headlines on
+# the phone and ends clearly.
+- repeat:
+    while:
+      notVisible:
+        id: "pile_position"
+        text: "End"
+    times: 25
+    commands:
+      - tapOn:
+          id: "pile_next"
+- assertVisible:
+    id: "pile_end"
+- takeScreenshot: p0-05e-pile-end
+- scrollUntilVisible:
+    element:
+      id: "pile_older"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "pile_older"
+- extendedWaitUntil:
+    visible:
+      id: "page_older_headlines"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "older_end"
+    direction: DOWN
+    timeout: 60000
+- takeScreenshot: p0-05f-older-headlines
+- back
+- extendedWaitUntil:
+    visible:
+      id: "tab_today"
+    timeout: 15000
 
 # A country page (debug deep link to Sudan): the banner says why, and opens Settings.
 - openLink: relais://country/220
 - extendedWaitUntil:
     visible: "Country pages and search need ReliefWeb access.*"
     timeout: 30000
+# The bottom bar keeps Today lit on a page opened from it (v0.4).
+- assertVisible:
+    id: "tab_today"
+    selected: true
 - takeScreenshot: p0-06-country
 - tapOn: "Open Settings"
 - extendedWaitUntil:
     visible: "No access: headlines only"
     timeout: 15000
 - assertVisible: "Use your own appname"
+- assertVisible:
+    id: "tab_today"
+    selected: true
 - takeScreenshot: p0-07-settings
 - back
 - back

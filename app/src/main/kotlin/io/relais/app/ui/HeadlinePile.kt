@@ -302,7 +302,8 @@ private fun PileEnd(
             val read = report.id in readIds
             HorizontalDivider(thickness = Hairline, color = cs.outlineVariant)
             Row(
-                Modifier.fillMaxWidth().height(48.dp).clickable { onOpen(report) }.testTag("pile_line_${report.id}"),
+                Modifier.fillMaxWidth().height(48.dp).clickable { onOpen(report) }
+                    .testTag((if (read) "pile_line_read_" else "pile_line_unread_") + report.id),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Space.s),
             ) {
