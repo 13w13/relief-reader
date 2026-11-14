@@ -47,7 +47,6 @@ import io.relais.app.pdf.TextRow
 import io.relais.app.pdf.textRows
 import io.relais.app.ui.DocumentRow
 import io.relais.app.ui.FollowedLine
-import io.relais.app.ui.FollowedName
 import io.relais.app.ui.FollowingRoute
 import io.relais.app.ui.FilterRow
 import io.relais.app.ui.HeadlinePile
@@ -236,7 +235,7 @@ class ReadmeScreensTest {
     private fun Following() = WithBottomBar(FollowingRoute) {
         ScreenScaffold(title = stringResource(R.string.following_title), onSettings = {}) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding)) {
-                item { FollowedLine(listOf(REGION, OTHER, nwp.shortname).map { FollowedName(it, it) {} }, onManage = {}) }
+                item { FollowedLine(listOf(REGION, OTHER, nwp.shortname), onManage = {}) }
                 item { FilterRow(PageFilter.FEEDS, PageFilter.ALL, onSelect = {}) }
                 items(followingRows) { (row, read) -> DocumentRow(row, onClick = {}, isNew = row.dateCreated > lastVisit && !read, isRead = read) }
             }

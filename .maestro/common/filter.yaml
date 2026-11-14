@@ -1,11 +1,11 @@
 # Taps one filter of the row on a country, crisis or Following page (theme-compose.md 12.1),
 # by its test tag: filter_all, filter_sitreps, filter_analysis, filter_maps, filter_appeals,
-# filter_news, filter_most_read. The row is wider than the screen: it is swiped
+# filter_news, filter_key, filter_most_read. The row is wider than the screen: it is swiped
 # left until the filter shows, then right for one left behind. Then waits for its list
 # (page_<name>).
 #
 # Parameters (runFlow env):
-#   FILTER  the end of the tag: sitreps, appeals, maps, news...
+#   FILTER  the end of the tag: sitreps, appeals, maps, key...
 appId: org.relreader.app
 ---
 - repeat:

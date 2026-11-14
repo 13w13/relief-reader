@@ -141,6 +141,17 @@ internal fun latestSituation(reports: List<ReportEntity>): ReportEntity? {
 /** Language twins of a list; the texts on the phone feed the numbers signal (S1). */
 internal fun twinGroups(reports: List<ReportEntity>): List<TwinGroup> = LanguageTwins.group(reports)
 
+/** On top of a crisis page's list, in italics (theme-compose.md 12.5). */
+@Composable
+internal fun TaggingNote() {
+    Text(
+        stringResource(R.string.crisis_tagging_note),
+        style = MaterialTheme.typography.bodySmall.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = Space.screen, vertical = Space.s),
+    )
+}
+
 /** "Also in French", under a document whose twins in other languages are merged into it. */
 @Composable
 internal fun AlsoIn(others: List<ReportEntity>, onOpen: (Long) -> Unit) {
@@ -237,9 +248,7 @@ internal fun CrisisHeader(info: ScopeInfo?, crisis: DisasterInfo?, name: String,
             )
         }
     }
-    // Always there since v0.4: the note on tagging moved in, out of the way to the list
-    // (revue-densite-v0.3.md, change 11).
-    run {
+    if (paragraphs.isNotEmpty() || d?.glide != null) {
         val state = stringResource(if (open) R.string.state_expanded else R.string.state_collapsed)
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { open = !open }
@@ -252,9 +261,8 @@ internal fun CrisisHeader(info: ScopeInfo?, crisis: DisasterInfo?, name: String,
         }
         if (open) {
             Column(Modifier.fillMaxWidth().padding(horizontal = Space.screen).padding(bottom = Space.m), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // The caveats first: a description can run to ten screens (chef, 8/11).
-                Text(stringResource(R.string.crisis_tagging_note), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.testTag("crisis_tagging_note"))
-                if (paragraphs.isNotEmpty()) Text(stringResource(R.string.crisis_about_note), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                // The caveat first: a description can run to ten screens (chef, 8/11).
+                Text(stringResource(R.string.crisis_about_note), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                 d?.glide?.let { Text("GLIDE $it", style = SectionTitleStyle.copy(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Normal), color = cs.onSurfaceVariant) }
                 paragraphs.forEach { Text(it, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 26.sp), color = cs.onSurface) }
             }

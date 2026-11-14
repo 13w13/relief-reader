@@ -86,8 +86,7 @@ onFlowComplete:
 - takeScreenshot: p6-05-following-crises
 
 # 6.4 The light crisis page (v0.2.2, theme-compose.md 12.5): its head, "About this disaster"
-# folded, the row of filters on All, then the list. No overview blocks. Since v0.4 the note
-# on tagging sits in the fold.
+# folded, the row of filters on All, and the note on top of the list. No overview blocks.
 - tapOn:
     id: "crisis_.*"
 - extendedWaitUntil:
@@ -95,25 +94,28 @@ onFlowComplete:
       id: "page_all"
     timeout: 30000
 - extendedWaitUntil:
-    visible:
-      id: "crisis_about"
+    visible: "Reports tagged with this disaster by ReliefWeb. Tagging is broad."
     timeout: 60000
-- assertNotVisible: "Reports tagged with this disaster by ReliefWeb. Tagging is broad."
 - assertVisible: "Following"
 - assertNotVisible: "Needs and response"
 - assertNotVisible: "Who's publishing"
 - takeScreenshot: p6-06-crisis-page
 
-# 6.5 "About this disaster" unfolds the note on tagging, then the editors' description when
-# the crisis has one. The notes come first, above a description that can run to ten screens.
-- tapOn:
-    id: "crisis_about"
-- extendedWaitUntil:
-    visible: "Reports tagged with this disaster by ReliefWeb. Tagging is broad."
-    timeout: 10000
-- takeScreenshot: p6-07-crisis-about
-- tapOn:
-    id: "crisis_about"
+# 6.5 "About this disaster" unfolds the editors' description, when the crisis has one.
+- runFlow:
+    when:
+      visible:
+        id: "crisis_about"
+    commands:
+      - tapOn:
+          id: "crisis_about"
+      # The note comes first, above the description, which can run to ten screens.
+      - extendedWaitUntil:
+          visible: "Written by ReliefWeb editors when the disaster was recorded. Figures may be out of date."
+          timeout: 10000
+      - takeScreenshot: p6-07-crisis-about
+      - tapOn:
+          id: "crisis_about"
 
 # 6.6 Situation reports tagged with the crisis: a list, or the empty state.
 - runFlow:

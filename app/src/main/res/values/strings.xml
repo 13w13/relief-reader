@@ -403,6 +403,7 @@
         <item quantity="other">%1$s · %2$d reports</item>
     </plurals>
     <string name="most_covered_limits">A report posted in two languages counts twice, and a few organizations post a lot.</string>
+    <string name="tab_key">Key documents</string>
     <string name="country_more_in_all">%1$d more in All: %2$s.</string>
     <plurals name="format_news_count">
         <item quantity="one">%d news release</item>

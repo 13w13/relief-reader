@@ -274,12 +274,12 @@ onFlowComplete:
 - runFlow:
     file: common/filter.yaml
     env:
-      FILTER: "sitreps"
+      FILTER: "key"
 - extendedWaitUntil:
     visible:
       id: "doc_.*"
     timeout: 60000
-- takeScreenshot: p1-15b-country-sudan-sitreps
+- takeScreenshot: p1-15b-country-sudan-key
 - back
 
 # 1.12 Every headline read: from the end card, open and close each line left (tagged
