@@ -96,6 +96,9 @@ class AppContainer(private val context: Context) {
         transaction = { block -> database.withTransaction { block() } },
     )
 
+    /** The Library in one file: export and restore (lot 3). */
+    val libraryBackup = io.relais.app.data.LibraryBackupStore(dao) { block -> database.withTransaction { block() } }
+
     /** Text of the downloaded PDFs (pdf/), in its own database, pdftext.db. */
     val pdfText = PdfTextStore(context, scope)
 

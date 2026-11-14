@@ -581,4 +581,14 @@
     <string name="whats_new_04_text_4">On Wi-Fi, Re.L downloads recent PDFs. Turn it off in Settings.</string>
     <string name="whats_new_04_lead_5">Settings apply at once.</string>
     <string name="whats_new_04_text_5">Type your appname and tap Save.</string>
+    <!-- The Library in one file (lot 3, equipe/produit/fiche-sauvegarde-library.md). -->
+    <string name="settings_backup">Back up your library</string>
+    <string name="settings_backup_note">Saved, History, Highlights and what you follow, in one file. Never your appname.</string>
+    <string name="settings_restore">Restore from a file</string>
+    <string name="restore_title">Restore from this file?</string>
+    <string name="restore_text">%1$d saved, %2$d in history, %3$d highlights and %4$d followed. Nothing on this phone is deleted.</string>
+    <string name="restore_action">Restore</string>
+    <string name="restore_done">Library restored. Saved reports load their text when you open them.</string>
+    <string name="restore_not_backup">This file isn\'t a Re.L backup.</string>
+    <string name="restore_newer">This backup comes from a newer version of Re.L. Update the app first.</string>
 </resources>

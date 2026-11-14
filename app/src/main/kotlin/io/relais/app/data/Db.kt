@@ -286,6 +286,10 @@ interface RelaisDao {
     @Upsert
     suspend fun upsertReports(reports: List<ReportEntity>)
 
+    /** Cards of a restored Library: a report already on the phone keeps its full copy. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertReportsIfAbsent(reports: List<ReportEntity>): List<Long>
+
     @Query("SELECT * FROM report WHERE id = :id")
     fun observeReport(id: Long): Flow<ReportEntity?>
 
@@ -636,6 +640,13 @@ interface RelaisDao {
     // Highlights
     @Insert
     suspend fun insertHighlight(highlight: HighlightEntity): Long
+
+    @Query("SELECT * FROM highlight ORDER BY createdAt")
+    suspend fun allHighlights(): List<HighlightEntity>
+
+    /** The rows of Saved and History, for the Library's backup file. */
+    @Query("SELECT * FROM reading WHERE savedAt IS NOT NULL OR inHistory = 1")
+    suspend fun libraryReadings(): List<ReadingEntity>
 
     @Query("DELETE FROM highlight WHERE id = :id")
     suspend fun deleteHighlight(id: Long)

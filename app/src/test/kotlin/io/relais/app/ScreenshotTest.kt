@@ -137,6 +137,35 @@ class ScreenshotTest {
         shoot("today-pile-end-more") { TodayPile(headlines, readIds = setOf(headlines[1].id, headlines[2].id), page = headlines.size) }
     }
 
+    /**
+     * A title on three lines whose country is not its first word, on a 1080 x 2400 screen: the
+     * summary keeps two lines and the country line follows (founder's phone, 14/11).
+     */
+    private fun longCard(): List<ReportEntity> {
+        val base = reports("headlines.json").take(3)
+        val long = base[0].copy(
+            headlineTitle = "With floods, droughts and storms striking more often, farmers change what they plant",
+            headlineSummary = "Families on the river plains now sow fast-growing seeds. Cooperatives share pumps and store grain " +
+                "above the flood line, and extension workers visit twice a month.",
+            primaryCountryName = "Noravia",
+        )
+        return listOf(long) + base.drop(1)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h914dp-420dpi")
+    fun pileLongTitle() {
+        val headlines = longCard()
+        shoot("today-pile-long-title") { TodayPile(headlines, readIds = emptySet(), page = 0) }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h914dp-420dpi")
+    fun pileLongTitleDark() {
+        val headlines = longCard()
+        shoot("today-pile-long-title-dark", dark = true) { TodayPile(headlines, readIds = emptySet(), page = 0) }
+    }
+
     /** The end of a report opened from the pile: "Headline 2 of 6", Next, Previous headline. */
     @Test
     fun headlineNav() {
