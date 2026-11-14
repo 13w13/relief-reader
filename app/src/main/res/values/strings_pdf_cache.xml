@@ -2,7 +2,7 @@
 <!-- The PDF line of list rows, and the PDF space and Wi-Fi preload of Settings > Storage. Kept
      apart from strings.xml so that this branch and the screen rework do not edit the same file. -->
 <resources>
-    <!-- List rows: "PDF · 2.3 MB · 12 pages". The count comes from the API or from the file on the phone. -->
+    <!-- List rows and the report: "PDF · 12 pages · 2.3 MB". The count comes from the API or from the file on the phone. -->
     <plurals name="pdf_facts_pages">
         <item quantity="one">%1$d page</item>
         <item quantity="other">%1$d pages</item>

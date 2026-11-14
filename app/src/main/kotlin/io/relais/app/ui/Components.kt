@@ -429,7 +429,8 @@ private fun kickerSource(report: ReportEntity, onSourcePage: Long?): String {
 
 /**
  * The country of a row in a feed that mixes countries ("Sudan +7"), alone on its line; nothing
- * on the country's own page (theme-compose.md 12.7). The PDF's size stays on the report.
+ * on the country's own page (theme-compose.md 12.7). The PDF's pages and size have their own
+ * line (PdfFactsLine).
  */
 fun metaLine(report: ReportEntity, inCountry: Boolean = false): String =
     if (inCountry) "" else Display.countryContext(report.primaryCountryName, report.otherCountryCount)
@@ -489,6 +490,8 @@ fun DocumentRow(
                 if (pdfPreview) io.relais.app.pdf.pdfPreview(report)?.let { io.relais.app.pdf.PdfPreviewLine(it) }
                 val meta = metaLine(report, inCountry)
                 if (meta.isNotBlank()) Text(meta, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                // "PDF · 12 pages · 2.3 MB": what the API or the file on the phone says, nothing when unknown.
+                io.relais.app.pdf.PdfFactsLine(report)
                 // Ink 2, in Saved and History alike (theme-compose.md 5.2): blue is for actions,
                 // unread marks and the active filter.
                 if (status != null) Text(status, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)

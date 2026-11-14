@@ -30,9 +30,9 @@ class PdfFactsTest {
 
     @Test
     fun theLineSaysWhatIsKnown() {
-        assertEquals("PDF · 2.3 MB · 12 pages", PdfFacts.line("2.3 MB", "12 pages"))
-        assertEquals("PDF · 450 KB", PdfFacts.line("450 KB", null))
-        assertEquals("PDF · 1 page", PdfFacts.line(null, "1 page"))
+        assertEquals("PDF · 12 pages · 2.3 MB", PdfFacts.line("12 pages", "2.3 MB"))
+        assertEquals("PDF · 450 KB", PdfFacts.line(null, "450 KB"))
+        assertEquals("PDF · 1 page", PdfFacts.line("1 page", null))
         assertNull(PdfFacts.line(null, null))
     }
 }
