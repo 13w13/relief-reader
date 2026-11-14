@@ -252,7 +252,8 @@ fun SettingsScreen(nav: Nav) {
     val snackbar = remember { SnackbarHostState() }
     val appnameSaved = stringResource(R.string.settings_appname_saved)
     var confirmClear by remember { mutableStateOf(false) }
-    var shortenHistory by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    // The keep asked for, the reports it removes, and its label ("90 days", "1 year").
+    var shortenHistory by remember { mutableStateOf<Triple<Int, Int, Int>?>(null) }
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -380,7 +381,7 @@ fun SettingsScreen(nav: Nav) {
                         // A shorter keep that removes reports asks first, with their number.
                         scope.launch {
                             val removed = vm.historyToRemove(days)
-                            if (removed > 0) shortenHistory = days to removed else vm.setHistoryDays(days)
+                            if (removed > 0) shortenHistory = Triple(days, removed, label) else vm.setHistoryDays(days)
                         }
                     }, label = { Text(stringResource(label)) }, modifier = Modifier.testTag("keep_history_$days"))
                 }
@@ -405,10 +406,10 @@ fun SettingsScreen(nav: Nav) {
 
     showWhatsNew?.let { release -> WhatsNewSheet(release, onDismiss = { showWhatsNew = null }) }
 
-    shortenHistory?.let { (days, removed) ->
+    shortenHistory?.let { (days, removed, label) ->
         AlertDialog(
             onDismissRequest = { shortenHistory = null },
-            text = { Text(pluralStringResource(R.plurals.settings_history_shorten, removed, removed, days)) },
+            text = { Text(pluralStringResource(R.plurals.settings_history_shorten, removed, removed, stringResource(label).lowercase())) },
             confirmButton = {
                 TextButton(onClick = { vm.setHistoryDays(days); shortenHistory = null }, modifier = Modifier.testTag("keep_history_confirm")) {
                     Text(stringResource(R.string.settings_remove))
