@@ -490,7 +490,7 @@ private const val SEARCH_FROM = 10
 /** The facets of the view, each opening its list, then "Group by" for Saved and History. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun LibraryFilterSheet(state: LibraryState, onFacet: (LibraryFacet) -> Unit, onGroupBy: (GroupBy) -> Unit, onClear: () -> Unit) {
+internal fun LibraryFilterSheet(state: LibraryState, onFacet: (LibraryFacet) -> Unit, onGroupBy: (GroupBy) -> Unit, onClear: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().padding(bottom = Space.xl).verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(horizontal = Space.screen), verticalAlignment = Alignment.CenterVertically) {
