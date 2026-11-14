@@ -628,8 +628,25 @@ class Repository(
      */
     suspend fun searchSources(text: String): List<SourceInfo> {
         if (text.trim().length < 2) return emptyList()
-        val found = api { it.sources(Requests.searchSources(text, limit = SourceRanking.ASKED)) }.data.map { it.toSourceInfo() }
-        return SourceRanking.rank(text, found)
+        // First each word as a beginning; if that fails or finds nothing, one try with the
+        // words as typed. Two requests at most; the last error is the one shown.
+        val first = try {
+            api { it.sources(Requests.searchSources(text, limit = SourceRanking.ASKED, prefix = true)) }.data
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+        if (!first.isNullOrEmpty()) return SourceRanking.rank(text, first.map { it.toSourceInfo() })
+        val second = try {
+            api { it.sources(Requests.searchSources(text, limit = SourceRanking.ASKED, prefix = false)) }.data
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // The first try answered, with nothing: say "no organization", not an error.
+            if (first != null) return emptyList() else throw e
+        }
+        return SourceRanking.rank(text, second.map { it.toSourceInfo() })
     }
 
     /**

@@ -233,10 +233,29 @@ data class PickSourcesState(
     val followed: Map<Long, FollowedSourceEntity> = emptyMap(),
     val loading: Boolean = false,
     val error: LoadError? = null,
+    /** A search that failed, named so that a screenshot tells which error it was. */
+    val problem: String? = null,
 )
+
+/**
+ * A failed organization search, in a few words for the screen: the founder saw only "Couldn't
+ * load this page" (15/11), which every error gave.
+ */
+internal fun searchProblem(e: Throwable): String = when (e) {
+    is io.relais.api.ApiException.BadRequest -> "HTTP 400" + (e.message?.takeIf { it.isNotBlank() && it != "Bad request" }?.let { ": " + it.take(120) } ?: "")
+    is io.relais.api.ApiException.Server -> if (e.message.orEmpty().startsWith("Unreadable")) "unreadable answer" else "HTTP ${e.status}"
+    is io.relais.api.ApiException.AccessDenied -> "HTTP 403"
+    is io.relais.api.ApiException.RateLimited -> "HTTP 429"
+    is io.relais.api.ApiException.NotFound -> "HTTP 404"
+    is io.relais.api.ApiException.Blocked -> "blocked"
+    is io.relais.api.ApiException.Network -> "no connection"
+    is io.relais.api.ApiException.NoAppname -> "no appname"
+    else -> e::class.simpleName ?: "error"
+}
 
 class PickSourcesViewModel(private val c: AppContainer) : ViewModel() {
     private val query = MutableStateFlow("")
+    private val problem = MutableStateFlow<String?>(null)
     private val results = MutableStateFlow<List<SourceInfo>?>(null)
     private val suggestions = MutableStateFlow<List<Pair<SourceInfo, Int>>>(emptyList())
     private val loading = MutableStateFlow(false)
@@ -249,8 +268,8 @@ class PickSourcesViewModel(private val c: AppContainer) : ViewModel() {
         combine(query, results) { q, r -> q to r },
         suggestions,
         c.dao.observeFollowedSources().map { list -> list.associateBy { it.sourceId } },
-        combine(loading, error) { l, e -> l to e },
-    ) { (q, r), s, f, (l, e) -> PickSourcesState(q, r, s, f, l, e) }
+        combine(loading, error, problem) { l, e, p -> Triple(l, e, p) },
+    ) { (q, r), s, f, (l, e, p) -> PickSourcesState(q, r, s, f, l, e, p) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PickSourcesState())
 
     private var search: kotlinx.coroutines.Job? = null
@@ -275,14 +294,23 @@ class PickSourcesViewModel(private val c: AppContainer) : ViewModel() {
             delay(300)
             loading.value = true
             error.value = null
+            problem.value = null
             try {
                 results.value = c.repository.searchSources(text)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                error.value = e.toLoadError()
+                // Shown as an error, with its name, until the next search (founder, 15/11).
+                results.value = null
+                problem.value = searchProblem(e)
             } finally {
                 loading.value = false
             }
         }
+    }
+
+    fun clearProblem() {
+        problem.value = null
     }
 
     /** Checked: a small organization is followed at once; a large one asks first. */
@@ -326,7 +354,18 @@ fun PickSourcesScreen(nav: Nav) {
                 modifier = Modifier.fillMaxWidth().padding(Space.screen).testTag("source_search"),
             )
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-            LoadErrorBanner(state.error, onRetry = { vm.setQuery(text) }, onOpenSettings = nav::settings)
+            val problem = state.problem
+            if (problem != null) {
+                // An error stays until the next search, and says which one it was.
+                StatusLine(
+                    stringResource(R.string.source_search_failed, problem),
+                    stringResource(R.string.action_try_again),
+                    { vm.setQuery(text) },
+                    onClose = { vm.clearProblem() },
+                )
+            } else {
+                LoadErrorBanner(state.error, onRetry = { vm.setQuery(text) }, onOpenSettings = nav::settings)
+            }
             LazyColumn(Modifier.weight(1f).testTag("pick_sources")) {
                 val results = state.results
                 if (results == null) {
