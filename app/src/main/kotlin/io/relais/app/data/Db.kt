@@ -335,6 +335,10 @@ interface RelaisDao {
     )
     fun observeTwinCandidates(id: Long, countryId: Long?, formatId: Long, from: Long, to: Long): Flow<List<ReportEntity>>
 
+    /** Organizations and themes of the latest documents on the phone: names for Search's sheet. */
+    @Query("SELECT sources, themes FROM report WHERE fromRss = 0 ORDER BY fetchedAt DESC LIMIT :limit")
+    suspend fun recentTags(limit: Int): List<TagsRow>
+
     /** Organizations and themes of a country's documents on the phone: names for the filter sheet. */
     @Query("SELECT sources, themes FROM report WHERE primaryCountryId = :countryId AND fromRss = 0")
     fun observeCountryTags(countryId: Long): Flow<List<TagsRow>>

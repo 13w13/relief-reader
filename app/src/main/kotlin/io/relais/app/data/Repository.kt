@@ -57,6 +57,8 @@ data class SearchParams(
     val postedDays: Int? = null,
     val sort: Requests.SearchSort? = null,
     val headlinesOnly: Boolean = false,
+    val sourceIds: Set<Long> = emptySet(),
+    val themeIds: Set<Long> = emptySet(),
 )
 
 data class SearchPage(
@@ -718,6 +720,8 @@ class Repository(
                     countryIds = params.countryIds,
                     formatIds = params.formatIds,
                     languageIds = params.languageIds,
+                    sourceIds = params.sourceIds,
+                    themeIds = params.themeIds,
                     postedSince = params.postedDays?.let { d -> Instant.now().minusSeconds(d * 86_400L) },
                     sort = params.sort ?: if (params.text.isBlank()) Requests.SearchSort.NEWEST else Requests.SearchSort.RELEVANT,
                     offset = offset,
@@ -733,6 +737,27 @@ class Repository(
             totalCount = response.totalCount,
             facets = response.embedded?.facets?.mapValues { it.value.data } ?: emptyMap(),
         )
+    }
+
+    /**
+     * Names of organizations and themes for Search's filter sheet: those of the reports on the
+     * phone (the latest 500), which name nearly every theme and the busy organizations.
+     */
+    suspend fun knownTagNames(): Pair<Map<Long, String>, Map<Long, String>> {
+        val rows = dao.recentTags(500)
+        val sources = rows.flatMap { it.sources }.associate { it.id to it.shortname.ifBlank { it.name } }
+        val themes = rows.flatMap { it.themes }.associate { it.id to it.name }
+        return sources to themes
+    }
+
+    /** Short names of organizations by id, one request for those not known yet, kept 24 hours. */
+    suspend fun sourceNames(ids: Collection<Long>): Map<Long, String> {
+        if (ids.isEmpty() || !hasAccess) return emptyMap()
+        val key = "source-names:" + ids.sorted().joinToString(",")
+        return cachedJson(key, ONE_DAY, SOURCE_NAMES, force = false) {
+            api { it.sources(Requests.sourcesByIds(ids)) }.data.map { it.toSourceInfo() }
+                .associate { it.id to it.shortname.ifBlank { it.name } }
+        }
     }
 
     // --- Countries -------------------------------------------------------------------
@@ -1029,6 +1054,7 @@ val Scope.prefix: String get() = when (kind) {
 data class SuggestedSource(val source: SourceInfo, val count: Int)
 
 private val SUGGESTIONS = kotlinx.serialization.builtins.ListSerializer(SuggestedSource.serializer())
+private val SOURCE_NAMES = kotlinx.serialization.builtins.MapSerializer(kotlinx.serialization.serializer<Long>(), kotlinx.serialization.serializer<String>())
 
 fun io.relais.api.ApiItem<io.relais.api.SourceFields>.toSourceInfo(): SourceInfo = SourceInfo(
     id = id,

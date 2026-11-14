@@ -1151,7 +1151,7 @@ private fun CountryFilterSheet(name: String, state: CountryState, onApply: (Coun
 
 /** Title of a group of the sheet: condensed capitals in ink 2, under a 1 dp rule. */
 @Composable
-private fun SheetGroup(title: String) {
+internal fun SheetGroup(title: String) {
     Column(Modifier.padding(top = 8.dp)) {
         HorizontalDivider(thickness = Hairline, color = MaterialTheme.colorScheme.outlineVariant)
         Text(
@@ -1166,7 +1166,7 @@ private fun SheetGroup(title: String) {
 /** Values with their counts ("UNHCR 526"); beyond 10, the 10 most frequent, then "Show all (23)". */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChipGroup(values: List<Pair<Long, Int>>, selected: Set<Long>, label: (Long) -> String, onToggle: (Long) -> Unit) {
+internal fun ChipGroup(values: List<Pair<Long, Int>>, selected: Set<Long>, label: (Long) -> String, onToggle: (Long) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val shown = if (expanded || values.size <= 10) values else values.take(10)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

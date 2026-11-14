@@ -144,6 +144,8 @@ object Requests {
         countryIds: Collection<Long> = emptyList(),
         formatIds: Collection<Long> = emptyList(),
         languageIds: Collection<Long> = emptyList(),
+        sourceIds: Collection<Long> = emptyList(),
+        themeIds: Collection<Long> = emptyList(),
         postedSince: Instant? = null,
         sort: SearchSort = if (text.isBlank()) SearchSort.NEWEST else SearchSort.RELEVANT,
         offset: Int = 0,
@@ -159,14 +161,24 @@ object Requests {
             countryIds.takeIf { it.isNotEmpty() }?.let { Filters.anyOf("primary_country.id", it) },
             formatIds.takeIf { it.isNotEmpty() }?.let { Filters.anyOf("format.id", it) },
             languageIds.takeIf { it.isNotEmpty() }?.let { Filters.anyOf("language.id", it) },
+            // Organizations and themes (lot 3, fiche-recherche-filtres.md): any of the values
+            // in one field, all of the fields together, as on a country page.
+            sourceIds.takeIf { it.isNotEmpty() }?.let { Filters.anyOf("source.id", it) },
+            themeIds.takeIf { it.isNotEmpty() }?.let { Filters.anyOf("theme.id", it) },
             postedSince?.let { Filters.dateRange("date.created", from = it) },
         ),
         fields = Fields.REPORT_CARD,
-        facets = if (offset == 0) listOf(
-            Facet("primary_country.id", limit = 10),
-            Facet("format.id", limit = 20),
-            Facet("language.id", limit = 10),
-        ) else emptyList(),
+        // The first page brings the values of the filter sheet, with their counts: no request more.
+        facets = if (offset == 0) SEARCH_FACETS else emptyList(),
+    )
+
+    /** Organizations: the 10 first show, the others behind "Show all"; about twenty themes exist. */
+    val SEARCH_FACETS = listOf(
+        Facet("primary_country.id", limit = 10),
+        Facet("format.id", limit = 20),
+        Facet("language.id", limit = 10),
+        Facet("source.id", limit = 30),
+        Facet("theme.id", limit = 25),
     )
 
     /** M2 Pick countries: the whole list, sorted by name. */
