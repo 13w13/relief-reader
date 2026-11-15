@@ -398,7 +398,7 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
         if (state.downloaded.containsKey(url)) {
             pendingOpen = null
             openFile(file)
-        } else if (state.downloads[url] == DownloadState.Failed || state.downloads[url] is DownloadState.TooLarge) {
+        } else if (state.downloads[url] == DownloadState.Failed || state.downloads[url] == DownloadState.Refused || state.downloads[url] is DownloadState.TooLarge) {
             pendingOpen = null
         }
     }

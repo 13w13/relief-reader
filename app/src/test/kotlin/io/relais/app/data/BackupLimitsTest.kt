@@ -51,7 +51,9 @@ class BackupLimitsTest {
             "countries":[{"id":-990,"name":"Nowhere"},{"id":990,"name":"Noravia"}],
             "crises":[{"id":0,"name":"None"}],"sources":[{"id":-5,"shortname":"N","name":"N"}],"topics":[{"id":-1,"title":"T"}]}"""
         val b = (LibraryBackupFormat.parse(file) as LibraryBackupFormat.Parsed.Ok).backup
-        val r = b.readings.single()
+        // 0 and the absurd positive id go; -4 stays (a report of the RSS feed has a negative id).
+        assertEquals(listOf(-4L, 4100002L), b.readings.map { it.reportId })
+        val r = b.readings.last()
         assertEquals(4100002L, r.reportId)
         assertEquals(100, r.percent)
         assertEquals(0, r.pdfPage)
@@ -65,6 +67,35 @@ class BackupLimitsTest {
         assertNull(h.pdfPage)
         assertEquals(listOf(990L), b.countries.map { it.id })
         assertTrue(b.crises.isEmpty() && b.sources.isEmpty() && b.topics.isEmpty())
+    }
+
+    /** A reader without appname: what they read came from the RSS feed (review of PR 26). Nothing goes. */
+    @Test
+    fun readingsOfTheFeedComeBackWhole() {
+        val id = io.relais.api.RssParser.syntheticId("https://reliefweb.int/report/noravia/noravia-floods-flash-update-no-2")
+        assertTrue(id < -LibraryBackupFormat.MAX_ID)
+        val file = """{$head,
+            "readings":[{"reportId":$id,"savedAt":1794700000000,"inHistory":true,
+              "card":{"title":"Noravia: Floods Flash Update No. 2","dateCreated":1794700000000,"fromRss":true,
+                "sources":[{"id":0,"shortname":"OCHA","name":"UN Office for the Coordination of Humanitarian Affairs"}],
+                "urlAlias":"https://reliefweb.int/report/noravia/noravia-floods-flash-update-no-2"}}],
+            "highlights":[{"reportId":$id,"reportTitle":"Noravia: Floods Flash Update No. 2","sourceName":"OCHA","reportDate":1,"createdAt":2,
+              "text":"About 8,000 people were displaced.","blockIndex":0,"start":0,"end":34}]}"""
+        val b = (LibraryBackupFormat.parse(file) as LibraryBackupFormat.Parsed.Ok).backup
+        val r = b.readings.single()
+        assertEquals(id, r.reportId)
+        assertEquals(listOf(0L), r.card!!.sources.map { it.id })
+        assertEquals("OCHA", r.card!!.sources.single().shortname)
+        assertEquals("https://reliefweb.int/report/noravia/noravia-floods-flash-update-no-2", r.card!!.urlAlias)
+        assertEquals(id, b.highlights.single().reportId)
+    }
+
+    @Test
+    fun aListWithAnAddressTooLongIsLeftOutNotCut() {
+        val long = "https://reliefweb.int/updates?advanced-search=" + "(PC1)_".repeat(400)
+        val file = """{$head,"topics":[{"id":9,"title":"T","rivers":[{"title":"Long","url":"$long"},{"title":"Short","url":"https://reliefweb.int/updates?view=reports"}]}]}"""
+        val rivers = (LibraryBackupFormat.parse(file) as LibraryBackupFormat.Parsed.Ok).backup.topics.single().rivers
+        assertEquals(listOf("Short"), rivers.map { it.title })
     }
 
     @Test

@@ -45,8 +45,13 @@ object TrustedUrls {
         val parsed = https.toHttpUrlOrNull() ?: return null
         if (parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) return null
         if (parsed.port != 443) return null
-        if (isIpLiteral(parsed.host) && !isPublicAddress(parsed.host)) return null
-        if (isLocalName(parsed.host)) return null
+        val host = parsed.host
+        when {
+            isIpLiteral(host) -> if (!isCanonicalIpv4OrIpv6(host) || !isPublicAddress(host)) return null
+            // 127.1, 2130706433, 0x7f.0.0.1: a resolver may read them as an address (review of PR 26).
+            looksNumeric(host) -> return null
+        }
+        if (isLocalName(host)) return null
         return parsed.toString()
     }
 
@@ -74,6 +79,19 @@ object TrustedUrls {
         val h = host.lowercase().trimEnd('.')
         return h == "localhost" || h.endsWith(".localhost")
     }
+
+    /**
+     * A name that a resolver may read as an IPv4 address: its last label is all digits, or starts
+     * with 0x. Such a host is refused unless it is a plain dotted quad ([isIpLiteral]).
+     */
+    fun looksNumeric(host: String): Boolean {
+        val last = host.trimEnd('.').substringAfterLast('.')
+        return last.isNotEmpty() && (last.all { it in '0'..'9' } || last.startsWith("0x", ignoreCase = true))
+    }
+
+    /** IPv6, or four decimal numbers without leading zeros (010.0.0.1 may be read as octal). */
+    private fun isCanonicalIpv4OrIpv6(host: String): Boolean =
+        host.contains(':') || host.split('.').all { it == "0" || !it.startsWith('0') }
 
     /** An IPv4 or IPv6 address written as such (OkHttp keeps IPv6 without brackets). */
     fun isIpLiteral(host: String): Boolean =

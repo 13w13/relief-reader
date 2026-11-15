@@ -11,6 +11,9 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.writeFully
+import io.ktor.utils.io.writer
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -93,6 +96,38 @@ class AppnameLeakTest {
         val e = failure { client(engine).reports(Requests.headlines()) }
         assertTrue("${e::class.simpleName}: ${e.message}", e is ApiException.Server)
         assertNoAppname(e)
+    }
+
+    /**
+     * An endless body: the client reads it as it streams and stops at the limit (review of PR 26).
+     * A client that held the whole body in memory first would never finish here.
+     */
+    @Test
+    fun anEndlessAnswerIsStoppedWhileItStreams() = kotlinx.coroutines.runBlocking {
+        val written = java.util.concurrent.atomic.AtomicLong()
+        val server = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+        val engine = MockEngine {
+            val body = server.writer {
+                val chunk = ByteArray(64 * 1024) { 'x'.code.toByte() }
+                // Until the client stops reading and the channel closes.
+                runCatching {
+                    while (true) {
+                        channel.writeFully(chunk)
+                        channel.flush()
+                        written.addAndGet(chunk.size.toLong())
+                    }
+                }
+            }.channel
+            respond(body, HttpStatusCode.OK)
+        }
+        try {
+            val e = kotlinx.coroutines.withTimeout(120_000) { failure { client(engine).reports(Requests.headlines()) } }
+            assertTrue("${e::class.simpleName}: ${e.message}", e is ApiException.Server)
+            assertNoAppname(e)
+            assertTrue("written ${written.get()}", written.get() < ReliefWebClient.MAX_ANSWER_BYTES + 4L * 1024 * 1024)
+        } finally {
+            server.cancel()
+        }
     }
 
     @Test

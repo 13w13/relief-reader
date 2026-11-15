@@ -4,6 +4,7 @@ package io.relais.app.data
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
 import io.relais.api.ApiDates
 import io.relais.api.ApiException
 import io.relais.api.ApiItem
@@ -179,7 +180,8 @@ class Repository(
     private suspend fun fetchRssHeadlines() {
         val text = try {
             // At most 4 MB (security audit of 15/11): the feed of 30 headlines is about 100 KB.
-            io.relais.api.Bodies.text(http.get(RssParser.HEADLINES_URL), RSS_MAX_BYTES)
+            // Read while it streams in, so the limit holds before the body is in memory (review of PR 26).
+            http.prepareGet(RssParser.HEADLINES_URL).execute { io.relais.api.Bodies.text(it, RSS_MAX_BYTES) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: io.relais.api.Bodies.TooLarge) {

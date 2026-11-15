@@ -61,6 +61,13 @@ class TrustedUrlsTest {
         ).forEach { assertNull(it.toString(), TrustedUrls.image(it)) }
         // A public address written as such may load.
         assertEquals("https://8.8.8.8/x.png", TrustedUrls.image("https://8.8.8.8/x.png"))
+        // Other ways of writing an address are refused (review of PR 26).
+        listOf(
+            "https://2130706433/x.png", "https://0x7f.0.0.1/x.png", "https://0x7f000001/x.png", "https://127.1/x.png",
+            "https://127.000.000.001/x.png", "https://011.1.1.1/x.png", "https://cdn.example.123/x.png",
+        ).forEach { assertNull(it, TrustedUrls.image(it)) }
+        // A name with digits elsewhere is a name.
+        assertEquals("https://123.example.org/x.png", TrustedUrls.image("https://123.example.org/x.png"))
     }
 
     @Test

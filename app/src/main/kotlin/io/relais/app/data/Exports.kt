@@ -7,9 +7,10 @@ import java.io.File
 
 /**
  * The files Re.L hands to the share menu (library backup, highlights), in cacheDir/exports
- * (security audit of 15/11): emptied at each launch; on each return to the app, a file shared
- * more than [KEEP_MS] ago goes. Not at once: the receiving app (a mail draft, an upload) may
- * still be reading it when Re.L comes back to the front.
+ * (security audit of 15/11): at each launch and each return to the app, a file shared more than
+ * [KEEP_MS] ago goes, and each new export replaces the previous one. Not at once: the receiving
+ * app (a mail draft, an upload) may still be reading it, even after Android has started Re.L
+ * again only to serve the file (review of PR 26).
  */
 object Exports {
     const val KEEP_MS = 10 * 60 * 1000L

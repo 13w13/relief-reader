@@ -27,7 +27,7 @@ class LeftoversTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Test
-    fun exportsGoAtLaunchAndOldOnesOnReturn() {
+    fun oldExportsGoAtLaunchAndOnReturn() {
         val dir = Exports.dir(context).apply { mkdirs() }
         val now = System.currentTimeMillis()
         val old = File(dir, "rel-library-2026-11-01.json").apply { writeText("{}"); setLastModified(now - Exports.KEEP_MS - 60_000) }

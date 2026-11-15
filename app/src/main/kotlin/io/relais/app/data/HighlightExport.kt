@@ -78,7 +78,8 @@ object HighlightExport {
                 "Posted on ReliefWeb: ${Citation.date(posted, zone)}.",
             ).joinToString(" ")
             md.append("- ").append(dates).append("\n")
-            r?.urlAlias?.let { md.append("- Link: ").append(it).append("\n") }
+            // A ReliefWeb page only, never an address taken as is (review of PR 26).
+            r?.reliefWebPage?.let { md.append("- Link: ").append(it).append("\n") }
 
             // The body first, in the order of its blocks; then the PDF, page by page.
             val sorted = passages.sortedWith(compareBy<HighlightEntity>({ it.pdfPage ?: 0 }, { it.blockIndex }, { it.start }))

@@ -42,8 +42,9 @@ class RelaisApp : Application(), coil3.SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
-        // Exports shared earlier (backup, highlights): nothing stays from a previous run.
-        container.scope.launch(Dispatchers.IO) { io.relais.app.data.Exports.clear(this@RelaisApp) }
+        // Exports shared earlier (backup, highlights) go once ten minutes old: Android may start the
+        // app cold for the FileProvider while the receiving app still reads one (review of PR 26).
+        container.scope.launch(Dispatchers.IO) { io.relais.app.data.Exports.clearOld(this@RelaisApp) }
         createNotificationChannel()
         Work.schedulePeriodicSync(this)
         container.scope.launch { io.relais.app.work.PreloadWorker.schedule(this@RelaisApp, container.settings.current().preloadPdfs) }

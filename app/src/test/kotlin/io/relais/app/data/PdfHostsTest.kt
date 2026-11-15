@@ -42,8 +42,9 @@ class PdfHostsTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val asked: MutableList<String> = Collections.synchronizedList(ArrayList())
 
-    /** Redirects of the made-up server: from an address to the next one. */
+    /** Redirects of the made-up server: from an address to the next one, with their status (302 by default). */
     private val redirects = mutableMapOf<String, String>()
+    private val codes = mutableMapOf<String, Int>()
 
     private val okHttp = OkHttpClient.Builder().addInterceptor { chain ->
         val url = chain.request().url.toString()
@@ -51,7 +52,7 @@ class PdfHostsTest {
         val builder = Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
         val next = redirects[url]
         if (next != null) {
-            builder.code(302).message("Found").header("Location", next).body("".toResponseBody()).build()
+            builder.code(codes[url] ?: 302).message("Redirect").header("Location", next).body("".toResponseBody()).build()
         } else {
             builder.code(200).message("OK").body(("%PDF-1.7\n" + "x".repeat(40)).toResponseBody("application/pdf".toMediaType())).build()
         }
@@ -121,6 +122,36 @@ class PdfHostsTest {
             assertEquals(target, Preloaded.Refused, downloader().download("https://reliefweb.int/attachments/c3/report.pdf", 4, 1_000_000))
             assertEquals(listOf("https://reliefweb.int/attachments/c3/report.pdf"), asked)
         }
+    }
+
+    @Test
+    fun everyRedirectStatusIsCheckedTheSameWay() = runBlocking {
+        listOf(301, 303, 307, 308).forEach { code ->
+            asked.clear()
+            redirects.clear()
+            codes.clear()
+            val from = "https://reliefweb.int/attachments/e$code/report.pdf"
+            redirects[from] = "https://reliefweb.int/sites/default/files/e$code.pdf"
+            codes[from] = code
+            assertTrue("$code", downloader().download(from, 10L + code, 1_000_000) is Preloaded.Saved)
+            assertEquals("$code", 2, asked.size)
+            asked.clear()
+            redirects[from] = "https://example.org/e$code.pdf"
+            assertEquals("$code", Preloaded.Refused, downloader().download(from, 20L + code, 1_000_000))
+            assertEquals("$code", listOf(from), asked)
+        }
+    }
+
+    @Test
+    fun aTrailingDotIsTheSameHostAndALookalikeIsNot() = runBlocking {
+        // reliefweb.int. is reliefweb.int, written in full.
+        assertTrue(downloader().download("https://reliefweb.int./attachments/f6/report.pdf", 30, 1_000_000) is Preloaded.Saved)
+        asked.clear()
+        // An internationalized look-alike (a Cyrillic i, an accented e) is another host.
+        listOf("https://reliefweb.\u0456nt/attachments/f6/report.pdf", "https://r\u00e9liefweb.int/attachments/f6/report.pdf").forEach { url ->
+            assertEquals(url, Preloaded.Refused, downloader().download(url, 31, 1_000_000))
+        }
+        assertTrue(asked.isEmpty())
     }
 
     @Test

@@ -145,7 +145,11 @@ object LibraryBackupFormat {
     /** Longest address of a regional crisis's list: the site's filters can be long. */
     const val MAX_RIVER_URL = 2_000
 
-    /** Highest id kept: ReliefWeb's ids are in the millions; a negative or absurd one is dropped. */
+    /**
+     * Highest id kept: ReliefWeb's ids are in the millions; 0 or an absurd positive one is dropped.
+     * A report of the RSS feed has a negative id, a hash of its link (RssParser.syntheticId),
+     * which may be any negative number: kept. Organizations of the feed have id 0: kept.
+     */
     const val MAX_ID = 1_000_000_000L
 
     /** Most rows of each kind a file may hold; more is refused before anything is read into it. */
@@ -184,10 +188,12 @@ object LibraryBackupFormat {
         fun String?.cutOrNull() = this?.take(MAX_STRING)
         fun Long.valid() = this in 1..MAX_ID
         fun Long?.validOrNull() = this?.takeIf { it.valid() }
+        // A report of the API (1..MAX_ID) or of the RSS feed (negative, review of PR 26).
+        fun Long.validReport() = valid() || (this < 0 && this != Long.MIN_VALUE)
         fun page(url: String?) = TrustedUrls.reliefWebPage(url?.take(MAX_STRING))
         fun SourceLite.bounded() = SourceLite(id, shortname.cut(), name.cut())
         return b.copy(
-            readings = b.readings.filter { it.reportId.valid() }.map { r ->
+            readings = b.readings.filter { it.reportId.validReport() }.map { r ->
                 r.copy(
                     percent = r.percent.coerceIn(0, 100),
                     pdfPage = r.pdfPage.coerceAtLeast(0),
@@ -197,7 +203,8 @@ object LibraryBackupFormat {
                         c.copy(
                             title = c.title.cut(),
                             headlineTitle = c.headlineTitle.cutOrNull(),
-                            sources = c.sources.filter { it.id.valid() }.take(MAX_CARD_SOURCES).map { it.bounded() },
+                            // Id 0: an organization named by the RSS feed.
+                            sources = c.sources.filter { it.id in 0..MAX_ID }.take(MAX_CARD_SOURCES).map { it.bounded() },
                             primaryCountryId = c.primaryCountryId.validOrNull(),
                             primaryCountryName = c.primaryCountryName.cutOrNull(),
                             formatId = c.formatId.validOrNull(),
@@ -207,7 +214,7 @@ object LibraryBackupFormat {
                     },
                 )
             },
-            highlights = b.highlights.filter { it.reportId.valid() && it.blockIndex >= 0 && it.start >= 0 && it.end >= it.start }.map { h ->
+            highlights = b.highlights.filter { it.reportId.validReport() && it.blockIndex >= 0 && it.start >= 0 && it.end >= it.start }.map { h ->
                 h.copy(
                     reportTitle = h.reportTitle.cut(),
                     countryName = h.countryName.cutOrNull(),
@@ -225,7 +232,9 @@ object LibraryBackupFormat {
                 t.copy(
                     title = t.title.cut(),
                     urlAlias = page(t.urlAlias),
-                    rivers = t.rivers.take(MAX_RIVERS).map { io.relais.api.TopicRiver(it.title.cut(), it.url.take(MAX_RIVER_URL)) },
+                    // A list whose address is too long is left out, not cut: a cut address would lead
+                    // elsewhere without a word (review of PR 26).
+                    rivers = t.rivers.filter { it.url.length <= MAX_RIVER_URL }.take(MAX_RIVERS).map { io.relais.api.TopicRiver(it.title.cut(), it.url) },
                 )
             },
         )
