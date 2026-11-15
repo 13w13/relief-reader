@@ -236,6 +236,12 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     fun setDisplay(d: DisplaySize) = viewModelScope.launch { c.settings.setDisplay(d.name, d.reportStep.ordinal) }
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
     fun setUpdateCheck(on: Boolean) = viewModelScope.launch { c.settings.setUpdateCheck(on) }
+
+    /** "Appearance": saved, then given to Android for the launch window (Android 12 and later). */
+    fun setAppearance(appearance: io.relais.app.data.Appearance) = viewModelScope.launch {
+        c.settings.setAppearance(appearance)
+        c.applyNightMode(appearance)
+    }
     fun clearHistory() = viewModelScope.launch { c.repository.clearHistory() }
 
     /** The Library as a file: its name and its JSON (lot 3). */
@@ -396,12 +402,14 @@ fun SettingsScreen(nav: Nav) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
 
             SectionHeader(stringResource(R.string.settings_reading))
+            AppearanceChoice(io.relais.app.data.Appearance.of(s.appearance), vm::setAppearance)
             // "Display" for the whole app, then the report text (theme-compose.md 12.6).
             TextSizeControl(
                 s.readingSize,
                 sample = null,
                 onChange = vm::setReadingSize,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                // The margin of Appearance above, so that the three titles line up.
+                modifier = Modifier.padding(horizontal = Space.screen, vertical = 8.dp),
                 onDisplay = vm::setDisplay,
                 preview = true,
             )
@@ -596,6 +604,35 @@ fun AboutSection(
             Text(stringResource(R.string.about_open_issue))
         }
     }
+}
+
+/**
+ * "Appearance" (v0.6): follow the phone, or always light, or always dark. Applies at once. The
+ * same title and segmented control as "Display" and "Report text" below it.
+ */
+@Composable
+internal fun AppearanceChoice(current: io.relais.app.data.Appearance, onChoose: (io.relais.app.data.Appearance) -> Unit) {
+    Text(
+        stringResource(R.string.settings_appearance),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(horizontal = Space.screen).padding(top = Space.s, bottom = Space.m),
+    )
+    SegmentedChoice(
+        options = io.relais.app.data.Appearance.entries,
+        selected = current,
+        label = {
+            stringResource(
+                when (it) {
+                    io.relais.app.data.Appearance.SYSTEM -> R.string.appearance_system
+                    io.relais.app.data.Appearance.LIGHT -> R.string.appearance_light
+                    io.relais.app.data.Appearance.DARK -> R.string.appearance_dark
+                },
+            )
+        },
+        onSelect = onChoose,
+        modifier = Modifier.padding(horizontal = Space.screen).testTag("appearance"),
+        optionTag = { "appearance_" + it.name.lowercase() },
+    )
 }
 
 @Composable

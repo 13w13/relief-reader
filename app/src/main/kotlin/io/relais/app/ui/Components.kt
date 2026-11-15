@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -160,27 +161,76 @@ fun SectionHeader(
     Column(modifier.fillMaxWidth().padding(start = Space.screen, end = Space.screen, top = Space.section, bottom = Space.xs)) {
         HorizontalDivider(thickness = SectionRule, color = cs.onSurface)
         // theme-compose.md 10.1: a title and note longer than 44 characters put the note below.
+        // v0.6: so does a note that doesn't fit beside the title (large text): the title never
+        // breaks inside a word, the note yields.
         val noteBelow = subtitle != null && text.length + subtitle.length > 44
-        Row(Modifier.padding(top = Space.s), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text.uppercase(),
-                style = SectionTitleStyle.copy(fontSize = LocalDisplaySize.current.section, lineHeight = LocalDisplaySize.current.sectionLine),
-                color = cs.onSurface,
-                modifier = Modifier.weight(1f).semantics { heading() },
-            )
-            if (subtitle != null && !noteBelow) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-            }
-            if (actionLabel != null && onAction != null) {
-                TextButton(
-                    onClick = onAction,
-                    contentPadding = PaddingValues(horizontal = Space.s),
-                    modifier = if (actionTag != null) Modifier.testTag(actionTag) else Modifier,
-                ) { Text(actionLabel) }
-            }
-        }
-        if (subtitle != null && noteBelow) {
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        TitleNoteAction(
+            Modifier.padding(top = Space.s).testTag("section_header"),
+            noteBelow = noteBelow,
+            title = {
+                Text(
+                    text.uppercase(),
+                    style = SectionTitleStyle.copy(fontSize = LocalDisplaySize.current.section, lineHeight = LocalDisplaySize.current.sectionLine),
+                    color = cs.onSurface,
+                    modifier = Modifier.semantics { heading() }.testTag("section_title"),
+                )
+            },
+            note = subtitle?.let { note ->
+                @Composable { Text(note, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.testTag("section_note")) }
+            },
+            action = if (actionLabel != null && onAction != null) {
+                @Composable {
+                    TextButton(
+                        onClick = onAction,
+                        contentPadding = PaddingValues(horizontal = Space.s),
+                        modifier = if (actionTag != null) Modifier.testTag(actionTag) else Modifier,
+                    ) { Text(actionLabel) }
+                }
+            } else {
+                null
+            },
+        )
+    }
+}
+
+/**
+ * A section title's line: the title first, then the note and the action at the end. The title is
+ * measured first and keeps its words whole: when the note doesn't fit beside it on one line (or
+ * [noteBelow]), the note goes under the line, on the whole width. The action stays on the line.
+ */
+@Composable
+private fun TitleNoteAction(
+    modifier: Modifier,
+    noteBelow: Boolean,
+    title: @Composable () -> Unit,
+    note: (@Composable () -> Unit)?,
+    action: (@Composable () -> Unit)?,
+) {
+    val gap = Space.s
+    val none: @Composable () -> Unit = {}
+    val parts = listOf<@Composable () -> Unit>(title, note ?: none, action ?: none)
+    androidx.compose.ui.layout.Layout(contents = parts, modifier = modifier) { (titles, notes, actions), constraints ->
+        val width = constraints.maxWidth
+        val free = constraints.copy(minWidth = 0, minHeight = 0)
+        val actionPlaced = actions.firstOrNull()?.measure(free)
+        val actionWidth = actionPlaced?.width ?: 0
+        val titlePart = titles.first()
+        val notePart = notes.firstOrNull()
+        val gapPx = gap.roundToPx()
+        val noteWidth = notePart?.maxIntrinsicWidth(androidx.compose.ui.unit.Constraints.Infinity) ?: 0
+        val beside = notePart != null && !noteBelow &&
+            titlePart.maxIntrinsicWidth(androidx.compose.ui.unit.Constraints.Infinity) + gapPx + noteWidth + actionWidth <= width
+        val noteBeside = if (beside) notePart!!.measure(free.copy(maxWidth = noteWidth)) else null
+        val titleRoom = width - actionWidth - (noteBeside?.let { it.width + gapPx } ?: 0)
+        val titlePlaced = titlePart.measure(free.copy(maxWidth = titleRoom.coerceAtLeast(0)))
+        val lineHeight = maxOf(titlePlaced.height, noteBeside?.height ?: 0, actionPlaced?.height ?: 0)
+        val noteUnder = if (!beside) notePart?.measure(free) else null
+        val height = (lineHeight + (noteUnder?.height ?: 0)).coerceAtLeast(constraints.minHeight)
+        layout(width, height) {
+            titlePlaced.place(0, (lineHeight - titlePlaced.height) / 2)
+            actionPlaced?.place(width - actionWidth, (lineHeight - actionPlaced.height) / 2)
+            noteBeside?.place(width - actionWidth - noteBeside.width, (lineHeight - noteBeside.height) / 2)
+            noteUnder?.place(0, lineHeight)
         }
     }
 }
@@ -578,10 +628,10 @@ fun ReadingTypography(size: Int, content: @Composable () -> Unit) {
 }
 
 /**
- * "Aa" (theme-compose.md 9.2 and 12.6). With [onDisplay], "Display" first (Compact, Default,
- * Large, for the whole app; [preview] adds two list rows at that size), then "Report text".
- * The report text: five "A" of growing size, the step's name, and a preview of [sample] (the
- * paragraph being read). Reset brings back Compact and Small.
+ * "Aa" (theme-compose.md 9.2 and 12.6). With [onDisplay], "Display" first (Smallest, Compact,
+ * Default, Large, for the whole app; [preview] adds two list rows at that size), then "Report
+ * text". The report text: six "A" of growing size, the step's name, and a preview of [sample]
+ * (the paragraph being read). Reset brings back Compact and Small.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -613,20 +663,15 @@ fun TextSizeControl(
             }
         }
         if (onDisplay != null) {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().testTag("display_sizes")) {
-                DisplaySize.entries.forEachIndexed { index, d ->
-                    SegmentedButton(
-                        selected = d == display,
-                        onClick = { onDisplay(d) },
-                        shape = SegmentedButtonDefaults.itemShape(index, DisplaySize.entries.size),
-                        colors = segmented,
-                        icon = {},
-                        modifier = Modifier.testTag("display_" + d.name.lowercase()),
-                    ) {
-                        Text(stringResource(d.label), maxLines = 1)
-                    }
-                }
-            }
+            // Four levels (v0.6): in one row when their labels fit, else two rows of two.
+            SegmentedChoice(
+                options = DisplaySize.entries,
+                selected = display,
+                label = { stringResource(it.label) },
+                onSelect = onDisplay,
+                modifier = Modifier.testTag("display_sizes"),
+                optionTag = { "display_" + it.name.lowercase() },
+            )
             if (preview) DisplayPreview()
             Text(stringResource(R.string.report_text), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Space.s))
         }
@@ -641,7 +686,9 @@ fun TextSizeControl(
                     icon = {},
                     modifier = Modifier.semantics { contentDescription = description },
                 ) {
-                    Text("A", fontFamily = Literata, fontSize = s.button)
+                    // The "A" draws the step's size, like an icon: the same at any system text size,
+                    // so that the largest never overflows its segment (review of PR 24, 200 %).
+                    Text("A", fontFamily = Literata, fontSize = (s.button.value / LocalDensity.current.fontScale).sp, maxLines = 1, modifier = Modifier.testTag("text_step_" + s.name.lowercase()))
                 }
             }
         }
@@ -661,6 +708,55 @@ fun TextSizeControl(
         )
     }
 }
+
+/**
+ * Segmented buttons whose labels stay whole, in the theme's label size: all in one row when the
+ * widest label fits a segment at the reader's text size, else two per row (review of PR 24: four
+ * Display levels on a 360 dp phone, system text at 130 %).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun <T> SegmentedChoice(
+    options: List<T>,
+    selected: T,
+    label: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    optionTag: (T) -> String,
+) {
+    val cs = MaterialTheme.colorScheme
+    val colors = SegmentedButtonDefaults.colors(activeContainerColor = cs.onSurface, activeContentColor = cs.surface)
+    val style = MaterialTheme.typography.labelLarge
+    val labels = options.map { label(it) }
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
+        val widest = labels.maxOf { measurer.measure(it, style, maxLines = 1).size.width }
+        val density = LocalDensity.current
+        fun fits(perRow: Int) = widest <= with(density) { (maxWidth / perRow - SEGMENT_INSET).roundToPx() }
+        val perRow = listOf(options.size, 2).firstOrNull { it <= options.size && fits(it) } ?: 1
+        Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
+            options.indices.chunked(perRow).forEach { row ->
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    row.forEachIndexed { position, i ->
+                        SegmentedButton(
+                            selected = options[i] == selected,
+                            onClick = { onSelect(options[i]) },
+                            shape = SegmentedButtonDefaults.itemShape(position, row.size),
+                            colors = colors,
+                            icon = {},
+                            modifier = Modifier.testTag(optionTag(options[i])),
+                        ) {
+                            Text(labels[i], maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** What a segment takes around its label: 12 dp of padding on each side, the borders, a margin. */
+private val SEGMENT_INSET = 34.dp
 
 /** Two list rows at the chosen display level, under "Display" in Settings. */
 @Composable

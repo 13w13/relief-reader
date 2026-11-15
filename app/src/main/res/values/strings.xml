@@ -393,6 +393,7 @@
     <string name="text_size_sample">Text from the report appears at this size.</string>
     <string name="text_size_reset">Reset</string>
     <string name="text_size_current">%1$s · %2$d sp</string>
+    <string name="text_step_smallest">Smallest</string>
     <string name="text_step_smaller">Smaller</string>
     <string name="text_step_small">Small</string>
     <string name="text_step_default">Default</string>
@@ -461,6 +462,7 @@
     <string name="state_collapsed">Collapsed</string>
     <string name="display_title">Display</string>
     <string name="display_help">Size of lists, titles and spacing across the app. Report text has its own steps in Aa.</string>
+    <string name="display_smallest">Smallest</string>
     <string name="display_compact">Compact</string>
     <string name="display_default">Default</string>
     <string name="display_large">Large</string>
@@ -599,6 +601,10 @@
     <string name="restore_not_backup">This file isn\'t a Re.L backup.</string>
     <string name="restore_newer">This backup comes from a newer version of Re.L. Update the app first.</string>
     <!-- Lot 3, C (revue-ux-v0.3.md, section 9). -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="appearance_system">System</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
     <string name="settings_load_images">Load images</string>
     <string name="load_images_always">Always</string>
     <string name="load_images_wifi">Wi-Fi only</string>
@@ -628,4 +634,10 @@
     <string name="whats_new_05_text_5">It shows headlines about the countries you follow.</string>
     <string name="whats_new_051_lead_1">Search organizations from 2 letters.</string>
     <string name="whats_new_051_text_1">Type HI or humanity for Humanity &amp; Inclusion.</string>
+    <string name="whats_new_06_lead_1">Light or dark, your choice.</string>
+    <string name="whats_new_06_text_1">Settings &gt; Reading &gt; Appearance: System, Light or Dark.</string>
+    <string name="whats_new_06_lead_2">Smaller text.</string>
+    <string name="whats_new_06_text_2">Display has a Smallest level, and Aa a smaller report text.</string>
+    <string name="whats_new_06_lead_3">New versions on Today.</string>
+    <string name="whats_new_06_text_3">Re.L checks GitHub once a day. Turn it off in Settings &gt; About.</string>
 </resources>

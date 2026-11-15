@@ -72,7 +72,7 @@ class PdfTextScreenshotTest {
     @Composable
     private fun TextScreen(
         firstRow: Int = 0,
-        size: Int = 2,
+        size: Int = io.relais.app.ui.TextStep.Default.ordinal,
         page: Int = 0,
         search: String? = null,
         rows: List<TextRow> = this.rows,
@@ -117,7 +117,7 @@ class PdfTextScreenshotTest {
     fun textViewDark() = shoot("pdf-text-4-dark", dark = true) { TextScreen() }
 
     @Test
-    fun textViewLarger() = shoot("pdf-text-5-larger") { TextScreen(firstRow = indexOfMarker(1), size = 4, page = 1) }
+    fun textViewLarger() = shoot("pdf-text-5-larger") { TextScreen(firstRow = indexOfMarker(1), size = io.relais.app.ui.TextStep.Larger.ordinal, page = 1) }
 
     @Test
     fun textViewSearch() = shoot("pdf-text-6-search") {

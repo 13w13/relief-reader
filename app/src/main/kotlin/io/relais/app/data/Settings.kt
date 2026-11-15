@@ -19,7 +19,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "settings",
+    produceMigrations = { listOf(ReadingStepMigration) },
+)
 
 data class Settings(
     val onboardingDone: Boolean = false,
@@ -41,7 +44,7 @@ data class Settings(
     val rssBannerSeen: Boolean = false,
     /** The banner of a PDF's text view shows on its first opening only (v0.4). */
     val pdfTextBannerSeen: Boolean = false,
-    /** Article text size, an index into TextStep (Theme.kt). */
+    /** Article text size, an index into TextStep (Theme.kt); stored by name ([READING_STEPS]). */
     val readingSize: Int = DEFAULT_READING_SIZE,
     /** "Load images": ALWAYS, WIFI or NEVER (LoadImages), for the pile and the reports (lot 3, C). */
     val loadImages: String = "ALWAYS",
@@ -79,6 +82,8 @@ data class Settings(
     val updateUrl: String? = null,
     /** The version whose notice was closed with "Not now": the next one shows again. */
     val updateDismissed: String? = null,
+    /** "Appearance": the name of an [Appearance], System when unset (v0.6). */
+    val appearance: String = Appearance.SYSTEM.name,
 )
 
 /**
@@ -89,8 +94,45 @@ data class Settings(
 fun needsConnect(s: Settings, builtInAppname: String): Boolean =
     s.onboardingDone && !s.connectAsked && s.userAppname.isNullOrBlank() && builtInAppname.isBlank()
 
-/** Small: the report text step of the Compact display (12.6). */
-const val DEFAULT_READING_SIZE = 1
+/**
+ * The report text steps by name, smallest first: the order of TextStep (Theme.kt), checked by a
+ * test. The step is stored by its name since v0.6, so that a step added at either end moves no
+ * one's choice.
+ */
+val READING_STEPS = listOf("Smallest", "Smaller", "Small", "Default", "Large", "Larger")
+
+/** Small: the report text step of the Compact display (12.6). Its index in [READING_STEPS]. */
+const val DEFAULT_READING_SIZE = 2
+
+/** The index of a stored step name; Small when unset or unknown. */
+fun readingIndex(name: String?): Int = READING_STEPS.indexOf(name).takeIf { it >= 0 } ?: DEFAULT_READING_SIZE
+
+/** The stored name of a step index. */
+fun readingName(index: Int): String = READING_STEPS[index.coerceIn(READING_STEPS.indices)]
+
+/**
+ * Up to v0.5 the step was stored as an index into five steps, Smaller (15 sp) first. v0.6 adds
+ * Smallest (14 sp) before them, which would move every stored index by one. This migration runs
+ * once, before the first read: it turns the old index into the step's name and removes it, so a
+ * reader on Small or Large keeps exactly the same size.
+ */
+object ReadingStepMigration : androidx.datastore.core.DataMigration<Preferences> {
+    val OLD_STEPS = listOf("Smaller", "Small", "Default", "Large", "Larger")
+    val OLD_KEY = intPreferencesKey("reading_size")
+    val KEY = stringPreferencesKey("reading_step")
+
+    override suspend fun shouldMigrate(currentData: Preferences): Boolean = currentData[OLD_KEY] != null
+
+    override suspend fun migrate(currentData: Preferences): Preferences {
+        val prefs = currentData.toMutablePreferences()
+        val old = prefs[OLD_KEY]
+        if (prefs[KEY] == null) prefs[KEY] = OLD_STEPS.getOrNull(old ?: -1) ?: OLD_STEPS[1]
+        prefs.remove(OLD_KEY)
+        return prefs.toPreferences()
+    }
+
+    override suspend fun cleanUp() {}
+}
 
 /** What a country page remembers (produit/filtres-following.md 3.1): its tab and its filters. */
 @Serializable
@@ -114,7 +156,7 @@ class SettingsStore(private val context: Context) {
         val recentSearches = stringPreferencesKey("recent_searches")
         val rssBannerSeen = booleanPreferencesKey("rss_banner_seen")
         val pdfTextBannerSeen = booleanPreferencesKey("pdf_text_banner_seen")
-        val readingSize = intPreferencesKey("reading_size")
+        val readingStep = ReadingStepMigration.KEY
         val loadImages = stringPreferencesKey("load_images")
         val display = stringPreferencesKey("display_size")
         val followingVisitAt = longPreferencesKey("following_visit_at")
@@ -135,6 +177,7 @@ class SettingsStore(private val context: Context) {
         val updateVersion = stringPreferencesKey("update_version")
         val updateUrl = stringPreferencesKey("update_url")
         val updateDismissed = stringPreferencesKey("update_dismissed")
+        val appearance = stringPreferencesKey("appearance")
         fun country(id: Long) = stringPreferencesKey("country_$id")
     }
 
@@ -156,7 +199,7 @@ class SettingsStore(private val context: Context) {
             recentSearches = p[Keys.recentSearches]?.split('\n')?.filter { it.isNotBlank() } ?: emptyList(),
             rssBannerSeen = p[Keys.rssBannerSeen] ?: false,
             pdfTextBannerSeen = p[Keys.pdfTextBannerSeen] ?: false,
-            readingSize = p[Keys.readingSize] ?: DEFAULT_READING_SIZE,
+            readingSize = readingIndex(p[Keys.readingStep]),
             loadImages = p[Keys.loadImages] ?: "ALWAYS",
             display = p[Keys.display],
             followingVisitAt = p[Keys.followingVisitAt] ?: 0,
@@ -177,6 +220,7 @@ class SettingsStore(private val context: Context) {
             updateVersion = p[Keys.updateVersion],
             updateUrl = p[Keys.updateUrl],
             updateDismissed = p[Keys.updateDismissed],
+            appearance = Appearance.of(p[Keys.appearance]).name,
         )
     }
 
@@ -221,13 +265,15 @@ class SettingsStore(private val context: Context) {
     suspend fun setRssBannerSeen() = context.dataStore.edit { it[Keys.rssBannerSeen] = true }
     suspend fun setPdfTextBannerSeen() = context.dataStore.edit { it[Keys.pdfTextBannerSeen] = true }
     suspend fun setLoadImages(mode: String) = context.dataStore.edit { it[Keys.loadImages] = mode }
-    suspend fun setReadingSize(index: Int) = context.dataStore.edit { it[Keys.readingSize] = index }
+    suspend fun setReadingSize(index: Int) = context.dataStore.edit { it[Keys.readingStep] = readingName(index) }
 
     /** A display level brings the report text to its starting step (12.6). */
     suspend fun setDisplay(name: String, readingSize: Int) = context.dataStore.edit {
         it[Keys.display] = name
-        it[Keys.readingSize] = readingSize
+        it[Keys.readingStep] = readingName(readingSize)
     }
+
+    suspend fun setAppearance(appearance: Appearance) = context.dataStore.edit { it[Keys.appearance] = appearance.name }
 
     suspend fun setFollowingVisitAt(at: Long) = context.dataStore.edit { it[Keys.followingVisitAt] = at }
 

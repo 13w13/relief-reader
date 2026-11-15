@@ -26,8 +26,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Relais">
 
+        <!-- uiMode: a change of Appearance or of the phone's dark mode recolours the screens at
+             once, without recreating the activity (v0.6). -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="uiMode"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

@@ -1,0 +1,143 @@
+// SPDX-FileCopyrightText: 2026 Re.L contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+package io.relais.app.ui
+
+import android.app.Application
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.relais.app.data.Appearance
+import io.relais.app.data.DEFAULT_READING_SIZE
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/**
+ * Settings > Reading on a 360 dp phone with large system text (review of PR 24): no label of
+ * Appearance or Display is cut, and no "A" of the report steps overflows its segment. Native
+ * graphics, so that text has its real width.
+ */
+@RunWith(AndroidJUnit4::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], application = Application::class, qualifiers = "w360dp-h800dp")
+class SizeControlsTest {
+    @get:Rule
+    val compose = createComposeRule()
+
+    private fun reading(fontScale: Float, display: DisplaySize = DisplaySize.Compact) {
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+                RelaisTheme(darkTheme = false, display = display) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        AppearanceChoice(Appearance.SYSTEM) {}
+                        TextSizeControl(DEFAULT_READING_SIZE, sample = null, onChange = {}, onDisplay = {}, modifier = Modifier.padding(Space.screen))
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    private fun SemanticsNodeInteraction.layout(): TextLayoutResult {
+        val results = mutableListOf<TextLayoutResult>()
+        fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.single()
+    }
+
+    /**
+     * A label is cut when its natural width on one line is wider than the room it got, when it is
+     * ellipsized, or when it takes more than one line. Compose's own flags don't say it here: with
+     * an ellipsis the paragraph is laid out at the full room, so didOverflowWidth is true for
+     * "System", 54 px wide in 88 (run of a3982b1), and hasVisualOverflow counts the line box.
+     */
+    /** Null when whole, else why the text is cut. */
+    private fun SemanticsNodeInteraction.cut(): String? {
+        val r = layout()
+        val last = r.lineCount - 1
+        val natural = kotlin.math.ceil(r.multiParagraph.intrinsics.maxIntrinsicWidth).toInt()
+        val room = r.layoutInput.constraints.maxWidth
+        val cut = natural > room || r.isLineEllipsized(last) || r.lineCount > 1
+        return if (cut) "natural width $natural, room $room, ellipsis ${r.isLineEllipsized(last)}, lines ${r.lineCount}, size ${r.size}" else null
+    }
+
+    private fun SemanticsNodeInteraction.assertWhole(what: String) {
+        val why = cut()
+        assertNull("$what is cut: $why", why)
+    }
+
+    private val labels = listOf("System", "Light", "Dark", "Smallest", "Compact", "Default", "Large")
+
+    @Test
+    fun at130PercentNoLabelIsCut() {
+        reading(fontScale = 1.3f)
+        labels.forEach { compose.onNodeWithText(it, useUnmergedTree = true).assertWhole(it) }
+    }
+
+    @Test
+    fun at100PercentNoLabelIsCut() {
+        reading(fontScale = 1f)
+        labels.forEach { compose.onNodeWithText(it, useUnmergedTree = true).assertWhole(it) }
+    }
+
+    @Test
+    fun atSmallestNoLabelIsCut() {
+        reading(fontScale = 1.3f, display = DisplaySize.Smallest)
+        labels.forEach { compose.onNodeWithText(it, useUnmergedTree = true).assertWhole(it) }
+    }
+
+    /** The check itself: a label too long for its room is caught, in a plain text and in the control. */
+    @Test
+    fun aLabelTooLongForItsRoomIsCaught() {
+        val long = "A label far too long for any segment on this phone"
+        compose.setContent {
+            RelaisTheme(darkTheme = false) {
+                Column {
+                    Text(long, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(80.dp).testTag("narrow_ellipsis"))
+                    Text(long, maxLines = 1, modifier = Modifier.width(80.dp).testTag("narrow_clip"))
+                    Text("Short", maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(200.dp).testTag("wide"))
+                    SegmentedChoice(options = listOf(long, "Two"), selected = long, label = { it }, onSelect = {}, optionTag = { "option_" + it.length })
+                }
+            }
+        }
+        compose.waitForIdle()
+        assertNotNull(compose.onNodeWithTag("narrow_ellipsis", useUnmergedTree = true).cut())
+        assertNotNull(compose.onNodeWithTag("narrow_clip", useUnmergedTree = true).cut())
+        assertNull(compose.onNodeWithTag("wide", useUnmergedTree = true).cut())
+        // In the control, even alone on its row, the long label doesn't fit 360 dp: it is caught.
+        val inControl = hasText(long) and hasAnyAncestor(hasTestTag("option_" + long.length))
+        assertNotNull(compose.onNode(inControl, useUnmergedTree = true).cut())
+        compose.onNodeWithText("Two", useUnmergedTree = true).assertWhole("Two")
+    }
+
+    @Test
+    fun at200PercentNoStepOverflows() {
+        reading(fontScale = 2f)
+        labels.forEach { compose.onNodeWithText(it, useUnmergedTree = true).assertWhole(it) }
+        TextStep.entries.forEach { compose.onNodeWithTag("text_step_" + it.name.lowercase(), useUnmergedTree = true).assertWhole("A of ${it.name}") }
+    }
+}
