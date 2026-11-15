@@ -52,6 +52,8 @@ Every release is signed with the same key. To check an APK, for example with App
 37:7E:8D:D3:41:4E:89:4C:7F:65:D0:C0:F7:99:D3:D2:17:62:01:46:98:40:88:02:9F:6C:4C:30:F7:11:7E:26
 ```
 
+Releases from 0.6.1 on also carry a provenance attestation: GitHub records which workflow, from which commit, built the APK. With the [GitHub CLI](https://cli.github.com), check it with `gh attestation verify rel-0.6.1.apk --repo 13w13/relief-reader`.
+
 In Brazil, Indonesia, Singapore and Thailand, Android has blocked apps from unverified developers since 30 September 2026, on certified devices. Re.L is not registered with Google's developer verification, so installing it there goes through Android's advanced flow: a one-time setup, a restart and a 24-hour wait. Google plans to extend the rule to other countries from 2027. Source: [Android developer verification](https://developer.android.com/developer-verification).
 
 </details>

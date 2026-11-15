@@ -4,15 +4,26 @@ updates:
     directory: /
     schedule:
       interval: weekly
-  # Libraries of the app (audit S1, 9.6): one weekly batch, reviewed like any change.
+  # Libraries of the app (audit S1, 9.6), reviewed like any change. Small groups since the
+  # security audit of 15/11: one batch of 30 updates (PR 9) could not be read. A library in no
+  # group gets a pull request of its own.
   - package-ecosystem: gradle
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     groups:
-      gradle:
-        patterns: ["*"]
+      # Android Gradle plugin, Kotlin, its compiler plugins and KSP move together.
+      build:
+        patterns: ["com.android.*", "org.jetbrains.kotlin*", "com.google.devtools.ksp*"]
+      compose:
+        patterns: ["androidx.compose*", "androidx.activity*", "androidx.navigation*", "androidx.lifecycle*"]
+      androidx:
+        patterns: ["androidx.core*", "androidx.datastore*", "androidx.room*", "androidx.work*"]
+      network:
+        patterns: ["io.ktor*", "com.squareup.okhttp3*", "io.coil-kt*", "org.jetbrains.kotlinx*"]
+      test:
+        patterns: ["junit*", "org.robolectric*", "io.github.takahirom.roborazzi*", "androidx.test*"]
     # Major versions change the build or the API (AGP 9 builds Kotlin in and refuses the
     # kotlin-android plugin; Gradle 9; OkHttp 5; a new Compose BOM year). They are done on
     # purpose, one at a time, not by the weekly batch.

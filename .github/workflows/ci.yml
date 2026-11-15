@@ -13,6 +13,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # release.yml only runs on a tag, so an error there would only show at the next release:
+  # actionlint checks the syntax and the expressions of every workflow on each push (security
+  # audit of 15/11). Its archive is checked against its SHA-256; shell scripts are not linted.
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      # actionlint_<version>_linux_amd64.tar.gz of rhysd/actionlint; change both lines together.
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the workflows with actionlint
+        run: |
+          set -eu
+          TGZ="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -fsSL --retry 3 -o "$TGZ" "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "$ACTIONLINT_SHA256  $TGZ" | sha256sum -c -
+          tar -xzf "$TGZ" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color -shellcheck= -pyflakes=
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
