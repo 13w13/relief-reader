@@ -266,8 +266,10 @@ val LocalDarkTheme = staticCompositionLocalOf { false }
 fun isDark(appearance: io.relais.app.data.Appearance): Boolean = appearance.isDark(isSystemInDarkTheme())
 
 /**
- * While [onDark] is true, light system bar icons, for a screen that draws a dark bar behind them
- * whatever the theme: the PDF view (pdfBar). Back to the theme's icons when it ends.
+ * While [onDark] is true, light status bar icons, for a screen that draws a dark bar behind them
+ * whatever the theme: the PDF view (pdfBar). Back to the theme's icons when it ends. The
+ * navigation bar keeps the theme's: in the light theme the system draws a near-white scrim behind
+ * three-button navigation, where light icons would vanish (review of PR 24).
  */
 @Composable
 fun LightSystemBarIcons(onDark: Boolean) {
@@ -279,7 +281,6 @@ fun LightSystemBarIcons(onDark: Boolean) {
         val controller = (context as? android.app.Activity)?.window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
         fun icons(light: Boolean) {
             controller?.isAppearanceLightStatusBars = light
-            controller?.isAppearanceLightNavigationBars = light
         }
         icons(light = !(onDark || themeDark))
         onDispose { icons(light = !themeDark) }

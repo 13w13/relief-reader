@@ -101,7 +101,10 @@ class AppContainer(private val context: Context) {
 
     /**
      * Android 12 and later keep the app's night mode, and draw the launch window with it: no white
-     * flash for a reader who chose Dark on a light phone. Called when the reader changes it.
+     * flash for a reader who chose Dark on a light phone. Called at each launch with the stored
+     * choice, so that Android and DataStore never disagree, and when the reader changes it.
+     * System gives MODE_NIGHT_AUTO, which UiModeManagerService turns into UI_MODE_NIGHT_UNDEFINED:
+     * no night mode of the app's own, so the app follows the phone again.
      */
     fun applyNightMode(appearance: io.relais.app.data.Appearance) {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return
@@ -181,6 +184,7 @@ class AppContainer(private val context: Context) {
     init {
         // Read the appname entered on the phone before the first request, then follow changes.
         repository.userAppname = startSettings.userAppname
+        applyNightMode(io.relais.app.data.Appearance.of(startSettings.appearance))
         scope.launch {
             // An appname added on the phone (Settings, Connect, onboarding): sync at once, so the
             // followed countries fill in now and not at the next background sync.

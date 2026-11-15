@@ -5,6 +5,17 @@ package io.relais.app.data
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.preferencesDataStoreFile
+import io.relais.app.ui.TextStep
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,9 +26,10 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * The real SettingsStore (DataStore): the new-version check, not a copy of its writes (review of
- * PR 23), then Appearance and the text sizes of v0.6. One test only: the store's DataStore is one
- * per process.
+ * The real SettingsStore (DataStore): first a v0.5 settings file migrated on opening, then the
+ * new-version check, not a copy of its writes (review of PR 23), then Appearance and the text
+ * sizes of v0.6. One test only: the store's DataStore is one per process, and the v0.5 file must
+ * be written before it opens.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35], application = Application::class)
@@ -27,7 +39,18 @@ class SettingsStoreTest {
 
     @Test
     fun theStoreKeepsWhatTheReaderChose() = runBlocking {
-        val store = SettingsStore(ApplicationProvider.getApplicationContext())
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        // A phone updated from v0.5: its settings file holds the step as an index, 3 = Large
+        // (19 sp). Written by a DataStore of its own, closed before the app's opens the file.
+        val writer = CoroutineScope(Dispatchers.IO + Job())
+        val v05 = PreferenceDataStoreFactory.create(scope = writer, produceFile = { context.preferencesDataStoreFile("settings") })
+        v05.edit { it[intPreferencesKey("reading_size")] = 3 }
+        writer.coroutineContext.job.cancelAndJoin()
+
+        // The real store runs the migration it is built with (review of PR 24): the same 19 sp.
+        val store = SettingsStore(context)
+        assertEquals("Large", READING_STEPS[store.current().readingSize])
+        assertEquals(19.sp, TextStep.entries[store.current().readingSize].body)
         var now = 1_794_700_000_000L
         var reply: () -> String? = { answer("0.5.2") }
         var requests = 0
@@ -79,8 +102,7 @@ class SettingsStoreTest {
         store.setAppearance(Appearance.LIGHT)
         assertEquals(Appearance.LIGHT.name, store.current().appearance)
 
-        // Text sizes (v0.6): Small and Compact by default; the step is kept by its name.
-        assertEquals(DEFAULT_READING_SIZE, store.current().readingSize)
+        // Text sizes (v0.6): the step is kept by its name.
         store.setReadingSize(0)
         assertEquals(0, store.current().readingSize)
         assertEquals("Smallest", READING_STEPS[store.current().readingSize])

@@ -518,7 +518,7 @@ fun PdfViewerScreen(
     }
 
     val dark = mode == PdfMode.PDF
-    // The PDF view's bars are dark in both themes: light icons over them (v0.6).
+    // The PDF view's top bar is dark in both themes: light status bar icons over it (v0.6).
     LightSystemBarIcons(onDark = dark)
     val barBackground = if (dark) extra.pdfBar else cs.surface
     val barContent = if (dark) barText else cs.onSurface

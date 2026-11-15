@@ -207,10 +207,32 @@ class ScreenshotTest {
                     size = DEFAULT_READING_SIZE,
                     sample = null,
                     onChange = {},
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = Space.screen, vertical = 8.dp),
                     onDisplay = {},
                     preview = true,
                 )
+            }
+        }
+    }
+
+    /** The same at 200 % system text: labels whole on two rows, every "A" inside its segment. */
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xxhdpi")
+    fun settingsReadingLargeText() {
+        shoot("settings-reading-font-200") {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SectionHeader("Reading")
+                    AppearanceChoice(Appearance.SYSTEM) {}
+                    TextSizeControl(
+                        size = DEFAULT_READING_SIZE,
+                        sample = null,
+                        onChange = {},
+                        modifier = Modifier.padding(horizontal = Space.screen, vertical = 8.dp),
+                        onDisplay = {},
+                    )
+                }
             }
         }
     }
@@ -226,7 +248,7 @@ class ScreenshotTest {
                     size = 0,
                     sample = null,
                     onChange = {},
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = Space.screen, vertical = 8.dp),
                     onDisplay = {},
                     preview = true,
                 )

@@ -408,7 +408,8 @@ fun SettingsScreen(nav: Nav) {
                 s.readingSize,
                 sample = null,
                 onChange = vm::setReadingSize,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                // The margin of Appearance above, so that the three titles line up.
+                modifier = Modifier.padding(horizontal = Space.screen, vertical = 8.dp),
                 onDisplay = vm::setDisplay,
                 preview = true,
             )
@@ -605,25 +606,33 @@ fun AboutSection(
     }
 }
 
-/** "Appearance" (v0.6): follow the phone, or always light, or always dark. Applies at once. */
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * "Appearance" (v0.6): follow the phone, or always light, or always dark. Applies at once. The
+ * same title and segmented control as "Display" and "Report text" below it.
+ */
 @Composable
 internal fun AppearanceChoice(current: io.relais.app.data.Appearance, onChoose: (io.relais.app.data.Appearance) -> Unit) {
-    SettingText(stringResource(R.string.settings_appearance))
-    FlowRow(Modifier.padding(horizontal = 16.dp).testTag("appearance"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(
-            io.relais.app.data.Appearance.SYSTEM to R.string.appearance_system,
-            io.relais.app.data.Appearance.LIGHT to R.string.appearance_light,
-            io.relais.app.data.Appearance.DARK to R.string.appearance_dark,
-        ).forEach { (a, label) ->
-            FilterChip(
-                selected = current == a,
-                onClick = { onChoose(a) },
-                label = { Text(stringResource(label)) },
-                modifier = Modifier.testTag("appearance_" + a.name.lowercase()),
+    Text(
+        stringResource(R.string.settings_appearance),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(horizontal = Space.screen).padding(top = Space.s, bottom = Space.m),
+    )
+    SegmentedChoice(
+        options = io.relais.app.data.Appearance.entries,
+        selected = current,
+        label = {
+            stringResource(
+                when (it) {
+                    io.relais.app.data.Appearance.SYSTEM -> R.string.appearance_system
+                    io.relais.app.data.Appearance.LIGHT -> R.string.appearance_light
+                    io.relais.app.data.Appearance.DARK -> R.string.appearance_dark
+                },
             )
-        }
-    }
+        },
+        onSelect = onChoose,
+        modifier = Modifier.padding(horizontal = Space.screen).testTag("appearance"),
+        optionTag = { "appearance_" + it.name.lowercase() },
+    )
 }
 
 @Composable

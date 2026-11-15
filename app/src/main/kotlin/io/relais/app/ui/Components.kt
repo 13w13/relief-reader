@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -662,21 +663,15 @@ fun TextSizeControl(
             }
         }
         if (onDisplay != null) {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().testTag("display_sizes")) {
-                DisplaySize.entries.forEachIndexed { index, d ->
-                    SegmentedButton(
-                        selected = d == display,
-                        onClick = { onDisplay(d) },
-                        shape = SegmentedButtonDefaults.itemShape(index, DisplaySize.entries.size),
-                        colors = segmented,
-                        icon = {},
-                        modifier = Modifier.testTag("display_" + d.name.lowercase()),
-                    ) {
-                        // Four levels on a 360 dp phone: the label in labelMedium fits ("Smallest", v0.6).
-                        Text(stringResource(d.label), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
+            // Four levels (v0.6): in one row when their labels fit, else two rows of two.
+            SegmentedChoice(
+                options = DisplaySize.entries,
+                selected = display,
+                label = { stringResource(it.label) },
+                onSelect = onDisplay,
+                modifier = Modifier.testTag("display_sizes"),
+                optionTag = { "display_" + it.name.lowercase() },
+            )
             if (preview) DisplayPreview()
             Text(stringResource(R.string.report_text), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Space.s))
         }
@@ -691,7 +686,9 @@ fun TextSizeControl(
                     icon = {},
                     modifier = Modifier.semantics { contentDescription = description },
                 ) {
-                    Text("A", fontFamily = Literata, fontSize = s.button)
+                    // The "A" draws the step's size, like an icon: the same at any system text size,
+                    // so that the largest never overflows its segment (review of PR 24, 200 %).
+                    Text("A", fontFamily = Literata, fontSize = (s.button.value / LocalDensity.current.fontScale).sp, maxLines = 1, modifier = Modifier.testTag("text_step_" + s.name.lowercase()))
                 }
             }
         }
@@ -711,6 +708,55 @@ fun TextSizeControl(
         )
     }
 }
+
+/**
+ * Segmented buttons whose labels stay whole, in the theme's label size: all in one row when the
+ * widest label fits a segment at the reader's text size, else two per row (review of PR 24: four
+ * Display levels on a 360 dp phone, system text at 130 %).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun <T> SegmentedChoice(
+    options: List<T>,
+    selected: T,
+    label: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    optionTag: (T) -> String,
+) {
+    val cs = MaterialTheme.colorScheme
+    val colors = SegmentedButtonDefaults.colors(activeContainerColor = cs.onSurface, activeContentColor = cs.surface)
+    val style = MaterialTheme.typography.labelLarge
+    val labels = options.map { label(it) }
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
+        val widest = labels.maxOf { measurer.measure(it, style, maxLines = 1).size.width }
+        val density = LocalDensity.current
+        fun fits(perRow: Int) = widest <= with(density) { (maxWidth / perRow - SEGMENT_INSET).roundToPx() }
+        val perRow = listOf(options.size, 2).firstOrNull { it <= options.size && fits(it) } ?: 1
+        Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
+            options.indices.chunked(perRow).forEach { row ->
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    row.forEachIndexed { position, i ->
+                        SegmentedButton(
+                            selected = options[i] == selected,
+                            onClick = { onSelect(options[i]) },
+                            shape = SegmentedButtonDefaults.itemShape(position, row.size),
+                            colors = colors,
+                            icon = {},
+                            modifier = Modifier.testTag(optionTag(options[i])),
+                        ) {
+                            Text(labels[i], maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** What a segment takes around its label: 12 dp of padding on each side, the borders, a margin. */
+private val SEGMENT_INSET = 34.dp
 
 /** Two list rows at the chosen display level, under "Display" in Settings. */
 @Composable
