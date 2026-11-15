@@ -620,4 +620,6 @@
     <string name="whats_new_05_text_4">Always, on Wi-Fi only, or never, in Settings.</string>
     <string name="whats_new_05_lead_5">Following without an appname.</string>
     <string name="whats_new_05_text_5">It shows headlines about the countries you follow.</string>
+    <string name="whats_new_051_lead_1">Search organizations from 2 letters.</string>
+    <string name="whats_new_051_text_1">Type HI or humanity for Humanity &amp; Inclusion.</string>
 </resources>

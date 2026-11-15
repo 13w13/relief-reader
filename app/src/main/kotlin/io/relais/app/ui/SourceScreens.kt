@@ -243,7 +243,7 @@ data class PickSourcesState(
  */
 internal fun searchProblem(e: Throwable): String = when (e) {
     is io.relais.api.ApiException.BadRequest -> "HTTP 400" + (e.message?.takeIf { it.isNotBlank() && it != "Bad request" }?.let { ": " + it.take(120) } ?: "")
-    is io.relais.api.ApiException.Server -> if (e.message.orEmpty().startsWith("Unreadable")) "unreadable answer" else "HTTP ${e.status}"
+    is io.relais.api.ApiException.Server -> if (e.unreadable) "unreadable answer" else "HTTP ${e.status}"
     is io.relais.api.ApiException.AccessDenied -> "HTTP 403"
     is io.relais.api.ApiException.RateLimited -> "HTTP 429"
     is io.relais.api.ApiException.NotFound -> "HTTP 404"
