@@ -61,7 +61,8 @@ class PreloadWorker(context: Context, params: WorkerParameters) : CoroutineWorke
                     readText(c, item, result.file)
                     bytes
                 }
-                Preloaded.TooLarge -> {
+                // Too large, or not a ReliefWeb file: never tried again.
+                Preloaded.TooLarge, Preloaded.Refused -> {
                     failures.record(item.url, System.currentTimeMillis(), permanent = true)
                     null
                 }

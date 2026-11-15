@@ -96,6 +96,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.relais.api.Display
 import io.relais.app.AppContainer
 import io.relais.app.R
+import io.relais.app.data.reliefWebPage
 import io.relais.app.container
 import io.relais.app.pdf.pdfTarget
 import io.relais.app.data.ReadingWithReport
@@ -598,7 +599,7 @@ private fun ReadingListPage(v: LibraryView, state: LibraryState, vm: LibraryView
             items(pdfHits, key = { "pdf-" + it.first.reportId }) { (hit, report) ->
                 fun open() {
                     val file = report.files.firstOrNull { it.url == hit.url }
-                    nav.pdf(hit.url, report.id, io.relais.app.pdf.pdfTitle(report, file), report.urlAlias, hit.page, 0, state.query)
+                    nav.pdf(hit.url, report.id, io.relais.app.pdf.pdfTitle(report, file), report.reliefWebPage, hit.page, 0, state.query)
                 }
                 DocumentRow(report, onClick = { open() }, pdfPreview = true, extra = {
                     io.relais.app.pdf.PageSnippet(hit.page, hit.snippet, onClick = { open() }, Modifier.testTag("pdf_hit_${report.id}"), terms = io.relais.app.pdf.PdfSearch.words(state.query))

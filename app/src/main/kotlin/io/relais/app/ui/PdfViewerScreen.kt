@@ -675,8 +675,9 @@ private fun PdfFailed(sourceUrl: String?, color: Color, modifier: Modifier) {
     val uriHandler = LocalUriHandler.current
     Column(modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(stringResource(R.string.pdf_failed), color = color, style = MaterialTheme.typography.bodyMedium)
-        if (sourceUrl != null) {
-            TextButton(onClick = { safeOpen(uriHandler, sourceUrl) }) { Text(stringResource(R.string.report_open_reliefweb)) }
+        val page = io.relais.app.data.TrustedUrls.reliefWebPage(sourceUrl)
+        if (page != null) {
+            TextButton(onClick = { safeOpen(uriHandler, page) }) { Text(stringResource(R.string.report_open_reliefweb)) }
         }
     }
 }

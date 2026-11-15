@@ -61,6 +61,8 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         // Silent: an error of the settings store must not reach the app.
         container.scope.launch { runCatching { container.updateCheck.checkIfDue() } }
+        // Back from the share menu, or any return: exports shared a while ago go (Exports).
+        container.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { io.relais.app.data.Exports.clearOld(this@MainActivity) } }
     }
 
     /** Whether the phone itself is in dark mode (with Android 12's per-app night mode, the app's). */

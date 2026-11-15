@@ -1,0 +1,1 @@
+Safer by default, after a security review: PDFs come from reliefweb.int only, connections are encrypted, restoring a backup checks the file more strictly, Android's backup and phone transfer no longer copy Re.L's data, and shared exports no longer stay in the cache. Nothing changes in how you read.

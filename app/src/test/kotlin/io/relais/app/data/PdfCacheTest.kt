@@ -19,7 +19,7 @@ class PdfCacheTest {
 
     /** A PDF on the phone, downloaded or last opened [hoursAgo] hours ago. */
     private fun pdf(name: String, reportId: Long, bytes: Long, hoursAgo: Long, dir: String = cache) =
-        PdfEntity("https://example.org/$name.pdf", reportId, "$dir/$name.pdf", bytes, now - hoursAgo * hour)
+        PdfEntity("https://reliefweb.int/attachments/$name.pdf", reportId, "$dir/$name.pdf", bytes, now - hoursAgo * hour)
 
     private fun report(id: Long, ageHours: Long, file: FileLite?) = ReportEntity(
         id = id, title = "Test report $id", headlineTitle = null, headlineSummary = null, imageUrl = null, imageCaption = null,
@@ -30,7 +30,7 @@ class PdfCacheTest {
     )
 
     private fun file(name: String, size: Long?) = FileLite(url(name), "$name.pdf", size = size, mimetype = "application/pdf")
-    private fun url(name: String) = "https://example.org/$name.pdf"
+    private fun url(name: String) = "https://reliefweb.int/attachments/$name.pdf"
     private fun item(id: Long, bytes: Long?) = Preload.Item(id, url("f$id"), bytes)
 
     // --- The cap ---------------------------------------------------------------------------------

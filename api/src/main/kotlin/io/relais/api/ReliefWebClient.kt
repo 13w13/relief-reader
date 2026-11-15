@@ -3,13 +3,13 @@
 package io.relais.api
 
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
-import io.ktor.client.request.post
+import io.ktor.client.request.preparePost
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.HttpStatement
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.content.TextContent
@@ -41,7 +41,11 @@ sealed class ApiException(message: String, val status: Int? = null, cause: Throw
     }
     /** An HTML page instead of JSON: the request was probably blocked upstream. */
     class Blocked : ApiException("ReliefWeb returned a web page instead of data")
-    class Network(cause: Throwable) : ApiException("Network error: ${cause::class.simpleName}", null, cause)
+    /**
+     * Only the class of the cause is kept, never the cause itself: an exception of the HTTP client
+     * carries the full address, appname included (security audit of 15/11).
+     */
+    class Network(cause: Throwable) : ApiException("Network error: ${cause::class.simpleName}")
 }
 
 /**
@@ -86,56 +90,56 @@ class ReliefWebClient(
     suspend fun topics(query: ApiQuery): kotlinx.serialization.json.JsonElement {
         val name = requireAppname()
         val body = query.toJson().toString()
-        val response = send {
-            http.post("$baseUrl/topics") {
+        val answer = send {
+            http.preparePost("$baseUrl/topics") {
                 parameter("appname", name)
                 header(HttpHeaders.Accept, "application/json")
                 setBody(TextContent(body, ContentType.Application.Json))
             }
         }
-        return raw(response)
+        return raw(answer)
     }
 
     /** One topic with its introduction and its lists (rivers), as raw JSON. */
     suspend fun topic(id: Long): kotlinx.serialization.json.JsonElement {
         val name = requireAppname()
-        val response = send {
-            http.get("$baseUrl/topics/$id") {
+        val answer = send {
+            http.prepareGet("$baseUrl/topics/$id") {
                 parameter("appname", name)
                 parameter("profile", "full")
                 parameter("slim", 1)
                 header(HttpHeaders.Accept, "application/json")
             }
         }
-        return raw(response)
+        return raw(answer)
     }
 
     /** One document of [resource] with every field (`profile=full`), or throws [ApiException.NotFound]. */
     private suspend fun <T> one(resource: String, id: Long, serializer: KSerializer<T>): ApiItem<T> {
         val name = requireAppname()
-        val response = send {
-            http.get("$baseUrl/$resource/$id") {
+        val answer = send {
+            http.prepareGet("$baseUrl/$resource/$id") {
                 parameter("appname", name)
                 parameter("profile", "full")
                 parameter("slim", 1)
                 header(HttpHeaders.Accept, "application/json")
             }
         }
-        return decode(response, serializer).data.firstOrNull() ?: throw ApiException.NotFound()
+        return decode(answer, serializer).data.firstOrNull() ?: throw ApiException.NotFound()
     }
 
     /** One report with its full text, or throws [ApiException.NotFound]. */
     suspend fun report(id: Long, fields: List<String> = Fields.REPORT_FULL): ApiItem<ReportFields> {
         val name = requireAppname()
-        val response = send {
-            http.get("$baseUrl/reports/$id") {
+        val answer = send {
+            http.prepareGet("$baseUrl/reports/$id") {
                 parameter("appname", name)
                 parameter("slim", 1)
                 fields.forEach { parameter("fields[include][]", it) }
                 header(HttpHeaders.Accept, "application/json")
             }
         }
-        val parsed = decode(response, ReportFields.serializer())
+        val parsed = decode(answer, ReportFields.serializer())
         return parsed.data.firstOrNull() ?: throw ApiException.NotFound()
     }
 
@@ -145,23 +149,30 @@ class ReliefWebClient(
     private suspend fun <T> post(resource: String, query: ApiQuery, serializer: KSerializer<T>): ApiResponse<T> {
         val name = requireAppname()
         val body = query.toJson().toString()
-        val response = send {
-            http.post("$baseUrl/$resource") {
+        val answer = send {
+            http.preparePost("$baseUrl/$resource") {
                 parameter("appname", name)
                 header(HttpHeaders.Accept, "application/json")
                 setBody(TextContent(body, ContentType.Application.Json))
             }
         }
-        return decode(response, serializer)
+        return decode(answer, serializer)
     }
 
     private fun requireAppname(): String =
         appname()?.trim()?.takeIf { it.isNotEmpty() } ?: throw ApiException.NoAppname()
 
-    private suspend fun send(block: suspend () -> HttpResponse): HttpResponse {
+    /** A body read within its limit, with the status it came with. */
+    private class Answer(val status: Int, val text: String)
+
+    /**
+     * Sends the request and reads its body while it streams in, at most [MAX_ANSWER_BYTES] (review
+     * of PR 26: a plain get or post holds the whole body in memory before it can be counted).
+     */
+    private suspend fun send(statement: suspend () -> HttpStatement): Answer {
         onCall()
         return try {
-            block()
+            statement().execute { response -> Answer(response.status.value, text(response)) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -173,30 +184,28 @@ class ReliefWebClient(
     }
 
     /** The answer as JSON, with the same errors as [decode]. */
-    private suspend fun raw(response: HttpResponse): kotlinx.serialization.json.JsonElement {
-        val text = text(response)
-        return try {
-            RelaisJson.parseToJsonElement(text)
+    private fun raw(answer: Answer): kotlinx.serialization.json.JsonElement =
+        try {
+            RelaisJson.parseToJsonElement(answer.text)
         } catch (e: Exception) {
-            throw ApiException.Server(response.status.value, "${ApiException.Server.UNREADABLE}: ${e::class.simpleName}")
+            throw ApiException.Server(answer.status, "${ApiException.Server.UNREADABLE}: ${e::class.simpleName}")
         }
-    }
 
-    private suspend fun <T> decode(response: HttpResponse, serializer: KSerializer<T>): ApiResponse<T> {
-        val text = text(response)
-        return try {
-            RelaisJson.decodeFromString(ApiResponse.serializer(serializer), text)
+    private fun <T> decode(answer: Answer, serializer: KSerializer<T>): ApiResponse<T> =
+        try {
+            RelaisJson.decodeFromString(ApiResponse.serializer(serializer), answer.text)
         } catch (e: Exception) {
-            throw ApiException.Server(response.status.value, "${ApiException.Server.UNREADABLE}: ${e::class.simpleName}")
+            throw ApiException.Server(answer.status, "${ApiException.Server.UNREADABLE}: ${e::class.simpleName}")
         }
-    }
 
-    /** The body of a 200 answer, or the error it says. */
+    /** The body of a 200 answer, or the error it says. At most [MAX_ANSWER_BYTES]. */
     private suspend fun text(response: HttpResponse): String {
         val text = try {
-            response.bodyAsText()
+            Bodies.text(response, MAX_ANSWER_BYTES)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: Bodies.TooLarge) {
+            throw ApiException.Server(response.status.value, "Answer over ${MAX_ANSWER_BYTES / (1024 * 1024)} MB")
         } catch (e: Exception) {
             throw ApiException.Network(e)
         }
@@ -212,9 +221,26 @@ class ReliefWebClient(
         }
     }
 
-    /** Reads `error.message` from an error body such as `{"status":400,"error":{"message":"…"}}`. */
+    /**
+     * Reads `error.message` from an error body such as `{"status":400,"error":{"message":"…"}}`,
+     * without the appname if the server repeats it (security audit of 15/11).
+     */
     private fun errorMessage(text: String): String? = runCatching {
         RelaisJson.parseToJsonElement(text).jsonObject["error"]?.jsonObject?.get("message")
             ?.jsonPrimitive?.contentOrNull
-    }.getOrNull()
+    }.getOrNull()?.let { redact(it, appname()) }
+
+    companion object {
+        /**
+         * The largest answer read: a page of 200 reports with their full text is a few MB; more
+         * is not an answer of the API (security audit of 15/11).
+         */
+        const val MAX_ANSWER_BYTES = 32L * 1024 * 1024
+
+        /** [text] with every occurrence of [appname] replaced by "[appname]", whatever its case. */
+        fun redact(text: String, appname: String?): String {
+            val name = appname?.trim()?.takeIf { it.isNotEmpty() } ?: return text
+            return text.replace(name, "[appname]", ignoreCase = true)
+        }
+    }
 }

@@ -140,9 +140,15 @@ object HtmlBlocks {
     }
 
     private fun image(el: Element): Block.Image? {
-        val src = el.absUrl("src").ifBlank { el.attr("src") }
-        if (src.isBlank() || !src.startsWith("http")) return null
-        return Block.Image(src, el.attr("alt").takeIf { it.isNotBlank() })
+        val src = el.absUrl("src").ifBlank { el.attr("src") }.trim()
+        // https only (security audit of 15/11): an http image is asked over https, anything else
+        // (data:, file:, content:, a relative path that resolves to nothing) is left out.
+        val url = when {
+            src.startsWith("https://", ignoreCase = true) -> src
+            src.startsWith("http://", ignoreCase = true) -> "https://" + src.substring("http://".length)
+            else -> return null
+        }
+        return Block.Image(url, el.attr("alt").takeIf { it.isNotBlank() })
     }
 
     private data class Style(val bold: Boolean = false, val italic: Boolean = false, val link: String? = null)

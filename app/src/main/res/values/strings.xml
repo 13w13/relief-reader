@@ -100,6 +100,8 @@
     <string name="report_confirm_mobile">This file is %1$s. Download it on mobile data?</string>
     <string name="report_not_now">Not now</string>
     <string name="report_download_failed">Download failed.</string>
+    <string name="report_download_refused">Re.L downloads files from reliefweb.int only.</string>
+    <string name="action_open_browser">Open in browser</string>
     <string name="report_too_large">Over %1$s: too large to open in Re.L. ReliefWeb\'s page lets your browser download it.</string>
     <string name="report_no_reader">No PDF reader on this phone.</string>
     <string name="report_resumed">Picked up where you left off.</string>
@@ -600,6 +602,7 @@
     <string name="restore_done">Library restored. Saved reports load their text when you open them.</string>
     <string name="restore_not_backup">This file isn\'t a Re.L backup.</string>
     <string name="restore_newer">This backup comes from a newer version of Re.L. Update the app first.</string>
+    <string name="restore_too_large">This file holds more than a Re.L library can. Nothing was restored.</string>
     <!-- Lot 3, C (revue-ux-v0.3.md, section 9). -->
     <string name="settings_appearance">Appearance</string>
     <string name="appearance_system">System</string>

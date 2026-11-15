@@ -108,12 +108,14 @@ object Preload {
         recent.filter { it.url in onPhone && it.url !in read }
 
     /**
-     * The PDFs this pass may download, in order: not on the phone, not announced larger than
-     * [MAX_FILE_BYTES], and not failed in the last day nor [MAX_FAILURES] times.
+     * The PDFs this pass may download, in order: on reliefweb.int ([TrustedUrls.isFileUrl]), not
+     * on the phone, not announced larger than [MAX_FILE_BYTES], and not failed in the last day
+     * nor [MAX_FAILURES] times.
      */
     fun candidates(recent: List<Item>, onPhone: Set<String>, failures: Map<String, Failure>, now: Long): List<Item> =
         recent.filter { item ->
-            item.url !in onPhone &&
+            TrustedUrls.isFileUrl(item.url) &&
+                item.url !in onPhone &&
                 (item.bytes == null || item.bytes <= MAX_FILE_BYTES) &&
                 mayTry(failures[item.url], now)
         }

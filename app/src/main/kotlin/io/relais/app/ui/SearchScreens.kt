@@ -282,7 +282,7 @@ class ResultsViewModel(private val c: AppContainer, query: String, headlinesOnly
             val found = result.getOrDefault(emptyList())
             val s = _state.value
             _state.value = s.copy(
-                sourceProblem = result.exceptionOrNull()?.let { searchProblem(it) },
+                sourceProblem = result.exceptionOrNull()?.let { searchProblem(it, c.repository.appname()) },
                 sourceMatches = found.map { it.id },
                 sourceNames = s.sourceNames + found.associate { it.id to it.shortname.ifBlank { it.name } },
             )
