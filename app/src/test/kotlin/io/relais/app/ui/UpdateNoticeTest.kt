@@ -25,9 +25,14 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
-/** The notice on Today and the switch in Settings > About (founder, 15/11). */
+/**
+ * The notice on Today and the switch in Settings > About (founder, 15/11). Native graphics, as for
+ * the screenshots: the default mode gives text a made-up width, and the layout depends on it.
+ */
 @RunWith(AndroidJUnit4::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], application = Application::class)
 class UpdateNoticeTest {
     @get:Rule
