@@ -93,6 +93,27 @@ class TrustedUrlsTest {
     }
 
     @Test
+    fun localNamesAndRedirectHopsAreRefused() {
+        listOf("https://localhost/x.png", "https://LOCALHOST./x.png", "https://cdn.localhost/x.png").forEach { assertNull(it, TrustedUrls.image(it)) }
+        fun url(s: String) = okhttp3.HttpUrl.Builder().scheme(s.substringBefore("://")).host(s.substringAfter("://").substringBefore('/')).build()
+        assertTrue(ImageHops.allowed(url("https://reliefweb.int/")))
+        assertTrue(ImageHops.allowed(url("https://images.example.org/")))
+        listOf("http://images.example.org/", "https://localhost/", "https://127.0.0.1/", "https://10.0.0.8/").forEach {
+            assertFalse(it, ImageHops.allowed(url(it)))
+        }
+    }
+
+    @Test
+    fun namesResolveToPublicAddressesOnly() {
+        listOf("8.8.8.8", "1.1.1.1", "2001:4860:4860::8888").forEach {
+            assertTrue(it, PublicDns.isPublic(java.net.InetAddress.getByName(it)))
+        }
+        listOf("127.0.0.1", "10.0.0.1", "172.20.1.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fc00::1", "fd00::5").forEach {
+            assertFalse(it, PublicDns.isPublic(java.net.InetAddress.getByName(it)))
+        }
+    }
+
+    @Test
     fun publicAndPrivateAddresses() {
         listOf("8.8.8.8", "1.1.1.1", "2001:4860:4860::8888").forEach { assertTrue(it, TrustedUrls.isPublicAddress(it)) }
         listOf(

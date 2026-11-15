@@ -45,6 +45,7 @@ object TrustedUrls {
         val parsed = https.toHttpUrlOrNull() ?: return null
         if (parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) return null
         if (isIpLiteral(parsed.host) && !isPublicAddress(parsed.host)) return null
+        if (isLocalName(parsed.host)) return null
         return parsed.toString()
     }
 
@@ -66,6 +67,12 @@ object TrustedUrls {
      */
     fun reportPage(urlAlias: String?, reportId: Long): String? =
         reliefWebPage(urlAlias) ?: reportId.takeIf { it > 0 }?.let { "https://reliefweb.int/node/$it" }
+
+    /** localhost and its subdomains, which always lead to the phone itself. */
+    fun isLocalName(host: String): Boolean {
+        val h = host.lowercase().trimEnd('.')
+        return h == "localhost" || h.endsWith(".localhost")
+    }
 
     /** An IPv4 or IPv6 address written as such (OkHttp keeps IPv6 without brackets). */
     fun isIpLiteral(host: String): Boolean =

@@ -89,8 +89,8 @@ class PdfDownloader(
     /** Where files may come from, checked on the address and on every redirect. */
     private val trusted: (HttpUrl) -> Boolean = TrustedUrls::isFileUrl,
 ) {
-    /** Redirects are followed here, one by one, so that each target is checked first. */
-    private val client: OkHttpClient = okHttp.newBuilder().followRedirects(false).followSslRedirects(false).build()
+    /** Redirects are followed here, one by one, so that each target is checked first; public addresses only. */
+    private val client: OkHttpClient = okHttp.newBuilder().followRedirects(false).followSslRedirects(false).dns(PublicDns).build()
 
     private val appContext = context.applicationContext
     private val cacheDir = File(context.cacheDir, "pdf").apply { mkdirs() }

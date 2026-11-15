@@ -30,3 +30,35 @@ object SafeImages : Interceptor {
         return chain.withRequest(chain.request.newBuilder().data(url).build()).proceed()
     }
 }
+
+/**
+ * Every request of the image client, redirects included, checked as the first address was
+ * ([TrustedUrls.image]): a redirect to http, to localhost or to a private address fails there.
+ * A network interceptor, so it sees each hop OkHttp follows.
+ */
+object ImageHops : okhttp3.Interceptor {
+    fun allowed(url: okhttp3.HttpUrl): Boolean = url.isHttps && TrustedUrls.image(url.toString()) != null
+
+    override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+        if (!allowed(chain.request().url)) throw java.io.IOException("Image address refused")
+        return chain.proceed(chain.request())
+    }
+}
+
+/**
+ * A name resolves to public addresses only, for the image and PDF clients (security review of
+ * PR 26): a host whose name points at the phone, the local network or a link-local address is
+ * not reached, whatever its name says. Addresses written as such are checked by [TrustedUrls].
+ */
+object PublicDns : okhttp3.Dns {
+    fun isPublic(address: java.net.InetAddress): Boolean =
+        !(address.isLoopbackAddress || address.isAnyLocalAddress || address.isLinkLocalAddress ||
+            address.isSiteLocalAddress || address.isMulticastAddress) &&
+            TrustedUrls.isPublicAddress(address.hostAddress.orEmpty().substringBefore('%'))
+
+    override fun lookup(hostname: String): List<java.net.InetAddress> {
+        val public = okhttp3.Dns.SYSTEM.lookup(hostname).filter { isPublic(it) }
+        if (public.isEmpty()) throw java.net.UnknownHostException("No public address for this host")
+        return public
+    }
+}

@@ -94,9 +94,14 @@ class AppContainer(private val context: Context) {
         .followSslRedirects(false)
         .build()
 
-    /** For Coil: the app's client, with the User-Agent on every image request. */
+    /**
+     * For Coil: the app's client, with the User-Agent on every image request, each redirect
+     * checked like the first address, and names resolved to public addresses only.
+     */
     val imageHttp: OkHttpClient = okHttp.newBuilder()
+        .dns(io.relais.app.data.PublicDns)
         .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build()) }
+        .addNetworkInterceptor(io.relais.app.data.ImageHops)
         .build()
 
     private val http = HttpClient(OkHttp) {
