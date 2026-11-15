@@ -95,12 +95,17 @@ class Popular(
         val request = Request.Builder().url(MostRead.URL).header("User-Agent", userAgent)
             .apply { cached?.etag?.let { header("If-None-Match", it) } }
             .build()
-        okHttp.newCall(request).execute().use { response ->
+        // At most a minute and [MOST_READ_MAX_BYTES] (security audit of 15/11).
+        val call = okHttp.newCall(request).apply { timeout().timeout(60, java.util.concurrent.TimeUnit.SECONDS) }
+        call.execute().use { response ->
             when {
                 response.code == 304 && cached != null -> save(readFile, MostReadCache.serializer(), cached.copy(checkedAt = now))
                 response.isSuccessful -> {
+                    val body = response.body ?: return@use
+                    if (body.contentLength() > MOST_READ_MAX_BYTES) return@use
                     val rows = mutableMapOf<String, List<String>>()
-                    response.body?.charStream()?.buffered()?.useLines { lines ->
+                    // A file over the limit, announced or not, stops here and nothing is saved.
+                    CappedInputStream(body.byteStream(), MOST_READ_MAX_BYTES).bufferedReader().useLines { lines ->
                         lines.forEach { line -> MostRead.parseLine(line)?.let { (key, urls) -> rows[key] = urls } }
                     }
                     val updated = response.headers.getDate("Last-Modified")?.time ?: now
@@ -130,4 +135,28 @@ class Popular(
         tmp.writeText(RelaisJson.encodeToString(serializer, value))
         tmp.renameTo(file)
     }
+}
+
+/** The Most read file read at most: a few hundred KB in practice. */
+const val MOST_READ_MAX_BYTES = 8L * 1024 * 1024
+
+/** Reads [input] and throws an IOException past [limit] bytes. */
+internal class CappedInputStream(private val input: java.io.InputStream, private val limit: Long) : java.io.FilterInputStream(input) {
+    private var count = 0L
+
+    private fun counted(n: Int): Int {
+        if (n > 0) {
+            count += n
+            if (count > limit) throw java.io.IOException("Over $limit bytes")
+        }
+        return n
+    }
+
+    override fun read(): Int {
+        val b = input.read()
+        if (b >= 0) counted(1)
+        return b
+    }
+
+    override fun read(b: ByteArray, off: Int, len: Int): Int = counted(input.read(b, off, len))
 }

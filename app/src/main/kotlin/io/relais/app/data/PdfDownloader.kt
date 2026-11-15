@@ -21,8 +21,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
@@ -34,6 +37,12 @@ sealed interface DownloadState {
 
     /** Over [PdfDownloader.MAX_BYTES]: not downloaded; the report offers ReliefWeb instead. */
     data class TooLarge(val bytes: Long) : DownloadState
+
+    /**
+     * Not on reliefweb.int, or redirected elsewhere (security audit of 15/11): not downloaded;
+     * the report offers to open it in the browser.
+     */
+    data object Refused : DownloadState
 }
 
 /** What a download of the Wi-Fi preload gives (PdfDownloader.download). */
@@ -48,10 +57,16 @@ sealed interface Preloaded {
 
     /** Already being downloaded, or the reader opened it meanwhile and took over: nothing to note. */
     data object Busy : Preloaded
+
+    /** Not on reliefweb.int, or redirected elsewhere: the preload skips it, now and later. */
+    data object Refused : Preloaded
 }
 
 /** A file larger than the limit, found by its announced size or while it downloads. */
 private class TooLargeException(val bytes: Long) : IOException("Over the size limit")
+
+/** An address the app does not download from ([TrustedUrls.isFileUrl]), first or after a redirect. */
+private class RefusedHostException : IOException("Not a ReliefWeb file")
 
 /**
  * Downloads PDFs on request. A PDF goes to the app cache, which Android may clear;
@@ -71,7 +86,12 @@ class PdfDownloader(
     private val capBytes: suspend () -> Long = { PdfCache.capBytes(PdfCache.DEFAULT_CAP_MB) },
     /** Saved and highlighted reports: their PDFs are never deleted to make room. */
     private val protectedReports: suspend () -> Set<Long> = { emptySet() },
+    /** Where files may come from, checked on the address and on every redirect. */
+    private val trusted: (HttpUrl) -> Boolean = TrustedUrls::isFileUrl,
 ) {
+    /** Redirects are followed here, one by one, so that each target is checked first. */
+    private val client: OkHttpClient = okHttp.newBuilder().followRedirects(false).followSslRedirects(false).build()
+
     private val appContext = context.applicationContext
     private val cacheDir = File(context.cacheDir, "pdf").apply { mkdirs() }
     private val keepDir = File(context.filesDir, "pdf").apply { mkdirs() }
@@ -110,6 +130,8 @@ class PdfDownloader(
                 throw e
             } catch (e: TooLargeException) {
                 _states.update { it + (url to DownloadState.TooLarge(e.bytes)) }
+            } catch (e: RefusedHostException) {
+                _states.update { it + (url to DownloadState.Refused) }
             } catch (e: Exception) {
                 _states.update { it + (url to DownloadState.Failed) }
             } finally {
@@ -135,6 +157,8 @@ class PdfDownloader(
                 throw e
             } catch (e: TooLargeException) {
                 result = Preloaded.TooLarge
+            } catch (e: RefusedHostException) {
+                result = Preloaded.Refused
             } catch (e: Exception) {
                 if (result !is Preloaded.Saved) result = Preloaded.Failed
             } finally {
@@ -172,8 +196,7 @@ class PdfDownloader(
         val name = fileName(url)
         val part = File(dir, "$name.part")
         try {
-            val request = Request.Builder().url(url).header("User-Agent", userAgent).build()
-            okHttp.newCall(request).execute().use { response ->
+            open(url).use { response ->
                 if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
                 val body = response.body ?: throw IOException("Empty body")
                 val total = body.contentLength()
@@ -211,6 +234,23 @@ class PdfDownloader(
         } finally {
             part.delete()
         }
+    }
+
+    /**
+     * The answer for [url], after at most [MAX_REDIRECTS] redirects, each target checked by
+     * [trusted] before it is requested (security audit of 15/11): a file from elsewhere, or sent
+     * elsewhere, is refused, never fetched.
+     */
+    private fun open(url: String): Response {
+        var target = url.trim().toHttpUrlOrNull()?.takeIf(trusted) ?: throw RefusedHostException()
+        repeat(MAX_REDIRECTS + 1) {
+            val response = client.newCall(Request.Builder().url(target).header("User-Agent", userAgent).build()).execute()
+            if (!response.isRedirect) return response
+            val next = response.header("Location")?.let { target.resolve(it) }
+            response.close()
+            target = next?.takeIf(trusted) ?: throw RefusedHostException()
+        }
+        throw IOException("Too many redirects")
     }
 
     /**
@@ -257,6 +297,9 @@ class PdfDownloader(
     companion object {
         /** 100 MB: larger files stay on ReliefWeb (audit S1, and the PDF limits of v0.2.2). */
         const val MAX_BYTES = 100L * 1024 * 1024
+
+        /** Redirects followed for one file, at most. */
+        const val MAX_REDIRECTS = 5
 
         fun tooLarge(size: Long?): Boolean = size != null && size > MAX_BYTES
     }

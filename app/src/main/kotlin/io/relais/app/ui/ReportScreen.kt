@@ -108,6 +108,7 @@ import io.relais.api.HtmlBlocks
 import io.relais.api.Span
 import io.relais.app.AppContainer
 import io.relais.app.R
+import io.relais.app.data.reliefWebPage
 import io.relais.app.container
 import io.relais.app.data.DownloadState
 import io.relais.app.data.PdfDownloader
@@ -370,7 +371,7 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
 
     fun openFile(file: FileLite) {
         val r = report ?: return
-        nav.pdf(file.url, r.id, file.description?.removePrefix("- ")?.ifBlank { null } ?: file.filename ?: r.title, r.urlAlias)
+        nav.pdf(file.url, r.id, file.description?.removePrefix("- ")?.ifBlank { null } ?: file.filename ?: r.title, r.reliefWebPage)
     }
 
     // "Read": open a PDF on the phone, ask first for a large one on mobile data, else download it.
@@ -459,7 +460,7 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                     )
                 }
             }
-            val shareUrl = report?.urlAlias
+            val shareUrl = report?.reliefWebPage
             if (report != null && shareUrl != null) {
                 IconButton(onClick = {
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain")
@@ -556,7 +557,7 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                             onCancel = ::cancelFile,
                         )
                         is ReportRow.Notice -> {
-                            val url = report.urlAlias
+                            val url = report.reliefWebPage
                             val action: (() -> Unit)? = if (row.action != null && url != null) {
                                 { safeOpen(uriHandler, url) }
                             } else {
@@ -914,6 +915,9 @@ internal fun FilesSection(
                         if (downloads[file.url] == DownloadState.Failed) {
                             Text(stringResource(R.string.report_download_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                         }
+                        if (downloads[file.url] == DownloadState.Refused) {
+                            Text(stringResource(R.string.report_download_refused), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         if (tooLarge) {
                             Text(
                                 stringResource(R.string.report_too_large, Display.size(PdfDownloader.MAX_BYTES).orEmpty()),
@@ -945,10 +949,17 @@ private fun FileAction(
     val uriHandler = LocalUriHandler.current
     // Over 100 MB: ReliefWeb's page, where the browser can download it.
     if (tooLarge) {
-        TextButton(onClick = { safeOpen(uriHandler, report.urlAlias) }) {
-            Text(stringResource(R.string.report_open_reliefweb))
+        val page = report.reliefWebPage
+        if (page != null) {
+            TextButton(onClick = { safeOpen(uriHandler, page) }) {
+                Text(stringResource(R.string.report_open_reliefweb))
+            }
         }
     } else when (download) {
+        // Not a ReliefWeb file (security audit of 15/11): the browser may open it, the app doesn't.
+        DownloadState.Refused -> TextButton(onClick = { safeOpen(uriHandler, file.url) }, modifier = Modifier.testTag("file_open_browser")) {
+            Text(stringResource(R.string.action_open_browser))
+        }
         is DownloadState.Running -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(progress = { download.progress }, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -1006,6 +1017,9 @@ internal fun FileLines(
                     }
                     if (downloads[file.url] == DownloadState.Failed) {
                         Text(stringResource(R.string.report_download_failed), style = MaterialTheme.typography.bodySmall, color = cs.error)
+                    }
+                    if (downloads[file.url] == DownloadState.Refused) {
+                        Text(stringResource(R.string.report_download_refused), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     }
                     if (tooLarge) {
                         Text(
@@ -1107,7 +1121,7 @@ private fun Links(report: ReportEntity) {
     val uriHandler = LocalUriHandler.current
     Column(Modifier.padding(vertical = Space.s)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        report.urlAlias?.let { url ->
+        report.reliefWebPage?.let { url ->
             TextButton(onClick = { safeOpen(uriHandler, url) }, modifier = Modifier.padding(horizontal = Space.s)) {
                 Text(stringResource(R.string.report_open_reliefweb))
             }

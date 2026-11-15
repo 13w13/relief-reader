@@ -130,11 +130,31 @@ object LibraryBackupFormat {
         data class Ok(val backup: LibraryBackup) : Parsed
         data object NotBackup : Parsed
         data object Newer : Parsed
+
+        /** More rows than any library holds: refused, with its own message. */
+        data object TooLarge : Parsed
     }
 
     /** Longest highlight text and note kept from a file: a passage, not a book. */
     const val MAX_TEXT = 10_000
     const val MAX_NOTE = 2_000
+
+    /** Longest title, name or address kept from a file (security audit of 15/11). */
+    const val MAX_STRING = 500
+
+    /** Longest address of a regional crisis's list: the site's filters can be long. */
+    const val MAX_RIVER_URL = 2_000
+
+    /** Highest id kept: ReliefWeb's ids are in the millions; a negative or absurd one is dropped. */
+    const val MAX_ID = 1_000_000_000L
+
+    /** Most rows of each kind a file may hold; more is refused before anything is read into it. */
+    val MAX_ROWS = mapOf(
+        "readings" to 20_000, "highlights" to 20_000,
+        "countries" to 1_000, "crises" to 1_000, "sources" to 2_000, "topics" to 500,
+    )
+    const val MAX_CARD_SOURCES = 50
+    const val MAX_RIVERS = 50
 
     /**
      * A Re.L backup of this version or an earlier one; a newer one is refused, with its own
@@ -147,13 +167,69 @@ object LibraryBackupFormat {
         if (field("app")?.contentOrNull != APP || field("kind")?.contentOrNull != KIND) return@runCatching Parsed.NotBackup
         val version = field("version")?.intOrNull ?: return@runCatching Parsed.NotBackup
         if (version > VERSION) return@runCatching Parsed.Newer
-        val backup = json.decodeFromJsonElement(LibraryBackup.serializer(), obj)
-        Parsed.Ok(
-            backup.copy(
-                highlights = backup.highlights.map { it.copy(text = it.text.take(MAX_TEXT), note = it.note?.take(MAX_NOTE)) },
-            ),
-        )
+        // Counted before decoding: 200 000 rows are refused, not built (security audit of 15/11).
+        if (MAX_ROWS.any { (name, max) -> ((obj[name] as? kotlinx.serialization.json.JsonArray)?.size ?: 0) > max }) {
+            return@runCatching Parsed.TooLarge
+        }
+        Parsed.Ok(bounded(json.decodeFromJsonElement(LibraryBackup.serializer(), obj)))
     }.getOrElse { Parsed.NotBackup }
+
+    /**
+     * What a restore keeps of a file (security audit of 15/11): every text cut to its length, every
+     * list to its size, rows without a valid id left out, numbers within their range, addresses of
+     * pages kept only when they are ReliefWeb's ([TrustedUrls.reliefWebPage]).
+     */
+    internal fun bounded(b: LibraryBackup): LibraryBackup {
+        fun String.cut() = take(MAX_STRING)
+        fun String?.cutOrNull() = this?.take(MAX_STRING)
+        fun Long.valid() = this in 1..MAX_ID
+        fun Long?.validOrNull() = this?.takeIf { it.valid() }
+        fun page(url: String?) = TrustedUrls.reliefWebPage(url?.take(MAX_STRING))
+        fun SourceLite.bounded() = SourceLite(id, shortname.cut(), name.cut())
+        return b.copy(
+            readings = b.readings.filter { it.reportId.valid() }.map { r ->
+                r.copy(
+                    percent = r.percent.coerceIn(0, 100),
+                    pdfPage = r.pdfPage.coerceAtLeast(0),
+                    itemIndex = r.itemIndex.coerceAtLeast(0),
+                    itemOffset = r.itemOffset.coerceAtLeast(0),
+                    card = r.card?.let { c ->
+                        c.copy(
+                            title = c.title.cut(),
+                            headlineTitle = c.headlineTitle.cutOrNull(),
+                            sources = c.sources.filter { it.id.valid() }.take(MAX_CARD_SOURCES).map { it.bounded() },
+                            primaryCountryId = c.primaryCountryId.validOrNull(),
+                            primaryCountryName = c.primaryCountryName.cutOrNull(),
+                            formatId = c.formatId.validOrNull(),
+                            formatName = c.formatName.cutOrNull(),
+                            urlAlias = page(c.urlAlias),
+                        )
+                    },
+                )
+            },
+            highlights = b.highlights.filter { it.reportId.valid() && it.blockIndex >= 0 && it.start >= 0 && it.end >= it.start }.map { h ->
+                h.copy(
+                    reportTitle = h.reportTitle.cut(),
+                    countryName = h.countryName.cutOrNull(),
+                    sourceName = h.sourceName.cutOrNull(),
+                    formatName = h.formatName.cutOrNull(),
+                    text = h.text.take(MAX_TEXT),
+                    note = h.note?.take(MAX_NOTE),
+                    pdfPage = h.pdfPage?.takeIf { it >= 0 },
+                )
+            },
+            countries = b.countries.filter { it.id.valid() }.map { it.copy(name = it.name.cut()) },
+            crises = b.crises.filter { it.id.valid() }.map { it.copy(name = it.name.cut(), glide = it.glide.cutOrNull()) },
+            sources = b.sources.filter { it.id.valid() }.map { it.copy(shortname = it.shortname.cut(), name = it.name.cut()) },
+            topics = b.topics.filter { it.id.valid() }.map { t ->
+                t.copy(
+                    title = t.title.cut(),
+                    urlAlias = page(t.urlAlias),
+                    rivers = t.rivers.take(MAX_RIVERS).map { io.relais.api.TopicRiver(it.title.cut(), it.url.take(MAX_RIVER_URL)) },
+                )
+            },
+        )
+    }
 
     /** "rel-library-2026-11-14.json". */
     fun fileName(now: Long, zone: ZoneId = ZoneId.systemDefault()): String =

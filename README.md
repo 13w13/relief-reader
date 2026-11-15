@@ -70,7 +70,16 @@ Keep your appname to yourself. Don't publish it, don't paste it in an issue, and
 
 ## Privacy
 
-Re.L has no account, no ads, no analytics and no crash reporting. It talks to `api.reliefweb.int` and `reliefweb.int`. When a report includes an image hosted on another site, the app loads that image from there. Once a day, it also asks `api.github.com` for the number of its latest release: that request carries no appname, no account and nothing about you, though GitHub sees your IP address, as any site you open does. Settings > About Re.L > **Check for new versions** turns it off, and a build from F-Droid, once Re.L is there, has no such check. What you follow, what you read, your highlights and your appname stay on your phone. It asks for internet access and, if you want the daily summary or alerts, for notifications.
+Re.L has no account, no ads, no analytics and no crash reporting. What you follow, what you read, your highlights and your appname stay on your phone: Android's cloud backup and its transfer to a new phone don't copy them (Settings > **Back up your library** makes a file for that). It asks for internet access and, if you want the daily summary or alerts, for notifications.
+
+What it connects to, and when:
+
+- **`api.reliefweb.int` and `reliefweb.int`**, for reports, the headlines feed and the Most read file.
+- **PDFs, from `reliefweb.int` only.** On Wi-Fi, Re.L downloads the PDFs of recent reports on what you follow, without a tap (Settings > Storage > **Download PDFs on Wi-Fi**, on by default). A PDF hosted anywhere else is not downloaded; the report offers to open it in your browser.
+- **Photos and images.** The photo of the next headline loads ahead of time, so the pile turns without waiting. When a report includes an image hosted on another site, the app loads it from there, and that site sees your IP address. Settings > Reading > **Load images** limits images to Wi-Fi, or turns them off.
+- **`api.github.com`, once a day**, for the number of the latest release. It carries no appname, no account and nothing about you, though GitHub sees your IP address, as any site does. Settings > About Re.L > **Check for new versions** turns it off, and a build from F-Droid, once Re.L is there, has no such check.
+
+Every request carries the same User-Agent, `Re.L (Android)`, with no version number. Only https is used.
 
 ## Whose content this is
 

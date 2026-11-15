@@ -144,7 +144,7 @@ fun TopicScreen(id: Long, title: String, nav: Nav) {
                 item(key = "skipped") {
                     Column(Modifier.padding(horizontal = Space.screen, vertical = Space.s).testTag("topic_skipped")) {
                         Text(stringResource(R.string.topic_lists_skipped), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick = { safeOpen(uriHandler, topic.urlAlias) }, contentPadding = PaddingValues(0.dp)) {
+                        TextButton(onClick = { safeOpen(uriHandler, io.relais.app.data.TrustedUrls.reliefWebPage(topic.urlAlias)) }, contentPadding = PaddingValues(0.dp)) {
                             Text(stringResource(R.string.report_open_reliefweb))
                         }
                     }
@@ -180,7 +180,7 @@ fun TopicScreen(id: Long, title: String, nav: Nav) {
                 items(list, key = { it.id }) { report -> DocumentRow(report, onClick = { nav.report(report.id) }) }
             }
             item(key = "open") {
-                TextButton(onClick = { safeOpen(uriHandler, topic.urlAlias) }, modifier = Modifier.padding(horizontal = Space.s, vertical = Space.m).testTag("topic_open")) {
+                TextButton(onClick = { safeOpen(uriHandler, io.relais.app.data.TrustedUrls.reliefWebPage(topic.urlAlias)) }, modifier = Modifier.padding(horizontal = Space.s, vertical = Space.m).testTag("topic_open")) {
                     Text(stringResource(R.string.report_open_reliefweb))
                 }
             }

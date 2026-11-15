@@ -9,7 +9,6 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.content.TextContent
@@ -41,7 +40,11 @@ sealed class ApiException(message: String, val status: Int? = null, cause: Throw
     }
     /** An HTML page instead of JSON: the request was probably blocked upstream. */
     class Blocked : ApiException("ReliefWeb returned a web page instead of data")
-    class Network(cause: Throwable) : ApiException("Network error: ${cause::class.simpleName}", null, cause)
+    /**
+     * Only the class of the cause is kept, never the cause itself: an exception of the HTTP client
+     * carries the full address, appname included (security audit of 15/11).
+     */
+    class Network(cause: Throwable) : ApiException("Network error: ${cause::class.simpleName}")
 }
 
 /**
@@ -191,12 +194,14 @@ class ReliefWebClient(
         }
     }
 
-    /** The body of a 200 answer, or the error it says. */
+    /** The body of a 200 answer, or the error it says. At most [MAX_ANSWER_BYTES]. */
     private suspend fun text(response: HttpResponse): String {
         val text = try {
-            response.bodyAsText()
+            Bodies.text(response, MAX_ANSWER_BYTES)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: Bodies.TooLarge) {
+            throw ApiException.Server(response.status.value, "Answer over ${MAX_ANSWER_BYTES / (1024 * 1024)} MB")
         } catch (e: Exception) {
             throw ApiException.Network(e)
         }
@@ -212,9 +217,26 @@ class ReliefWebClient(
         }
     }
 
-    /** Reads `error.message` from an error body such as `{"status":400,"error":{"message":"…"}}`. */
+    /**
+     * Reads `error.message` from an error body such as `{"status":400,"error":{"message":"…"}}`,
+     * without the appname if the server repeats it (security audit of 15/11).
+     */
     private fun errorMessage(text: String): String? = runCatching {
         RelaisJson.parseToJsonElement(text).jsonObject["error"]?.jsonObject?.get("message")
             ?.jsonPrimitive?.contentOrNull
-    }.getOrNull()
+    }.getOrNull()?.let { redact(it, appname()) }
+
+    companion object {
+        /**
+         * The largest answer read: a page of 200 reports with their full text is a few MB; more
+         * is not an answer of the API (security audit of 15/11).
+         */
+        const val MAX_ANSWER_BYTES = 32L * 1024 * 1024
+
+        /** [text] with every occurrence of [appname] replaced by "[appname]", whatever its case. */
+        fun redact(text: String, appname: String?): String {
+            val name = appname?.trim()?.takeIf { it.isNotEmpty() } ?: return text
+            return text.replace(name, "[appname]", ignoreCase = true)
+        }
+    }
 }

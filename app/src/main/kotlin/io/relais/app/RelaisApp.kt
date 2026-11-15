@@ -35,17 +35,31 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-class RelaisApp : Application() {
+class RelaisApp : Application(), coil3.SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
 
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Exports shared earlier (backup, highlights): nothing stays from a previous run.
+        container.scope.launch(Dispatchers.IO) { io.relais.app.data.Exports.clear(this@RelaisApp) }
         createNotificationChannel()
         Work.schedulePeriodicSync(this)
         container.scope.launch { io.relais.app.work.PreloadWorker.schedule(this@RelaisApp, container.settings.current().preloadPdfs) }
     }
+
+    /**
+     * Images (Coil): every address through [io.relais.app.data.SafeImages], fetched by the app's
+     * OkHttp client with the same User-Agent as the rest (security audit of 15/11).
+     */
+    override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader =
+        coil3.ImageLoader.Builder(context)
+            .components {
+                add(io.relais.app.data.SafeImages)
+                add(coil3.network.okhttp.OkHttpNetworkFetcherFactory(callFactory = { container.imageHttp }))
+            }
+            .build()
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
@@ -66,11 +80,23 @@ val Context.container: AppContainer get() = (applicationContext as RelaisApp).co
 class AppContainer(private val context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    val userAgent = "Re.L/${BuildConfig.VERSION_NAME} (Android; unofficial ReliefWeb reader)"
+    /**
+     * The same User-Agent for every request: the API, the feed, PDFs, images, the Most read file
+     * and the check for new versions. No version number: nothing that tells readers apart
+     * (security audit of 15/11).
+     */
+    val userAgent = io.relais.app.data.UpdateCheck.USER_AGENT
 
+    /** No redirect from https to http, whatever the server says (security audit of 15/11). */
     val okHttp: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        .followSslRedirects(false)
+        .build()
+
+    /** For Coil: the app's client, with the User-Agent on every image request. */
+    val imageHttp: OkHttpClient = okHttp.newBuilder()
+        .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build()) }
         .build()
 
     private val http = HttpClient(OkHttp) {

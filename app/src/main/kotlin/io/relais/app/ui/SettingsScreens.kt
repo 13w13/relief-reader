@@ -273,6 +273,7 @@ fun SettingsScreen(nav: Nav) {
     var pendingRestore by remember { mutableStateOf<io.relais.app.data.LibraryBackup?>(null) }
     val notBackup = stringResource(R.string.restore_not_backup)
     val newerBackup = stringResource(R.string.restore_newer)
+    val tooLargeBackup = stringResource(R.string.restore_too_large)
     val restored = stringResource(R.string.restore_done)
     val failed = stringResource(R.string.state_error)
     val backupChooser = stringResource(R.string.settings_backup)
@@ -288,6 +289,7 @@ fun SettingsScreen(nav: Nav) {
                 is io.relais.app.data.LibraryBackupFormat.Parsed.Ok -> pendingRestore = parsed.backup
                 io.relais.app.data.LibraryBackupFormat.Parsed.Newer -> snackbar.showSnackbar(newerBackup)
                 io.relais.app.data.LibraryBackupFormat.Parsed.NotBackup -> snackbar.showSnackbar(notBackup)
+                io.relais.app.data.LibraryBackupFormat.Parsed.TooLarge -> snackbar.showSnackbar(tooLargeBackup)
             }
         }
     }

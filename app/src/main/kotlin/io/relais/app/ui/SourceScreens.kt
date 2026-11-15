@@ -241,8 +241,10 @@ data class PickSourcesState(
  * A failed organization search, in a few words for the screen: the founder saw only "Couldn't
  * load this page" (15/11), which every error gave.
  */
-internal fun searchProblem(e: Throwable): String = when (e) {
-    is io.relais.api.ApiException.BadRequest -> "HTTP 400" + (e.message?.takeIf { it.isNotBlank() && it != "Bad request" }?.let { ": " + it.take(120) } ?: "")
+internal fun searchProblem(e: Throwable, appname: String? = null): String = when (e) {
+    // The server's message, without the appname even if the client let one through (security
+    // audit of 15/11; ReliefWebClient already removes it).
+    is io.relais.api.ApiException.BadRequest -> "HTTP 400" + (e.message?.takeIf { it.isNotBlank() && it != "Bad request" }?.let { ": " + io.relais.api.ReliefWebClient.redact(it, appname).take(120) } ?: "")
     is io.relais.api.ApiException.Server -> if (e.unreadable) "unreadable answer" else "HTTP ${e.status}"
     is io.relais.api.ApiException.AccessDenied -> "HTTP 403"
     is io.relais.api.ApiException.RateLimited -> "HTTP 429"
@@ -302,7 +304,7 @@ class PickSourcesViewModel(private val c: AppContainer) : ViewModel() {
             } catch (e: Exception) {
                 // Shown as an error, with its name, until the next search (founder, 15/11).
                 results.value = null
-                problem.value = searchProblem(e)
+                problem.value = searchProblem(e, c.repository.appname())
             } finally {
                 loading.value = false
             }

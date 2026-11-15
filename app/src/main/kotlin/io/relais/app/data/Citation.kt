@@ -28,7 +28,7 @@ fun ReportEntity.citationSource(): CitationSource = CitationSource(
     format = formatName,
     published = dateOriginal,
     posted = dateCreated,
-    url = urlAlias,
+    url = reliefWebPage,
 )
 
 /**

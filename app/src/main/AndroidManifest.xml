@@ -16,10 +16,17 @@
         </intent>
     </queries>
 
-    <!-- allowBackup is off: what you follow, save and read stays on this phone, appname included. -->
+    <!-- allowBackup is off: what you follow, save and read stays on this phone, appname included.
+         dataExtractionRules (Android 12 and later) and fullBackupContent (before) exclude every
+         file, for cloud backup and for a transfer to a new phone, which allowBackup alone does
+         not stop on Android 12 and later. No cleartext traffic: Android 8.0 and 8.1 allow it by
+         default (security audit of 15/11). -->
     <application
         android:name=".RelaisApp"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"

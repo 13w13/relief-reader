@@ -81,7 +81,7 @@ class PdfDownloaderTest {
     private suspend fun onPhone(name: String, reportId: Long, bytes: Int, at: Long, dir: File = cacheFolder): PdfEntity {
         dir.mkdirs()
         val file = File(dir, "$name.pdf").apply { writeBytes(ByteArray(bytes)) }
-        val pdf = PdfEntity("https://example.org/$name.pdf", reportId, file.absolutePath, bytes.toLong(), at)
+        val pdf = PdfEntity("https://reliefweb.int/attachments/$name.pdf", reportId, file.absolutePath, bytes.toLong(), at)
         dao.upsertPdf(pdf)
         return pdf
     }
@@ -160,12 +160,12 @@ class PdfDownloaderTest {
 
     @Test
     fun thePreloadDownloadsAPdfToTheCacheFolder() = runBlocking {
-        val result = downloader().download("https://example.org/new.pdf", 7, Preload.MAX_FILE_BYTES)
+        val result = downloader().download("https://reliefweb.int/attachments/new.pdf", 7, Preload.MAX_FILE_BYTES)
         assertTrue(result is Preloaded.Saved)
         val file = (result as Preloaded.Saved).file
         assertTrue(file.path.startsWith(cacheFolder.absolutePath))
         assertTrue(looksLikePdf(file))
-        assertEquals(file.absolutePath, dao.pdf("https://example.org/new.pdf")?.path)
+        assertEquals(file.absolutePath, dao.pdf("https://reliefweb.int/attachments/new.pdf")?.path)
         assertTrue(noPartFile())
     }
 
@@ -174,12 +174,12 @@ class PdfDownloaderTest {
         val pdfs = downloader()
         // Announced over the limit.
         body = { pdfBytes(5_000).toResponseBody("application/pdf".toMediaType()) }
-        assertEquals(Preloaded.TooLarge, pdfs.download("https://example.org/big.pdf", 8, maxBytes = 1_000))
+        assertEquals(Preloaded.TooLarge, pdfs.download("https://reliefweb.int/attachments/big.pdf", 8, maxBytes = 1_000))
         // No size announced: stopped at the limit while it comes in.
         body = { Buffer().write(pdfBytes(5_000)).asResponseBody("application/pdf".toMediaType(), -1) }
-        assertEquals(Preloaded.TooLarge, pdfs.download("https://example.org/unsized.pdf", 9, maxBytes = 1_000))
+        assertEquals(Preloaded.TooLarge, pdfs.download("https://reliefweb.int/attachments/unsized.pdf", 9, maxBytes = 1_000))
         body = { "<!DOCTYPE html><html><title>Just a moment...</title></html>".toResponseBody("text/html".toMediaType()) }
-        assertEquals(Preloaded.Failed, pdfs.download("https://example.org/page.pdf", 10, Preload.MAX_FILE_BYTES))
+        assertEquals(Preloaded.Failed, pdfs.download("https://reliefweb.int/attachments/page.pdf", 10, Preload.MAX_FILE_BYTES))
         assertTrue(dao.pdfs().isEmpty())
         assertTrue(noPartFile())
     }
@@ -188,10 +188,10 @@ class PdfDownloaderTest {
     fun aPreloadedPdfOverTheCapPushesOutTheOldestButNeverItself() = runBlocking {
         val old = onPhone("old", 1, 100, 1)
         body = { pdfBytes(190).toResponseBody("application/pdf".toMediaType()) }
-        val result = downloader(cap = 250).download("https://example.org/fresh.pdf", 2, Preload.MAX_FILE_BYTES)
+        val result = downloader(cap = 250).download("https://reliefweb.int/attachments/fresh.pdf", 2, Preload.MAX_FILE_BYTES)
         assertTrue(result is Preloaded.Saved)
         assertFalse(File(old.path).exists())
-        assertEquals(listOf("https://example.org/fresh.pdf"), dao.pdfs().map { it.url })
+        assertEquals(listOf("https://reliefweb.int/attachments/fresh.pdf"), dao.pdfs().map { it.url })
     }
 
     /** A server that sends a PDF slowly, 1 KB every 20 ms, without announcing its size. */
@@ -223,7 +223,7 @@ class PdfDownloaderTest {
         body = { slow.buffer().asResponseBody("application/pdf".toMediaType(), -1) }
         val pdfs = downloader()
         // The worker's coroutine, as WorkManager runs it, then stops it (metered network, setting off).
-        val worker = launch(Dispatchers.IO) { pdfs.download("https://example.org/slow.pdf", 1, Preload.MAX_FILE_BYTES) }
+        val worker = launch(Dispatchers.IO) { pdfs.download("https://reliefweb.int/attachments/slow.pdf", 1, Preload.MAX_FILE_BYTES) }
         assertTrue(slow.started.await(5, TimeUnit.SECONDS))
         delay(200)
         worker.cancelAndJoin()
