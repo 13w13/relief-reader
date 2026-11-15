@@ -6,6 +6,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import java.io.File
 
@@ -103,12 +105,75 @@ class TrustedUrlsTest {
         }
     }
 
+    /** A made-up server behind [ImageHops]: each address asked is noted; [redirects] sends on. */
+    private class ImageServer {
+        val asked = mutableListOf<String>()
+        val redirects = mutableMapOf<String, String>()
+        val client: okhttp3.OkHttpClient = okhttp3.OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .addInterceptor(ImageHops)
+            .addInterceptor { chain ->
+                val url = chain.request().url.toString()
+                asked += url
+                val builder = okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1)
+                val next = redirects[url]
+                if (next != null) {
+                    builder.code(302).message("Found").header("Location", next).body("".toByteArray().toResponseBody()).build()
+                } else {
+                    builder.code(200).message("OK").body("PNG".toByteArray().toResponseBody()).build()
+                }
+            }
+            .build()
+
+        fun get(url: String): Int = client.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { it.code }
+    }
+
+    @Test
+    fun imageRedirectsAreCheckedBeforeTheyAreAsked() {
+        val ok = ImageServer()
+        ok.redirects["https://images.example.org/a.png"] = "/b.png"
+        assertEquals(200, ok.get("https://images.example.org/a.png"))
+        assertEquals(listOf("https://images.example.org/a.png", "https://images.example.org/b.png"), ok.asked)
+
+        listOf("https://10.0.0.1/b.png", "http://images.example.org/b.png", "https://images.example.org:8443/b.png", "https://localhost/b.png", "https://[64:ff9b::a00:1]/b.png").forEach { target ->
+            val server = ImageServer()
+            server.redirects["https://images.example.org/a.png"] = target
+            try {
+                server.get("https://images.example.org/a.png")
+                fail("$target should be refused")
+            } catch (e: java.io.IOException) {
+                assertEquals(target, listOf("https://images.example.org/a.png"), server.asked)
+            }
+        }
+
+        val loop = ImageServer()
+        (0..9).forEach { loop.redirects["https://images.example.org/$it.png"] = "https://images.example.org/${it + 1}.png" }
+        try {
+            loop.get("https://images.example.org/0.png")
+            fail("too many redirects")
+        } catch (e: java.io.IOException) {
+            assertEquals(ImageHops.MAX_REDIRECTS + 1, loop.asked.size)
+        }
+        // The first address is checked too, before anything is asked.
+        val first = ImageServer()
+        try {
+            first.get("https://127.0.0.1/a.png")
+            fail("refused")
+        } catch (e: java.io.IOException) {
+            assertTrue(first.asked.isEmpty())
+        }
+    }
+
     @Test
     fun namesResolveToPublicAddressesOnly() {
         listOf("8.8.8.8", "1.1.1.1", "2001:4860:4860::8888").forEach {
             assertTrue(it, PublicDns.isPublic(java.net.InetAddress.getByName(it)))
         }
-        listOf("127.0.0.1", "10.0.0.1", "172.20.1.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fc00::1", "fd00::5").forEach {
+        listOf(
+            "127.0.0.1", "10.0.0.1", "172.20.1.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fc00::1", "fd00::5",
+            "64:ff9b::a00:1", "2002:c0a8:101::1", "2001:0:4136:e378::1", "198.18.0.1",
+        ).forEach {
             assertFalse(it, PublicDns.isPublic(java.net.InetAddress.getByName(it)))
         }
     }
@@ -119,6 +184,14 @@ class TrustedUrlsTest {
         listOf(
             "127.0.0.1", "10.0.0.1", "172.16.0.1", "172.31.255.255", "192.168.1.1", "169.254.169.254", "100.64.0.1",
             "0.0.0.0", "224.0.0.1", "::1", "::", "fe80::1", "fc00::1", "fd12:3456::1", "::ffff:10.0.0.1", "999.1.1.1",
+            // IPv4 inside IPv6 (security review of PR 26): NAT64, 6to4, IPv4-compatible.
+            "64:ff9b::a00:1", "64:ff9b::7f00:1", "64:ff9b:1::1", "2002:a00:1::", "2002:7f00:1::1", "::a00:1",
+            // Teredo, documentation, site-local.
+            "2001:0:4136:e378::1", "2001:db8::1", "fec0::1",
+            // A name is never looked up here.
+            "reliefweb.int", "localhost",
         ).forEach { assertFalse(it, TrustedUrls.isPublicAddress(it)) }
+        // The IPv4 inside is public: so is the address.
+        listOf("64:ff9b::808:808", "2002:808:808::1", "::ffff:8.8.8.8").forEach { assertTrue(it, TrustedUrls.isPublicAddress(it)) }
     }
 }

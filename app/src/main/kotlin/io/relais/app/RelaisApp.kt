@@ -95,13 +95,18 @@ class AppContainer(private val context: Context) {
         .build()
 
     /**
-     * For Coil: the app's client, with the User-Agent on every image request, each redirect
-     * checked like the first address, and names resolved to public addresses only.
+     * For Coil (security review of PR 26): the app's client with the User-Agent on every image
+     * request; redirects followed by [io.relais.app.data.ImageHops], which checks each address
+     * before connecting; names resolved to public addresses only; and no proxy, so that the
+     * address check holds (a system proxy would resolve names itself).
      */
     val imageHttp: OkHttpClient = okHttp.newBuilder()
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .proxy(java.net.Proxy.NO_PROXY)
         .dns(io.relais.app.data.PublicDns)
         .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build()) }
-        .addNetworkInterceptor(io.relais.app.data.ImageHops)
+        .addInterceptor(io.relais.app.data.ImageHops)
         .build()
 
     private val http = HttpClient(OkHttp) {

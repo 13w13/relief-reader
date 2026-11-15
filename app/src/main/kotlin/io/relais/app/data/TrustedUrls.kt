@@ -44,6 +44,7 @@ object TrustedUrls {
         }
         val parsed = https.toHttpUrlOrNull() ?: return null
         if (parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) return null
+        if (parsed.port != 443) return null
         if (isIpLiteral(parsed.host) && !isPublicAddress(parsed.host)) return null
         if (isLocalName(parsed.host)) return null
         return parsed.toString()
@@ -79,26 +80,22 @@ object TrustedUrls {
         host.contains(':') || IPV4.matches(host)
 
     /**
-     * Whether an IP address written as such is a public one: not loopback (127/8, ::1), private
-     * (10/8, 172.16/12, 192.168/16, fc00::/7), link-local (169.254/16, fe80::/10), unspecified,
-     * CGNAT (100.64/10) or multicast.
+     * Whether an IP address written as such is a public one, judged on its bytes by
+     * [PublicDns.isPublic] (IPv4 inside IPv6 included). A name, or a malformed address, is not.
+     * Never a DNS lookup: only literals are parsed.
      */
     fun isPublicAddress(host: String): Boolean {
-        if (IPV4.matches(host)) {
-            val p = host.split('.').map { it.toInt() }
-            if (p.any { it > 255 }) return false
-            val (a, b) = p[0] to p[1]
-            return !(a == 0 || a == 10 || a == 127 || a >= 224 ||
-                (a == 169 && b == 254) || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 100 && b in 64..127))
+        val h = host.removePrefix("[").removeSuffix("]").substringBefore('%')
+        val address = when {
+            IPV4.matches(h) -> {
+                val parts = h.split('.').map { it.toInt() }
+                if (parts.any { it > 255 }) return false
+                java.net.InetAddress.getByAddress(ByteArray(4) { parts[it].toByte() })
+            }
+            h.contains(':') -> runCatching { java.net.InetAddress.getByName(h) }.getOrNull() ?: return false
+            else -> return false
         }
-        val h = host.lowercase()
-        if (!h.contains(':')) return false
-        if (h == "::" || h == "::1") return false
-        // IPv4 mapped or compatible (::ffff:10.0.0.1): judged as the IPv4 address.
-        val tail = h.substringAfterLast(':')
-        if (IPV4.matches(tail)) return isPublicAddress(tail)
-        val first = h.substringBefore(':').ifEmpty { "0" }.toIntOrNull(16) ?: return false
-        return !(first and 0xfe00 == 0xfc00 || first and 0xffc0 == 0xfe80 || first and 0xff00 == 0xff00 || first == 0)
+        return PublicDns.isPublic(address)
     }
 
     private val IPV4 = Regex("""\d{1,3}(\.\d{1,3}){3}""")

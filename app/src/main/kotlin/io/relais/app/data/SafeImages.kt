@@ -32,29 +32,80 @@ object SafeImages : Interceptor {
 }
 
 /**
- * Every request of the image client, redirects included, checked as the first address was
- * ([TrustedUrls.image]): a redirect to http, to localhost or to a private address fails there.
- * A network interceptor, so it sees each hop OkHttp follows.
+ * The redirects of the image client, followed here one by one (the client follows none): each
+ * address, the first and every Location, is checked by [allowed] before any connection is made
+ * (security review of PR 26). Five redirects at most.
  */
 object ImageHops : okhttp3.Interceptor {
-    fun allowed(url: okhttp3.HttpUrl): Boolean = url.isHttps && TrustedUrls.image(url.toString()) != null
+    const val MAX_REDIRECTS = 5
+
+    /** https on port 443, and what [TrustedUrls.image] accepts. */
+    fun allowed(url: okhttp3.HttpUrl): Boolean = url.isHttps && url.port == 443 && TrustedUrls.image(url.toString()) != null
 
     override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
-        if (!allowed(chain.request().url)) throw java.io.IOException("Image address refused")
-        return chain.proceed(chain.request())
+        var request = chain.request()
+        repeat(MAX_REDIRECTS + 1) {
+            if (!allowed(request.url)) throw java.io.IOException("Image address refused")
+            val response = chain.proceed(request)
+            if (!response.isRedirect) return response
+            val next = response.header("Location")?.let { request.url.resolve(it) } ?: return response
+            response.close()
+            request = request.newBuilder().url(next).build()
+        }
+        throw java.io.IOException("Too many redirects")
     }
 }
 
 /**
  * A name resolves to public addresses only, for the image and PDF clients (security review of
  * PR 26): a host whose name points at the phone, the local network or a link-local address is
- * not reached, whatever its name says. Addresses written as such are checked by [TrustedUrls].
+ * not reached, whatever its name says. Judged on the address's bytes, IPv4 inside IPv6 included.
  */
 object PublicDns : okhttp3.Dns {
-    fun isPublic(address: java.net.InetAddress): Boolean =
-        !(address.isLoopbackAddress || address.isAnyLocalAddress || address.isLinkLocalAddress ||
-            address.isSiteLocalAddress || address.isMulticastAddress) &&
-            TrustedUrls.isPublicAddress(address.hostAddress.orEmpty().substringBefore('%'))
+    fun isPublic(address: java.net.InetAddress): Boolean {
+        val b = address.address.map { it.toInt() and 0xff }
+        return when (b.size) {
+            4 -> isPublicV4(b)
+            16 -> isPublicV6(b)
+            else -> false
+        }
+    }
+
+    /**
+     * Not 0/8, 10/8, 127/8, 169.254/16, 172.16/12, 192.168/16, 100.64/10 (CGNAT), 192.0.0/24,
+     * 198.18/15 (benchmarks), nor multicast and above (224/3).
+     */
+    private fun isPublicV4(b: List<Int>): Boolean {
+        val (a, c) = b[0] to b[1]
+        return !(a == 0 || a == 10 || a == 127 || a >= 224 ||
+            (a == 169 && c == 254) || (a == 172 && c in 16..31) || (a == 192 && c == 168) ||
+            (a == 100 && c in 64..127) || (a == 192 && c == 0 && b[2] == 0) || (a == 198 && c in 18..19))
+    }
+
+    /**
+     * Not ::/96 (unspecified, loopback, IPv4-compatible), nor fc00::/7, fe80::/10, fec0::/10,
+     * multicast, Teredo (2001::/32), documentation (2001:db8::/32), local NAT64 (64:ff9b:1::/48).
+     * An IPv4 address carried inside (::ffff:0:0/96, NAT64 64:ff9b::/96, 6to4 2002::/16) is
+     * judged as IPv4.
+     */
+    private fun isPublicV6(b: List<Int>): Boolean {
+        fun v4(from: Int) = isPublicV4(b.subList(from, from + 4))
+        val nat64 = b[0] == 0x00 && b[1] == 0x64 && b[2] == 0xff && b[3] == 0x9b
+        return when {
+            b.subList(0, 12).all { it == 0 } -> false
+            b.subList(0, 10).all { it == 0 } && b[10] == 0xff && b[11] == 0xff -> v4(12)
+            nat64 && b.subList(4, 12).all { it == 0 } -> v4(12)
+            nat64 && b[4] == 0x00 && b[5] == 0x01 -> false
+            b[0] == 0x20 && b[1] == 0x02 -> v4(2)
+            b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x00 && b[3] == 0x00 -> false
+            b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x0d && b[3] == 0xb8 -> false
+            (b[0] and 0xfe) == 0xfc -> false
+            b[0] == 0xfe && (b[1] and 0xc0) == 0x80 -> false
+            b[0] == 0xfe && (b[1] and 0xc0) == 0xc0 -> false
+            b[0] == 0xff -> false
+            else -> true
+        }
+    }
 
     override fun lookup(hostname: String): List<java.net.InetAddress> {
         val public = okhttp3.Dns.SYSTEM.lookup(hostname).filter { isPublic(it) }
