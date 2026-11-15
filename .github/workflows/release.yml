@@ -125,12 +125,38 @@ jobs:
           name: rel-release-apk
           path: dist
 
-      - name: Check the APK against its checksum
+      # Exactly one APK, intact, and signed with the certificate published in the README (review
+      # of PR 25). apksigner comes from the runner's Android SDK: nothing is installed.
+      - name: Check the APK, its checksum and its signing certificate
         run: |
           set -eu
-          cd dist
-          ls -l
-          sha256sum -c ./*.apk.sha256
+          ls -l dist
+          APKS=$(find dist -maxdepth 1 -type f -name '*.apk' | wc -l)
+          if [ "$APKS" -ne 1 ]; then
+            echo "::error::Expected exactly one APK in dist, found $APKS."
+            exit 1
+          fi
+          APK=$(find dist -maxdepth 1 -type f -name '*.apk')
+          (cd dist && sha256sum -c ./*.apk.sha256)
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          TOOLS=$( (ls -d "$SDK"/build-tools/* 2>/dev/null || true) | sort -V | tail -n 1)
+          if [ -z "$TOOLS" ] || [ ! -x "$TOOLS/apksigner" ]; then
+            echo "::error::apksigner not found under $SDK/build-tools."
+            exit 1
+          fi
+          EXPECTED=$( (grep -oE '([0-9A-F]{2}:){31}[0-9A-F]{2}' README.md || true) | head -n 1 | tr -d ':' | tr 'A-F' 'a-f')
+          if [ -z "$EXPECTED" ]; then
+            echo "::error::No certificate fingerprint in README.md."
+            exit 1
+          fi
+          OUT=$("$TOOLS/apksigner" verify --print-certs "$APK")
+          echo "$OUT"
+          FOUND=$( (echo "$OUT" | grep -E 'certificate SHA-256 digest:' || true) | sed -E 's/.*digest: *//' | tr -d ': ' | tr 'A-F' 'a-f' | sort -u)
+          if [ "$FOUND" != "$EXPECTED" ]; then
+            echo "::error::The APK is signed with '$FOUND', not the certificate published in the README ($EXPECTED)."
+            exit 1
+          fi
+          echo "Signed with the certificate published in the README."
 
       # Provenance: who built the APK, from which commit and workflow. Readers can check it with
       # `gh attestation verify rel-X.Y.Z.apk --repo 13w13/relief-reader` (README).
@@ -143,9 +169,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -eu
-          # A tag with a dash (v0.1.0-alpha) is published as a pre-release.
-          PRE=""
-          case "$GITHUB_REF_NAME" in *-*) PRE="--prerelease" ;; esac
           # Notes come from release-notes/<tag>.md when the file exists.
           NOTES="release-notes/$GITHUB_REF_NAME.md"
           if [ -f "$NOTES" ]; then
@@ -153,4 +176,4 @@ jobs:
           else
             set -- --notes "Re.L, an unofficial ReliefWeb reader. Signed APK, install on Android 8.0 or later."
           fi
-          gh release create "$GITHUB_REF_NAME" dist/* $PRE --repo "$GITHUB_REPOSITORY" --verify-tag --title "Re.L $GITHUB_REF_NAME" "$@"
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "Re.L $GITHUB_REF_NAME" "$@"

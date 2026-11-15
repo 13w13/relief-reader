@@ -15,7 +15,8 @@ updates:
     groups:
       # Android Gradle plugin, Kotlin, its compiler plugins and KSP move together.
       build:
-        patterns: ["com.android.*", "org.jetbrains.kotlin*", "com.google.devtools.ksp*"]
+        # Not "org.jetbrains.kotlin*", which would take kotlinx (coroutines, serialization) too.
+        patterns: ["com.android.*", "org.jetbrains.kotlin:*", "org.jetbrains.kotlin.*", "com.google.devtools.ksp*"]
       compose:
         patterns: ["androidx.compose*", "androidx.activity*", "androidx.navigation*", "androidx.lifecycle*"]
       androidx:

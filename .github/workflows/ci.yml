@@ -37,6 +37,19 @@ jobs:
           tar -xzf "$TGZ" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color -shellcheck= -pyflakes=
 
+      # release.yml checks the signing certificate with apksigner from the runner's Android SDK,
+      # without installing anything: this step proves the runner has it.
+      - name: Check that the runner has apksigner
+        run: |
+          set -eu
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          TOOLS=$( (ls -d "$SDK"/build-tools/* 2>/dev/null || true) | sort -V | tail -n 1)
+          if [ -z "$TOOLS" ] || [ ! -x "$TOOLS/apksigner" ]; then
+            echo "::error::apksigner not found under $SDK/build-tools."
+            exit 1
+          fi
+          echo "$TOOLS/apksigner $("$TOOLS/apksigner" --version)"
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
