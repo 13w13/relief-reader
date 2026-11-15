@@ -37,7 +37,11 @@ The [release notes](https://github.com/13w13/relief-reader/releases/latest) desc
 
 Re.L is not on Google Play. Its inclusion in F-Droid has been requested ([fdroid/rfp#4792](https://gitlab.com/fdroid/rfp/-/issues/4792)); until then, the APK is here. On your phone, download the `.apk` file under **Assets** in the [latest release](https://github.com/13w13/relief-reader/releases/latest) and open it. Your browser, Android or Google Play Protect may warn about an app they don't know. Download it only from this page.
 
-To update, install the new APK over the old one. Your countries, Library and settings stay. To hear about new versions, use **Watch > Custom > Releases** on this page.
+To update, install the new APK over the old one. Your countries, Library and settings stay. To hear about new versions:
+
+- **In the app.** Once a day, Re.L checks this page's latest release, and Today says when a newer version is out. **See the release** opens the release page; the app never downloads or installs anything itself. Turn it off in Settings > About Re.L > **Check for new versions**.
+- **On GitHub.** Use **Watch > Custom > Releases** on this page.
+- **With [Obtainium](https://github.com/ImranR98/Obtainium).** Add this repository's address: Obtainium follows its releases and offers to install each new APK.
 
 <details>
 <summary>Check the signature, and a note for Brazil, Indonesia, Singapore and Thailand</summary>
@@ -66,7 +70,7 @@ Keep your appname to yourself. Don't publish it, don't paste it in an issue, and
 
 ## Privacy
 
-Re.L has no account, no ads, no analytics and no crash reporting. It talks to `api.reliefweb.int` and `reliefweb.int`. When a report includes an image hosted on another site, the app loads that image from there. What you follow, what you read, your highlights and your appname stay on your phone. It asks for internet access and, if you want the daily summary or alerts, for notifications.
+Re.L has no account, no ads, no analytics and no crash reporting. It talks to `api.reliefweb.int` and `reliefweb.int`. When a report includes an image hosted on another site, the app loads that image from there. Once a day, it also asks `api.github.com` for the number of its latest release: that request carries no appname, no account and nothing about you, though GitHub sees your IP address, as any site you open does. Settings > About Re.L > **Check for new versions** turns it off, and a build from F-Droid, once Re.L is there, has no such check. What you follow, what you read, your highlights and your appname stay on your phone. It asks for internet access and, if you want the daily summary or alerts, for notifications.
 
 ## Whose content this is
 

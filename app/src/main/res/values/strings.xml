@@ -534,6 +534,12 @@
     <string name="whats_new_03_text_3">A black r and a red dot, on your home screen.</string>
     <string name="whats_new_03_lead_4">Swipe messages away.</string>
     <string name="whats_new_03_text_4">Slide a message sideways to close it.</string>
+    <!-- A new version (founder, 15/11): the notice on Today and the switch in Settings > About -->
+    <string name="update_available">Re.L %1$s is available</string>
+    <string name="update_see_release">See the release</string>
+    <string name="update_not_now">Not now</string>
+    <string name="settings_update_check">Check for new versions</string>
+    <string name="settings_update_check_help">Once a day, Re.L asks GitHub (api.github.com) for the number of its latest version. It sends nothing about you.</string>
     <string name="today_headlines_only">Headlines only. Add an appname in Settings to read full reports, country pages and search.</string>
     <!-- T19, open source (GPL-3.0-or-later) -->
     <string name="licences_title">Open source licences</string>

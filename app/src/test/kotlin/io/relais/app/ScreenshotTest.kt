@@ -3,6 +3,9 @@
 package io.relais.app
 
 import android.app.Application
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -23,6 +26,7 @@ import io.relais.api.ApiResponse
 import io.relais.api.HtmlBlocks
 import io.relais.api.RelaisJson
 import io.relais.api.ReportFields
+import io.relais.app.data.LatestRelease
 import io.relais.app.data.ReportEntity
 import io.relais.app.data.toEntity
 import io.relais.app.ui.BlockView
@@ -32,6 +36,7 @@ import io.relais.app.ui.HeadlineNavBlock
 import io.relais.app.ui.HeadlinePile
 import io.relais.app.ui.PageFilter
 import io.relais.app.ui.TodayDateLine
+import io.relais.app.ui.UpdateLine
 import io.relais.app.ui.headlinePlace
 import io.relais.app.ui.headlinesNote
 import io.relais.app.ui.RelaisTheme
@@ -120,6 +125,38 @@ class ScreenshotTest {
     fun todayDark() {
         val headlines = reports("headlines.json").take(6)
         shoot("today-dark", dark = true) { TodayPile(headlines, readIds = setOf(headlines[0].id), page = 1) }
+    }
+
+    /** "Re.L 0.5.2 is available" at the top of Today (founder, 15/11). */
+    @Composable
+    private fun TodayWithUpdate(headlines: List<ReportEntity>) {
+        Column {
+            UpdateLine(LatestRelease("0.5.2", "https://github.com/13w13/relief-reader/releases/tag/v0.5.2"), onNotNow = {}, onOpen = {})
+            TodayPile(headlines, readIds = setOf(headlines[0].id), page = 1)
+        }
+    }
+
+    @Test
+    fun todayUpdate() {
+        val headlines = reports("headlines.json").take(6)
+        shoot("today-update") { TodayWithUpdate(headlines) }
+    }
+
+    @Test
+    fun todayUpdateDark() {
+        val headlines = reports("headlines.json").take(6)
+        shoot("today-update-dark", dark = true) { TodayWithUpdate(headlines) }
+    }
+
+    /** At 200 % text on a 360 dp phone, the buttons go under the message (review of PR 23). */
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xxhdpi")
+    fun todayUpdateLargeText() {
+        val headlines = reports("headlines.json").take(6)
+        shoot("today-update-font-200") {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) { TodayWithUpdate(headlines) }
+        }
     }
 
     /** After the sixth: the week's titles, then "Older headlines". */

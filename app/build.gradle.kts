@@ -32,6 +32,14 @@ fun buildLink(name: String, default: String = ""): String = providers.environmen
 
 fun String.asJavaString(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+// "A new version is available" (founder, 15/11): once a day the app asks GitHub for the latest
+// release. On by default. An F-Droid build turns it off with the Gradle property
+// updateCheck=false (gradleprops in the recipe) or the REL_UPDATE_CHECK=false environment
+// variable: then no request, no notice and no switch in Settings.
+val updateCheck: Boolean = (providers.gradleProperty("updateCheck").orNull
+    ?: providers.environmentVariable("REL_UPDATE_CHECK").orNull
+    ?: "true").trim().lowercase() != "false"
+
 // Release key: decoded by release.yml from the RELEASE_* secrets when they exist.
 // Without them, release builds are left unsigned (F-Droid signs its own).
 val releaseKeystore: String? = providers.environmentVariable("RELEASE_KEYSTORE_FILE").orNull?.takeIf { it.isNotBlank() }
@@ -51,6 +59,7 @@ android {
         buildConfigField("String", "RELIEFWEB_APPNAME", reliefwebAppname.trim().asJavaString())
         buildConfigField("String", "SOURCE_URL", buildLink("REL_SOURCE_URL", "https://github.com/13w13/relief-reader").trim().asJavaString())
         buildConfigField("String", "FEEDBACK_URL", buildLink("REL_FEEDBACK_URL").trim().asJavaString())
+        buildConfigField("boolean", "UPDATE_CHECK", updateCheck.toString())
         buildConfigField("String", "ISSUES_URL", buildLink("REL_ISSUES_URL", "https://github.com/13w13/relief-reader/issues").trim().asJavaString())
         // Instrumented tests: the PDF text benchmark (pdf-bench.yml).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

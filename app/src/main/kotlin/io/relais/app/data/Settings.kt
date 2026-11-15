@@ -70,6 +70,15 @@ data class Settings(
     val preloadPdfs: Boolean = true,
     /** The space for the PDFs of reports not saved, in MB (issue 6): one of PdfCache.CAPS_MB. */
     val pdfCapMb: Int = PdfCache.DEFAULT_CAP_MB,
+    /** "Check for new versions" (Settings > About): on by default; off, no request (UpdateCheck). */
+    val updateCheck: Boolean = true,
+    /** The last request to GitHub for the latest release, answered or not. */
+    val updateCheckedAt: Long = 0,
+    /** The latest release found: its version ("0.5.2") and its page. */
+    val updateVersion: String? = null,
+    val updateUrl: String? = null,
+    /** The version whose notice was closed with "Not now": the next one shows again. */
+    val updateDismissed: String? = null,
 )
 
 /**
@@ -121,6 +130,11 @@ class SettingsStore(private val context: Context) {
         val alertCount = intPreferencesKey("alert_count")
         val preloadPdfs = booleanPreferencesKey("preload_pdfs")
         val pdfCapMb = intPreferencesKey("pdf_cap_mb")
+        val updateCheck = booleanPreferencesKey("update_check")
+        val updateCheckedAt = longPreferencesKey("update_checked_at")
+        val updateVersion = stringPreferencesKey("update_version")
+        val updateUrl = stringPreferencesKey("update_url")
+        val updateDismissed = stringPreferencesKey("update_dismissed")
         fun country(id: Long) = stringPreferencesKey("country_$id")
     }
 
@@ -158,6 +172,11 @@ class SettingsStore(private val context: Context) {
             alertCount = p[Keys.alertCount] ?: 0,
             preloadPdfs = p[Keys.preloadPdfs] ?: true,
             pdfCapMb = p[Keys.pdfCapMb] ?: PdfCache.DEFAULT_CAP_MB,
+            updateCheck = p[Keys.updateCheck] ?: true,
+            updateCheckedAt = p[Keys.updateCheckedAt] ?: 0,
+            updateVersion = p[Keys.updateVersion],
+            updateUrl = p[Keys.updateUrl],
+            updateDismissed = p[Keys.updateDismissed],
         )
     }
 
@@ -229,6 +248,18 @@ class SettingsStore(private val context: Context) {
     suspend fun setAlerts(on: Boolean) = context.dataStore.edit { it[Keys.alerts] = on }
     suspend fun setPreloadPdfs(on: Boolean) = context.dataStore.edit { it[Keys.preloadPdfs] = on }
     suspend fun setPdfCapMb(mb: Int) = context.dataStore.edit { it[Keys.pdfCapMb] = mb }
+    suspend fun setUpdateCheck(on: Boolean) = context.dataStore.edit { it[Keys.updateCheck] = on }
+
+    /** A check of the latest release: its time always; the release only when one was read. */
+    suspend fun recordUpdateCheck(at: Long, found: LatestRelease?) = context.dataStore.edit {
+        it[Keys.updateCheckedAt] = at
+        if (found != null) {
+            it[Keys.updateVersion] = found.version
+            it[Keys.updateUrl] = found.url
+        }
+    }
+
+    suspend fun dismissUpdate(version: String) = context.dataStore.edit { it[Keys.updateDismissed] = version }
 
     /** Keeps the 50 latest hidden pins: older ones have long left the 30-day window. */
     suspend fun hidePin(reportId: Long) = context.dataStore.edit { p ->
