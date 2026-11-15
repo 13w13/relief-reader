@@ -61,17 +61,19 @@ class SizeControlsTest {
     }
 
     /**
-     * A label is cut when it doesn't fit its width: wider than the room it got, ellipsized, or on
-     * more than one line. Height is left out: inside a segment the text's line box can exceed the
-     * content height without any visible clipping (seen on the screenshots of 718468b).
+     * A label is cut when its natural width on one line is wider than the room it got, when it is
+     * ellipsized, or when it takes more than one line. Compose's own flags don't say it here: with
+     * an ellipsis the paragraph is laid out at the full room, so didOverflowWidth is true for
+     * "System", 54 px wide in 88 (run of a3982b1), and hasVisualOverflow counts the line box.
      */
     private fun SemanticsNodeInteraction.assertWhole(what: String) {
         val r = layout()
         val last = r.lineCount - 1
-        val cut = r.didOverflowWidth || r.isLineEllipsized(last) || r.lineCount > 1
+        val natural = kotlin.math.ceil(r.multiParagraph.intrinsics.maxIntrinsicWidth).toInt()
+        val room = r.layoutInput.constraints.maxWidth
+        val cut = natural > room || r.isLineEllipsized(last) || r.lineCount > 1
         assertFalse(
-            "$what is cut: width overflow ${r.didOverflowWidth}, ellipsis ${r.isLineEllipsized(last)}, lines ${r.lineCount}, " +
-                "height overflow ${r.didOverflowHeight}, size ${r.size}, constraints ${r.layoutInput.constraints}",
+            "$what is cut: natural width $natural, room $room, ellipsis ${r.isLineEllipsized(last)}, lines ${r.lineCount}, size ${r.size}",
             cut,
         )
     }
