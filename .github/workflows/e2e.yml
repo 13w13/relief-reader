@@ -34,6 +34,9 @@ jobs:
     timeout-minutes: 60
     env:
       MAESTRO_VERSION: 2.12.1
+      # The SHA-256 of maestro.zip for that version, from checksums_sha256.txt in the release
+      # cli-<version> of mobile-dev-inc/Maestro. Change both lines together.
+      MAESTRO_SHA256: 54dbb0716425626604973cbb374c585ca30272375d9ce15177a1152765ddd9d7
       # No usage analytics from the Maestro CLI.
       MAESTRO_CLI_NO_ANALYTICS: '1'
       # The emulator is slow to start Maestro's driver on a shared runner.
@@ -105,19 +108,35 @@ jobs:
           git worktree remove --force "$RUNNER_TEMP/before"
 
       - name: Install Maestro ${{ env.MAESTRO_VERSION }}
-        # The download sometimes fails (HTTP 504 on 8/11) while the installer exits 0: retry,
-        # then fail here with a clear message rather than at "maestro: not found".
+        # The release zip of that version, checked against its SHA-256 before anything runs, in
+        # place of the installer script piped to bash (security audit of 15/11). The download
+        # sometimes fails (HTTP 504 on 8/11): retry, then fail here with a clear message.
         run: |
+          set -eu
+          ZIP="$RUNNER_TEMP/maestro.zip"
+          URL="https://github.com/mobile-dev-inc/Maestro/releases/download/cli-$MAESTRO_VERSION/maestro.zip"
           for attempt in 1 2 3; do
-            curl -fsSL "https://get.maestro.mobile.dev" | bash && [ -x "$HOME/.maestro/bin/maestro" ] && break
+            curl -fsSL --retry 2 -o "$ZIP" "$URL" && break
             echo "Maestro download failed (attempt $attempt), retrying in 30 s"
             sleep 30
           done
-          if [ ! -x "$HOME/.maestro/bin/maestro" ]; then
-            echo "::error::Maestro could not be installed"
+          if [ ! -s "$ZIP" ]; then
+            echo "::error::Maestro $MAESTRO_VERSION could not be downloaded"
             exit 1
           fi
-          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          if ! echo "$MAESTRO_SHA256  $ZIP" | sha256sum -c -; then
+            echo "::error::maestro.zip does not match MAESTRO_SHA256: not installed"
+            exit 1
+          fi
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/maestro"
+          BIN=$(find "$RUNNER_TEMP/maestro" -type f -path '*/bin/maestro' | head -n 1)
+          if [ -z "$BIN" ]; then
+            echo "::error::No bin/maestro in maestro.zip"
+            exit 1
+          fi
+          chmod +x "$BIN"
+          echo "$(dirname "$BIN")" >> "$GITHUB_PATH"
+          "$BIN" --version
 
       # Each line of `script` runs on its own (sh -c). The Maestro exit code is kept in a
       # file so that logcat is dumped before the step fails.
