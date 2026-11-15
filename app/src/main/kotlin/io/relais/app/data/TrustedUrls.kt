@@ -29,10 +29,10 @@ object TrustedUrls {
     fun isFileUrl(url: String?): Boolean = url?.trim()?.toHttpUrlOrNull()?.let { isFileUrl(it) } ?: false
 
     /**
-     * The address of an image the app loads (Coil, the images of reports): https only. An http
-     * address is moved to https; anything else (file:, content:, android.resource:, data:) and
-     * an IP address that is private, loopback or link-local give null. Images may come from
-     * other hosts than ReliefWeb: a report can include them.
+     * The address of an image the app loads (Coil, the images of reports): https on port 443, on
+     * a named host. An http address is moved to https; anything else (file:, content:,
+     * android.resource:, data:), an IP address and localhost give null. Images may come from other
+     * hosts than ReliefWeb: an image pasted in a report keeps its original host (Product, 15/11).
      */
     fun image(url: String?): String? {
         val text = url?.trim()?.takeIf { it.isNotEmpty() } ?: return null
@@ -46,11 +46,10 @@ object TrustedUrls {
         if (parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) return null
         if (parsed.port != 443) return null
         val host = parsed.host
-        when {
-            isIpLiteral(host) -> if (!isCanonicalIpv4OrIpv6(host) || !isPublicAddress(host)) return null
-            // 127.1, 2130706433, 0x7f.0.0.1: a resolver may read them as an address (review of PR 26).
-            looksNumeric(host) -> return null
-        }
+        // A name, never an IP address, public or not (Product, 15/11: real images are on named
+        // hosts). Nor 127.1, 2130706433 or 0x7f.0.0.1, which a resolver may read as an address
+        // (review of PR 26).
+        if (isIpLiteral(host) || looksNumeric(host)) return null
         if (isLocalName(host)) return null
         return parsed.toString()
     }
@@ -82,16 +81,12 @@ object TrustedUrls {
 
     /**
      * A name that a resolver may read as an IPv4 address: its last label is all digits, or starts
-     * with 0x. Such a host is refused unless it is a plain dotted quad ([isIpLiteral]).
+     * with 0x.
      */
     fun looksNumeric(host: String): Boolean {
         val last = host.trimEnd('.').substringAfterLast('.')
         return last.isNotEmpty() && (last.all { it in '0'..'9' } || last.startsWith("0x", ignoreCase = true))
     }
-
-    /** IPv6, or four decimal numbers without leading zeros (010.0.0.1 may be read as octal). */
-    private fun isCanonicalIpv4OrIpv6(host: String): Boolean =
-        host.contains(':') || host.split('.').all { it == "0" || !it.startsWith('0') }
 
     /** An IPv4 or IPv6 address written as such (OkHttp keeps IPv6 without brackets). */
     fun isIpLiteral(host: String): Boolean =
