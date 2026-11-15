@@ -83,6 +83,20 @@ class UpdateCheckTest {
             "https://github.com/../13w13/relief-reader/releases",
             "https://someone@github.com/13w13/relief-reader/releases",
             "https://github.com:8443/13w13/relief-reader/releases",
+            // Encoded segments: a browser decodes them and leaves the repository (review of PR 23).
+            "https://github.com/13w13/relief-reader/%2e%2e/other",
+            "https://github.com/13w13/relief-reader/%2E%2E/%2E%2E/other/releases",
+            "https://github.com/13w13/relief-reader/releases/tag/%2e%2e",
+            "https://github.com/13w13/relief-reader/releases/tag/v0.5.2%2F..%2F..",
+            "https://github.com/13w13/relief-reader/releases/tag/../../../other",
+            "https://github.com/13w13/relief-reader/releases/tag/.hidden",
+            "https://github.com/13w13/relief-reader/releases/tag/",
+            "https://github.com/13w13/relief-reader/releases/tag/v0.5.2/extra",
+            "https://github.com/13w13/relief-reader/releases?after=v0.5.2",
+            "https://github.com/13w13/relief-reader/releases/tag/v0.5.2#assets",
+            "https://github.com/13w13/relief-reader/issues",
+            "https://github.com/13w13/relief-reader/",
+            "https://GitHub.com/13w13/relief-reader/releases",
             "javascript:alert(1)",
             "intent://github.com/13w13/relief-reader/#Intent;end",
             "not a url",
@@ -93,6 +107,11 @@ class UpdateCheckTest {
         assertEquals(
             "https://github.com/13w13/relief-reader/releases/tag/v0.5.2",
             UpdateCheck.releasePage(" https://github.com/13w13/relief-reader/releases/tag/v0.5.2 "),
+        )
+        assertEquals("https://github.com/13w13/relief-reader/releases", UpdateCheck.releasePage("https://github.com/13w13/relief-reader/releases"))
+        assertEquals(
+            "https://github.com/13w13/relief-reader/releases/tag/v1.0.0_final-2",
+            UpdateCheck.releasePage("https://github.com/13w13/relief-reader/releases/tag/v1.0.0_final-2"),
         )
     }
 
@@ -271,6 +290,8 @@ class UpdateCheckTest {
     fun anUnsafeStoredPageShowsNothing() {
         val phone = Phone()
         phone.settings = Settings(updateVersion = "0.6.0", updateUrl = "https://example.org/13w13/relief-reader/")
+        assertNull(phone.notice)
+        phone.settings = Settings(updateVersion = "0.6.0", updateUrl = "https://github.com/13w13/relief-reader/%2e%2e/other")
         assertNull(phone.notice)
     }
 }

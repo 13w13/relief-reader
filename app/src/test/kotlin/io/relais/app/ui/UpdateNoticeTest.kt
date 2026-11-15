@@ -6,8 +6,12 @@ import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -45,12 +49,46 @@ class UpdateNoticeTest {
         assertEquals(1, notNow)
     }
 
+    private fun notice(fontScale: Float) {
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+                RelaisTheme(darkTheme = false) { UpdateLine(release, onNotNow = {}, onOpen = {}) }
+            }
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun atNormalSizeTheButtonsShareTheLine() {
+        notice(fontScale = 1f)
+        val text = compose.onNodeWithTag("update_text").getBoundsInRoot()
+        val open = compose.onNodeWithTag("update_open").getBoundsInRoot()
+        assertTrue("buttons on the message's line", open.top < text.bottom && open.left >= text.right)
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun atLargeTextTheMessageKeepsTheWidthAndTheButtonsGoUnder() {
+        notice(fontScale = 2f)
+        val line = compose.onNodeWithTag("update_line").getBoundsInRoot()
+        val text = compose.onNodeWithTag("update_text").getBoundsInRoot()
+        val notNow = compose.onNodeWithTag("update_not_now").getBoundsInRoot()
+        val open = compose.onNodeWithTag("update_open").getBoundsInRoot()
+        assertTrue("buttons under the message", notNow.top >= text.bottom && open.top >= text.bottom)
+        // The message keeps at least half the line.
+        val textWidth = text.right - text.left
+        val lineWidth = line.right - line.left
+        assertTrue("message width $textWidth of $lineWidth", textWidth >= lineWidth / 2)
+        compose.onNodeWithText("Re.L 0.5.2 is available").assertIsDisplayed()
+    }
+
     @Test
     fun aPageOutsideTheRepositoryNeverOpens() {
         val opened = mutableListOf<String>()
         compose.setContent {
             RelaisTheme(darkTheme = false) {
-                UpdateLine(LatestRelease("0.5.2", "https://example.org/13w13/relief-reader/"), onNotNow = {}, onOpen = { opened += it })
+                UpdateLine(LatestRelease("0.5.2", "https://github.com/13w13/relief-reader/%2e%2e/other"), onNotNow = {}, onOpen = { opened += it })
             }
         }
         compose.onNodeWithTag("update_open").performClick()

@@ -110,9 +110,6 @@ class UpdateCheck(
         const val DAY = 24 * 60 * 60 * 1000L
         const val LATEST_URL = "https://api.github.com/repos/13w13/relief-reader/releases/latest"
 
-        /** The only pages the notice opens. */
-        const val RELEASE_PAGES = "https://github.com/13w13/relief-reader/"
-
         /** The same for every phone and version: nothing that tells one reader from another. */
         const val USER_AGENT = "Re.L (Android)"
 
@@ -120,8 +117,8 @@ class UpdateCheck(
         const val MAX_BYTES = 512L * 1024
 
         /**
-         * A release from the answer of /releases/latest: a readable tag, a page on
-         * [RELEASE_PAGES], not a draft, not a pre-release. Anything else gives null.
+         * A release from the answer of /releases/latest: a readable tag, a page that
+         * [releasePage] accepts, not a draft, not a pre-release. Anything else gives null.
          */
         fun parse(text: String): LatestRelease? {
             val obj = runCatching { io.relais.api.RelaisJson.parseToJsonElement(text) }.getOrNull() as? JsonObject ?: return null
@@ -134,15 +131,23 @@ class UpdateCheck(
         }
 
         /**
-         * The address, normalized, when it is an https page of the repository on github.com;
-         * otherwise null. "https://github.com/13w13/relief-reader/../other" is refused.
+         * The address when it is the releases page of the repository or the page of one release,
+         * in a strict form: https, github.com, no user info, no port, no query, no fragment, and a
+         * path that is exactly /13w13/relief-reader/releases or …/releases/tag/<tag>, without any
+         * encoded character. Otherwise null: "…/relief-reader/%2e%2e/other" is refused (review of
+         * PR 23), since a browser would decode it and leave the repository.
          */
         fun releasePage(url: String): String? {
-            val uri = runCatching { URI(url.trim()).normalize() }.getOrNull() ?: return null
-            if (uri.scheme != "https" || uri.host != "github.com" || uri.rawUserInfo != null || uri.port != -1) return null
-            val page = uri.toString()
-            return page.takeIf { it.startsWith(RELEASE_PAGES) && !uri.path.orEmpty().contains("/../") }
+            val link = url.trim()
+            val uri = runCatching { URI(link) }.getOrNull() ?: return null
+            if (uri.scheme != "https" || uri.rawAuthority != "github.com") return null
+            if (uri.rawQuery != null || uri.rawFragment != null) return null
+            if (!RELEASE_PATH.matches(uri.rawPath.orEmpty())) return null
+            return link
         }
+
+        /** The releases page, or the page of one tag that starts with a letter or a digit. */
+        private val RELEASE_PATH = Regex("^/13w13/relief-reader/releases(/tag/[A-Za-z0-9][A-Za-z0-9._-]*)?$")
 
         /**
          * The notice: the build and the switch allow it, a release was found, it is newer than

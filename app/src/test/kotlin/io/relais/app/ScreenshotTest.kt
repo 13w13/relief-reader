@@ -3,6 +3,9 @@
 package io.relais.app
 
 import android.app.Application
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -143,6 +146,17 @@ class ScreenshotTest {
     fun todayUpdateDark() {
         val headlines = reports("headlines.json").take(6)
         shoot("today-update-dark", dark = true) { TodayWithUpdate(headlines) }
+    }
+
+    /** At 200 % text on a 360 dp phone, the buttons go under the message (review of PR 23). */
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xxhdpi")
+    fun todayUpdateLargeText() {
+        val headlines = reports("headlines.json").take(6)
+        shoot("today-update-font-200") {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) { TodayWithUpdate(headlines) }
+        }
     }
 
     /** After the sixth: the week's titles, then "Older headlines". */
