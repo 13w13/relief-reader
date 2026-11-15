@@ -60,9 +60,20 @@ class SizeControlsTest {
         return results.single()
     }
 
+    /**
+     * A label is cut when it doesn't fit its width: wider than the room it got, ellipsized, or on
+     * more than one line. Height is left out: inside a segment the text's line box can exceed the
+     * content height without any visible clipping (seen on the screenshots of 718468b).
+     */
     private fun SemanticsNodeInteraction.assertWhole(what: String) {
         val r = layout()
-        assertFalse("$what is cut", r.hasVisualOverflow || r.isLineEllipsized(r.lineCount - 1))
+        val last = r.lineCount - 1
+        val cut = r.didOverflowWidth || r.isLineEllipsized(last) || r.lineCount > 1
+        assertFalse(
+            "$what is cut: width overflow ${r.didOverflowWidth}, ellipsis ${r.isLineEllipsized(last)}, lines ${r.lineCount}, " +
+                "height overflow ${r.didOverflowHeight}, size ${r.size}, constraints ${r.layoutInput.constraints}",
+            cut,
+        )
     }
 
     private val labels = listOf("System", "Light", "Dark", "Smallest", "Compact", "Default", "Large")
