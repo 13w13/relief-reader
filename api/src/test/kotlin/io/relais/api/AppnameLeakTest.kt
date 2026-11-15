@@ -109,9 +109,9 @@ class AppnameLeakTest {
                     channel.writeFully(chunk)
                     channel.flush()
                     val total = written.addAndGet(chunk.size.toLong())
-                    if (total % (8L * 1024 * 1024) == 0L) println("endless: ${total / (1024 * 1024)} MB written")
+                    if (total % (8L * 1024 * 1024) == 0L) println("endless: ${total / (1024 * 1024)} MB written at ${System.currentTimeMillis() % 100_000} ms")
                 }
-            }.onFailure { println("endless: stopped after ${written.get()} bytes (${it::class.simpleName})") }
+            }.onFailure { println("endless: stopped after ${written.get()} bytes (${it::class.simpleName}) at ${System.currentTimeMillis() % 100_000} ms") }
         }.channel
 
     /** Bodies alone, on a streamed answer: the read stops at the limit (review of PR 26). */
@@ -149,8 +149,14 @@ class AppnameLeakTest {
         val server = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
         val engine = MockEngine { respond(endless(server, written), HttpStatusCode.OK) }
         try {
-            val e = kotlinx.coroutines.withTimeout(60_000) { failure { client(engine).reports(Requests.headlines()) } }
-            println("client: ended with ${e::class.simpleName} after ${written.get()} bytes written")
+            // GET first (one report), then POST (a list): the same reading path.
+            println("client GET: start at ${System.currentTimeMillis() % 100_000} ms")
+            val get = kotlinx.coroutines.withTimeout(20_000) { failure { client(engine).report(4_100_001) } }
+            println("client GET: ended with ${get::class.simpleName}: ${get.message} at ${System.currentTimeMillis() % 100_000} ms")
+            written.set(0)
+            println("client POST: start at ${System.currentTimeMillis() % 100_000} ms")
+            val e = kotlinx.coroutines.withTimeout(20_000) { failure { client(engine).reports(Requests.headlines()) } }
+            println("client POST: ended with ${e::class.simpleName}: ${e.message} at ${System.currentTimeMillis() % 100_000} ms")
             assertTrue("${e::class.simpleName}: ${e.message}", e is ApiException.Server)
             assertNoAppname(e)
             assertTrue("written ${written.get()}", written.get() < ReliefWebClient.MAX_ANSWER_BYTES + 4L * 1024 * 1024)
