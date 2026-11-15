@@ -6,6 +6,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.contentLength
 import io.ktor.utils.io.readAvailable
+import kotlinx.coroutines.cancel
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 
@@ -20,28 +21,30 @@ object Bodies {
 
     /**
      * The body as UTF-8 text, or [TooLarge] beyond [maxBytes]. Read in a loop of its own, not with
-     * readRemaining(max), which waits for more content after its last read; on [TooLarge] the
-     * channel is cancelled first, so the call ends at once instead of waiting on a body nobody reads
-     * (review of PR 26: an endless body sometimes hung the call after the limit).
+     * readRemaining(max), which waits for more content after its last read. Past the limit, the
+     * channel and the response's own job are cancelled before [TooLarge] is thrown: the end of
+     * execute { } waits for that job, which otherwise kept the call waiting on a body nobody reads
+     * (review of PR 26, seen on an endless body).
      */
     suspend fun text(response: HttpResponse, maxBytes: Long): String {
         val channel = response.bodyAsChannel()
         val announced = response.contentLength()
-        if (announced != null && announced > maxBytes) {
-            channel.cancel(TooLarge(maxBytes))
-            throw TooLarge(maxBytes)
-        }
+        if (announced != null && announced > maxBytes) refuse(response, channel, maxBytes)
         val out = ByteArrayOutputStream()
         val buffer = ByteArray(64 * 1024)
         while (true) {
             val n = channel.readAvailable(buffer, 0, buffer.size)
             if (n < 0) break
-            if (out.size() + n > maxBytes) {
-                channel.cancel(TooLarge(maxBytes))
-                throw TooLarge(maxBytes)
-            }
+            if (out.size() + n > maxBytes) refuse(response, channel, maxBytes)
             out.write(buffer, 0, n)
         }
         return out.toByteArray().decodeToString()
+    }
+
+    private fun refuse(response: HttpResponse, channel: io.ktor.utils.io.ByteReadChannel, maxBytes: Long): Nothing {
+        val tooLarge = TooLarge(maxBytes)
+        channel.cancel(tooLarge)
+        response.cancel(kotlinx.coroutines.CancellationException("Body over $maxBytes bytes", tooLarge))
+        throw tooLarge
     }
 }
