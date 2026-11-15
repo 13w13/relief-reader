@@ -343,11 +343,15 @@ object Requests {
     }
 
     /** "Follow an organization": organizations whose name, short name or long name match [text]. */
-    fun searchSources(text: String, limit: Int = 10): ApiQuery = ApiQuery(
+    /**
+     * "Follow an organization": organizations whose names match [text]. [prefix]: each word as
+     * a beginning (SourceQuery.prefix); otherwise the words as typed, for the second try.
+     */
+    fun searchSources(text: String, limit: Int = 20, prefix: Boolean = true): ApiQuery = ApiQuery(
         preset = null,
         limit = limit,
-        query = text.trim(),
-        queryFields = listOf("name", "shortname", "longname"),
+        query = (if (prefix) SourceQuery.prefix(text) else SourceQuery.plain(text)) ?: text.trim(),
+        queryFields = listOf("name", "shortname", "longname", "spanish_name"),
         sort = emptyList(),
         fields = SOURCE_CARD,
     )

@@ -510,7 +510,8 @@
         <item quantity="one">1 analysis on your countries in 3 months</item>
         <item quantity="other">%d analyses on your countries in 3 months</item>
     </plurals>
-    <string name="source_no_match">No organization on ReliefWeb matches \"%1$s\".</string>
+    <string name="source_no_match">No organization found for \"%1$s\".</string>
+    <string name="source_search_failed">Couldn\'t search organizations (%1$s).</string>
     <string name="source_line_reports">%1$s · Reports only</string>
     <string name="source_line_everything">%1$s · Everything</string>
     <string name="source_empty">No documents from %1$s on ReliefWeb.</string>

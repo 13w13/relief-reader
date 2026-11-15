@@ -197,6 +197,8 @@ data class ResultsState(
     val themeNames: Map<Long, String> = emptyMap(),
     /** Organizations found by "Search organizations", for one absent from the facet. */
     val sourceMatches: List<Long> = emptyList(),
+    /** That search failed: which error, for the line under the field. */
+    val sourceProblem: String? = null,
 )
 
 /**
@@ -270,14 +272,17 @@ class ResultsViewModel(private val c: AppContainer, query: String, headlinesOnly
     fun findSources(text: String) {
         sourceSearch?.cancel()
         if (text.trim().length < 2) {
-            _state.value = _state.value.copy(sourceMatches = emptyList())
+            _state.value = _state.value.copy(sourceMatches = emptyList(), sourceProblem = null)
             return
         }
         sourceSearch = viewModelScope.launch {
             kotlinx.coroutines.delay(400)
-            val found = runCatching { c.repository.searchSources(text) }.getOrDefault(emptyList())
+            val result = runCatching { c.repository.searchSources(text) }
+            result.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
+            val found = result.getOrDefault(emptyList())
             val s = _state.value
             _state.value = s.copy(
+                sourceProblem = result.exceptionOrNull()?.let { searchProblem(it) },
                 sourceMatches = found.map { it.id },
                 sourceNames = s.sourceNames + found.associate { it.id to it.shortname.ifBlank { it.name } },
             )
@@ -429,6 +434,7 @@ fun ResultsScreen(query: String, headlinesOnly: Boolean, nav: Nav, reportsOnly: 
                 themeNames = state.themeNames,
                 sourceMatches = state.sourceMatches,
                 onFindSources = vm::findSources,
+                sourceProblem = state.sourceProblem,
             )
         }
     }
@@ -462,6 +468,7 @@ internal fun FilterSheet(
     themeNames: Map<Long, String> = emptyMap(),
     sourceMatches: List<Long> = emptyList(),
     onFindSources: (String) -> Unit = {},
+    sourceProblem: String? = null,
 ) {
     var draft by remember(params) { mutableStateOf(params) }
     Column(
@@ -497,6 +504,14 @@ internal fun FilterSheet(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("search_sources_field"),
         )
+        if (sourceProblem != null) {
+            Text(
+                stringResource(R.string.source_search_failed, sourceProblem),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("search_sources_problem"),
+            )
+        }
         // The facet's organizations with a name, those found by the field, and those chosen.
         val sources = (
             counts("source.id").filter { it.first in sourceNames } +
