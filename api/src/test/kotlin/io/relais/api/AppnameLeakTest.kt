@@ -7,6 +7,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
@@ -98,30 +99,58 @@ class AppnameLeakTest {
         assertNoAppname(e)
     }
 
+    /** A body that never ends, written 64 KB at a time; [written] counts what went out. */
+    private fun endless(scope: kotlinx.coroutines.CoroutineScope, written: java.util.concurrent.atomic.AtomicLong): io.ktor.utils.io.ByteReadChannel =
+        scope.writer {
+            val chunk = ByteArray(64 * 1024) { 'x'.code.toByte() }
+            // Until the reader stops and the channel closes.
+            runCatching {
+                while (true) {
+                    channel.writeFully(chunk)
+                    channel.flush()
+                    val total = written.addAndGet(chunk.size.toLong())
+                    if (total % (8L * 1024 * 1024) == 0L) println("endless: ${total / (1024 * 1024)} MB written")
+                }
+            }.onFailure { println("endless: stopped after ${written.get()} bytes (${it::class.simpleName})") }
+        }.channel
+
+    /** Bodies alone, on a streamed answer: the read stops at the limit (review of PR 26). */
+    @Test
+    fun bodiesStopAnEndlessStreamAtTheLimit() = kotlinx.coroutines.runBlocking {
+        val written = java.util.concurrent.atomic.AtomicLong()
+        val server = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+        val http = HttpClient(MockEngine { respond(endless(server, written), HttpStatusCode.OK) })
+        try {
+            val limit = 1L * 1024 * 1024
+            val e = kotlinx.coroutines.withTimeout(30_000) {
+                failure {
+                    http.prepareGet("https://relais.test/endless").execute { response ->
+                        println("bodies: response ${response.status}, reading")
+                        Bodies.text(response, limit)
+                    }
+                }
+            }
+            println("bodies: ended with ${e::class.simpleName} after ${written.get()} bytes written")
+            assertTrue("${e::class.simpleName}: ${e.message}", e is Bodies.TooLarge)
+            assertTrue("written ${written.get()}", written.get() < limit + 4L * 1024 * 1024)
+        } finally {
+            http.close()
+            server.cancel()
+        }
+    }
+
     /**
-     * An endless body: the client reads it as it streams and stops at the limit (review of PR 26).
-     * A client that held the whole body in memory first would never finish here.
+     * The client on an endless answer: it reads as the body streams and stops at its limit
+     * (review of PR 26). A client that held the whole body in memory first would never finish.
      */
     @Test
     fun anEndlessAnswerIsStoppedWhileItStreams() = kotlinx.coroutines.runBlocking {
         val written = java.util.concurrent.atomic.AtomicLong()
         val server = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
-        val engine = MockEngine {
-            val body = server.writer {
-                val chunk = ByteArray(64 * 1024) { 'x'.code.toByte() }
-                // Until the client stops reading and the channel closes.
-                runCatching {
-                    while (true) {
-                        channel.writeFully(chunk)
-                        channel.flush()
-                        written.addAndGet(chunk.size.toLong())
-                    }
-                }
-            }.channel
-            respond(body, HttpStatusCode.OK)
-        }
+        val engine = MockEngine { respond(endless(server, written), HttpStatusCode.OK) }
         try {
-            val e = kotlinx.coroutines.withTimeout(120_000) { failure { client(engine).reports(Requests.headlines()) } }
+            val e = kotlinx.coroutines.withTimeout(60_000) { failure { client(engine).reports(Requests.headlines()) } }
+            println("client: ended with ${e::class.simpleName} after ${written.get()} bytes written")
             assertTrue("${e::class.simpleName}: ${e.message}", e is ApiException.Server)
             assertNoAppname(e)
             assertTrue("written ${written.get()}", written.get() < ReliefWebClient.MAX_ANSWER_BYTES + 4L * 1024 * 1024)
