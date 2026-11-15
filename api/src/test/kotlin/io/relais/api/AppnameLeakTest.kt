@@ -86,13 +86,26 @@ class AppnameLeakTest {
     }
 
     @Test
-    fun anAnswerAnnouncedTooLargeIsNotRead() = runTest {
-        val engine = MockEngine {
-            respond("{}", HttpStatusCode.OK, headersOf(HttpHeaders.ContentLength, (ReliefWebClient.MAX_ANSWER_BYTES + 1).toString()))
-        }
+    fun anAnswerOverTheLimitIsNotParsed() = runTest {
+        // One byte over the limit, with no announced length: the client counts and stops.
+        val tooMuch = ByteArray((ReliefWebClient.MAX_ANSWER_BYTES + 1).toInt()) { 'x'.code.toByte() }
+        val engine = MockEngine { respond(ByteReadChannel(tooMuch), HttpStatusCode.OK) }
         val e = failure { client(engine).reports(Requests.headlines()) }
-        assertTrue(e is ApiException.Server)
+        assertTrue("${e::class.simpleName}: ${e.message}", e is ApiException.Server)
         assertNoAppname(e)
+    }
+
+    @Test
+    fun anAnnouncedLengthOverTheLimitIsRefused() = runTest {
+        val http = HttpClient(MockEngine { respond("x".repeat(100), HttpStatusCode.OK, headersOf(HttpHeaders.ContentLength, "100")) })
+        try {
+            Bodies.text(http.get("https://relais.test/feed"), maxBytes = 10)
+            fail("expected TooLarge")
+        } catch (e: Bodies.TooLarge) {
+            assertEquals(10L, e.limit)
+        } finally {
+            http.close()
+        }
     }
 
     @Test
