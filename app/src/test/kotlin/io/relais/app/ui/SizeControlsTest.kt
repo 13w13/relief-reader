@@ -17,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -126,7 +129,8 @@ class SizeControlsTest {
         assertNotNull(compose.onNodeWithTag("narrow_clip", useUnmergedTree = true).cut())
         assertNull(compose.onNodeWithTag("wide", useUnmergedTree = true).cut())
         // In the control, even alone on its row, the long label doesn't fit 360 dp: it is caught.
-        assertNotNull(compose.onNodeWithText(long, useUnmergedTree = true).cut())
+        val inControl = hasText(long) and hasAnyAncestor(hasTestTag("option_" + long.length))
+        assertNotNull(compose.onNode(inControl, useUnmergedTree = true).cut())
         compose.onNodeWithText("Two", useUnmergedTree = true).assertWhole("Two")
     }
 
