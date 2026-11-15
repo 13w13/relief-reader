@@ -160,27 +160,76 @@ fun SectionHeader(
     Column(modifier.fillMaxWidth().padding(start = Space.screen, end = Space.screen, top = Space.section, bottom = Space.xs)) {
         HorizontalDivider(thickness = SectionRule, color = cs.onSurface)
         // theme-compose.md 10.1: a title and note longer than 44 characters put the note below.
+        // v0.6: so does a note that doesn't fit beside the title (large text): the title never
+        // breaks inside a word, the note yields.
         val noteBelow = subtitle != null && text.length + subtitle.length > 44
-        Row(Modifier.padding(top = Space.s), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text.uppercase(),
-                style = SectionTitleStyle.copy(fontSize = LocalDisplaySize.current.section, lineHeight = LocalDisplaySize.current.sectionLine),
-                color = cs.onSurface,
-                modifier = Modifier.weight(1f).semantics { heading() },
-            )
-            if (subtitle != null && !noteBelow) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-            }
-            if (actionLabel != null && onAction != null) {
-                TextButton(
-                    onClick = onAction,
-                    contentPadding = PaddingValues(horizontal = Space.s),
-                    modifier = if (actionTag != null) Modifier.testTag(actionTag) else Modifier,
-                ) { Text(actionLabel) }
-            }
-        }
-        if (subtitle != null && noteBelow) {
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        TitleNoteAction(
+            Modifier.padding(top = Space.s).testTag("section_header"),
+            noteBelow = noteBelow,
+            title = {
+                Text(
+                    text.uppercase(),
+                    style = SectionTitleStyle.copy(fontSize = LocalDisplaySize.current.section, lineHeight = LocalDisplaySize.current.sectionLine),
+                    color = cs.onSurface,
+                    modifier = Modifier.semantics { heading() }.testTag("section_title"),
+                )
+            },
+            note = subtitle?.let { note ->
+                @Composable { Text(note, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.testTag("section_note")) }
+            },
+            action = if (actionLabel != null && onAction != null) {
+                @Composable {
+                    TextButton(
+                        onClick = onAction,
+                        contentPadding = PaddingValues(horizontal = Space.s),
+                        modifier = if (actionTag != null) Modifier.testTag(actionTag) else Modifier,
+                    ) { Text(actionLabel) }
+                }
+            } else {
+                null
+            },
+        )
+    }
+}
+
+/**
+ * A section title's line: the title first, then the note and the action at the end. The title is
+ * measured first and keeps its words whole: when the note doesn't fit beside it on one line (or
+ * [noteBelow]), the note goes under the line, on the whole width. The action stays on the line.
+ */
+@Composable
+private fun TitleNoteAction(
+    modifier: Modifier,
+    noteBelow: Boolean,
+    title: @Composable () -> Unit,
+    note: (@Composable () -> Unit)?,
+    action: (@Composable () -> Unit)?,
+) {
+    val gap = Space.s
+    val none: @Composable () -> Unit = {}
+    val parts = listOf<@Composable () -> Unit>(title, note ?: none, action ?: none)
+    androidx.compose.ui.layout.Layout(contents = parts, modifier = modifier) { (titles, notes, actions), constraints ->
+        val width = constraints.maxWidth
+        val free = constraints.copy(minWidth = 0, minHeight = 0)
+        val actionPlaced = actions.firstOrNull()?.measure(free)
+        val actionWidth = actionPlaced?.width ?: 0
+        val titlePart = titles.first()
+        val notePart = notes.firstOrNull()
+        val gapPx = gap.roundToPx()
+        val noteWidth = notePart?.maxIntrinsicWidth(androidx.compose.ui.unit.Constraints.Infinity) ?: 0
+        val beside = notePart != null && !noteBelow &&
+            titlePart.maxIntrinsicWidth(androidx.compose.ui.unit.Constraints.Infinity) + gapPx + noteWidth + actionWidth <= width
+        val noteBeside = if (beside) notePart!!.measure(free.copy(maxWidth = noteWidth)) else null
+        val titleRoom = width - actionWidth - (noteBeside?.let { it.width + gapPx } ?: 0)
+        val titlePlaced = titlePart.measure(free.copy(maxWidth = titleRoom.coerceAtLeast(0)))
+        val lineHeight = maxOf(titlePlaced.height, noteBeside?.height ?: 0, actionPlaced?.height ?: 0)
+        val noteUnder = if (!beside) notePart?.measure(free) else null
+        val height = (lineHeight + (noteUnder?.height ?: 0)).coerceAtLeast(constraints.minHeight)
+        layout(width, height) {
+            titlePlaced.place(0, (lineHeight - titlePlaced.height) / 2)
+            actionPlaced?.place(width - actionWidth, (lineHeight - actionPlaced.height) / 2)
+            noteBeside?.place(width - actionWidth - noteBeside.width, (lineHeight - noteBeside.height) / 2)
+            noteUnder?.place(0, lineHeight)
         }
     }
 }
@@ -578,10 +627,10 @@ fun ReadingTypography(size: Int, content: @Composable () -> Unit) {
 }
 
 /**
- * "Aa" (theme-compose.md 9.2 and 12.6). With [onDisplay], "Display" first (Compact, Default,
- * Large, for the whole app; [preview] adds two list rows at that size), then "Report text".
- * The report text: five "A" of growing size, the step's name, and a preview of [sample] (the
- * paragraph being read). Reset brings back Compact and Small.
+ * "Aa" (theme-compose.md 9.2 and 12.6). With [onDisplay], "Display" first (Smallest, Compact,
+ * Default, Large, for the whole app; [preview] adds two list rows at that size), then "Report
+ * text". The report text: six "A" of growing size, the step's name, and a preview of [sample]
+ * (the paragraph being read). Reset brings back Compact and Small.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -623,7 +672,8 @@ fun TextSizeControl(
                         icon = {},
                         modifier = Modifier.testTag("display_" + d.name.lowercase()),
                     ) {
-                        Text(stringResource(d.label), maxLines = 1)
+                        // Four levels on a 360 dp phone: the label in labelMedium fits ("Smallest", v0.6).
+                        Text(stringResource(d.label), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

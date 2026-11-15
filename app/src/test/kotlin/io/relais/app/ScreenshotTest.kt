@@ -26,6 +26,16 @@ import io.relais.api.ApiResponse
 import io.relais.api.HtmlBlocks
 import io.relais.api.RelaisJson
 import io.relais.api.ReportFields
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.unit.dp
+import io.relais.app.data.Appearance
+import io.relais.app.data.DEFAULT_READING_SIZE
+import io.relais.app.data.READING_STEPS
+import io.relais.app.ui.AppearanceChoice
+import io.relais.app.ui.DisplaySize
+import io.relais.app.ui.ReadingTypography
+import io.relais.app.ui.TextSizeControl
 import io.relais.app.data.LatestRelease
 import io.relais.app.data.ReportEntity
 import io.relais.app.data.toEntity
@@ -84,9 +94,9 @@ class ScreenshotTest {
         return response(name).data.map { it.toEntity(existing = null, now = now, full = true) }
     }
 
-    private fun shoot(name: String, dark: Boolean = false, content: @Composable () -> Unit) {
+    private fun shoot(name: String, dark: Boolean = false, display: DisplaySize = DisplaySize.Compact, content: @Composable () -> Unit) {
         compose.setContent {
-            RelaisTheme(darkTheme = dark) {
+            RelaisTheme(darkTheme = dark, display = display) {
                 Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) { content() }
             }
         }
@@ -156,6 +166,71 @@ class ScreenshotTest {
         shoot("today-update-font-200") {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) { TodayWithUpdate(headlines) }
+        }
+    }
+
+    /** Display at Smallest (v0.6): smaller titles, tighter rows and margins. */
+    @Test
+    fun todaySmallest() {
+        val headlines = reports("headlines.json").take(6)
+        shoot("today-smallest", display = DisplaySize.Smallest) { TodayPile(headlines, readIds = setOf(headlines[0].id), page = 1) }
+    }
+
+    @Test
+    fun todaySmallestDark() {
+        val headlines = reports("headlines.json").take(6)
+        shoot("today-smallest-dark", dark = true, display = DisplaySize.Smallest) { TodayPile(headlines, readIds = setOf(headlines[0].id), page = 1) }
+    }
+
+    /** Today at 200 % text on a 360 dp phone: "HEADLINES" whole, its note under it (v0.6). */
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xxhdpi")
+    fun todayLargeText() {
+        val headlines = reports("headlines.json").take(6)
+        shoot("today-font-200") {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+                TodayPile(headlines, readIds = setOf(headlines[0].id), page = 1)
+            }
+        }
+    }
+
+    /** Settings > Reading on a 360 dp phone: Appearance, the four Display levels, the six report steps (v0.6). */
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xxhdpi")
+    fun settingsReading() {
+        shoot("settings-reading") {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                SectionHeader("Reading")
+                AppearanceChoice(Appearance.SYSTEM) {}
+                TextSizeControl(
+                    size = DEFAULT_READING_SIZE,
+                    sample = null,
+                    onChange = {},
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    onDisplay = {},
+                    preview = true,
+                )
+            }
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xxhdpi")
+    fun settingsReadingSmallestDark() {
+        shoot("settings-reading-smallest-dark", dark = true, display = DisplaySize.Smallest) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                SectionHeader("Reading")
+                AppearanceChoice(Appearance.DARK) {}
+                TextSizeControl(
+                    size = 0,
+                    sample = null,
+                    onChange = {},
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    onDisplay = {},
+                    preview = true,
+                )
+            }
         }
     }
 
@@ -339,13 +414,19 @@ class ScreenshotTest {
     }
 
     @Test
-    fun report() {
+    fun report() = reportAt("report", DEFAULT_READING_SIZE)
+
+    /** A report at the smallest step, 14 sp (v0.6). */
+    @Test
+    fun reportSmallest() = reportAt("report-14sp", READING_STEPS.indexOf("Smallest"))
+
+    private fun reportAt(name: String, size: Int) {
         val report = reports("report-full.json").first()
         val blocks = report.bodyHtml?.takeIf { it.isNotEmpty() }?.let { HtmlBlocks.parse(it) } ?: emptyList()
-        shoot("report") {
+        shoot(name) {
             // The report screen in order: photo, header, then the file: a line under the dates
             // when the report has its text (v0.4), the card above the first page otherwise.
-            LazyColumn {
+            ReadingTypography(size) { LazyColumn {
                 if (report.imageUrl != null) item { Photo(report) }
                 item { ReportHeader(report) }
                 if (report.files.isNotEmpty()) {
@@ -358,7 +439,7 @@ class ScreenshotTest {
                     }
                 }
                 items(blocks.take(12)) { BlockView(it) }
-            }
+            } }
         }
     }
 }

@@ -236,6 +236,12 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     fun setDisplay(d: DisplaySize) = viewModelScope.launch { c.settings.setDisplay(d.name, d.reportStep.ordinal) }
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
     fun setUpdateCheck(on: Boolean) = viewModelScope.launch { c.settings.setUpdateCheck(on) }
+
+    /** "Appearance": saved, then given to Android for the launch window (Android 12 and later). */
+    fun setAppearance(appearance: io.relais.app.data.Appearance) = viewModelScope.launch {
+        c.settings.setAppearance(appearance)
+        c.applyNightMode(appearance)
+    }
     fun clearHistory() = viewModelScope.launch { c.repository.clearHistory() }
 
     /** The Library as a file: its name and its JSON (lot 3). */
@@ -396,6 +402,7 @@ fun SettingsScreen(nav: Nav) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
 
             SectionHeader(stringResource(R.string.settings_reading))
+            AppearanceChoice(io.relais.app.data.Appearance.of(s.appearance), vm::setAppearance)
             // "Display" for the whole app, then the report text (theme-compose.md 12.6).
             TextSizeControl(
                 s.readingSize,
@@ -594,6 +601,27 @@ fun AboutSection(
     if (BuildConfig.ISSUES_URL.isNotBlank()) {
         TextButton(onClick = { safeOpen(uriHandler, BuildConfig.ISSUES_URL) }, modifier = Modifier.padding(horizontal = 8.dp).testTag("about_issue")) {
             Text(stringResource(R.string.about_open_issue))
+        }
+    }
+}
+
+/** "Appearance" (v0.6): follow the phone, or always light, or always dark. Applies at once. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun AppearanceChoice(current: io.relais.app.data.Appearance, onChoose: (io.relais.app.data.Appearance) -> Unit) {
+    SettingText(stringResource(R.string.settings_appearance))
+    FlowRow(Modifier.padding(horizontal = 16.dp).testTag("appearance"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(
+            io.relais.app.data.Appearance.SYSTEM to R.string.appearance_system,
+            io.relais.app.data.Appearance.LIGHT to R.string.appearance_light,
+            io.relais.app.data.Appearance.DARK to R.string.appearance_dark,
+        ).forEach { (a, label) ->
+            FilterChip(
+                selected = current == a,
+                onClick = { onChoose(a) },
+                label = { Text(stringResource(label)) },
+                modifier = Modifier.testTag("appearance_" + a.name.lowercase()),
+            )
         }
     }
 }

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Light; values-night has the dark one. On Android 12 and later the launch window follows the
+         reader's Appearance (UiModeManager.setApplicationNightMode); before, the phone's mode. -->
     <style name="Theme.Relais" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

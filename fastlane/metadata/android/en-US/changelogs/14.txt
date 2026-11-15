@@ -1,0 +1,1 @@
+Choose the appearance: follow the phone, always light or always dark (Settings > Reading). Smaller text: Display has a Smallest level, and report text goes down to 14 sp. Section titles no longer break inside a word with very large system text. Search organizations from 2 letters and by the start of a word.

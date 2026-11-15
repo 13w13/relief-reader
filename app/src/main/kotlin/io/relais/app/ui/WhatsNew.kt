@@ -77,6 +77,18 @@ object WhatsNew {
             label = "0.5.1",
             lines = listOf(Line(R.string.whats_new_051_lead_1, R.string.whats_new_051_text_1)),
         ),
+        Release(
+            versionCode = 14,
+            label = "0.6",
+            lines = listOfNotNull(
+                Line(R.string.whats_new_06_lead_1, R.string.whats_new_06_text_1),
+                Line(R.string.whats_new_06_lead_2, R.string.whats_new_06_text_2),
+                // Not in a build without the check (F-Droid).
+                Line(R.string.whats_new_06_lead_3, R.string.whats_new_06_text_3).takeIf { io.relais.app.BuildConfig.UPDATE_CHECK },
+                // 0.5.1's line, for a reader coming from 0.5.0.
+                Line(R.string.whats_new_051_lead_1, R.string.whats_new_051_text_1),
+            ),
+        ),
     )
 
     /** The lines of exactly this version, for the sheet after an update; null: no sheet. */

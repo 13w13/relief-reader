@@ -15,17 +15,18 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * The new-version check through the real SettingsStore (DataStore), not a copy of its writes
- * (review of PR 23). One test only: the store's DataStore is one per process.
+ * The real SettingsStore (DataStore): the new-version check, not a copy of its writes (review of
+ * PR 23), then Appearance and the text sizes of v0.6. One test only: the store's DataStore is one
+ * per process.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35], application = Application::class)
-class UpdateSettingsTest {
+class SettingsStoreTest {
     private fun answer(version: String) =
         """{"tag_name": "v$version", "html_url": "https://github.com/13w13/relief-reader/releases/tag/v$version", "draft": false, "prerelease": false}"""
 
     @Test
-    fun theStoreKeepsTheReleaseTheDismissedVersionAndTheSwitch() = runBlocking {
+    fun theStoreKeepsWhatTheReaderChose() = runBlocking {
         val store = SettingsStore(ApplicationProvider.getApplicationContext())
         var now = 1_794_700_000_000L
         var reply: () -> String? = { answer("0.5.2") }
@@ -70,5 +71,24 @@ class UpdateSettingsTest {
         assertFalse(check.checkIfDue())
         assertNull(check.notice(store.current()))
         assertEquals(3, requests)
+
+        // Appearance (v0.6): System by default, then each choice comes back.
+        assertEquals(Appearance.SYSTEM.name, store.current().appearance)
+        store.setAppearance(Appearance.DARK)
+        assertEquals(Appearance.DARK.name, store.current().appearance)
+        store.setAppearance(Appearance.LIGHT)
+        assertEquals(Appearance.LIGHT.name, store.current().appearance)
+
+        // Text sizes (v0.6): Small and Compact by default; the step is kept by its name.
+        assertEquals(DEFAULT_READING_SIZE, store.current().readingSize)
+        store.setReadingSize(0)
+        assertEquals(0, store.current().readingSize)
+        assertEquals("Smallest", READING_STEPS[store.current().readingSize])
+        store.setDisplay("Smallest", READING_STEPS.indexOf("Smaller"))
+        assertEquals("Smallest", store.current().display)
+        assertEquals("Smaller", READING_STEPS[store.current().readingSize])
+        // Reset: Compact and Small.
+        store.setDisplay("Compact", DEFAULT_READING_SIZE)
+        assertEquals("Small", READING_STEPS[store.current().readingSize])
     }
 }

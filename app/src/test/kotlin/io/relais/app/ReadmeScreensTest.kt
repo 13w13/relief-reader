@@ -252,7 +252,7 @@ class ReadmeScreensTest {
             val cs = MaterialTheme.colorScheme
             PdfTopBar("$REGION Situation Report No. 7", PdfMode.TEXT, true, {}, {}, {}, cs.surface, cs.onSurface)
             Box(Modifier.weight(1f)) {
-                ReadingTypography(2) {
+                ReadingTypography(io.relais.app.ui.TextStep.Default.ordinal) {
                     PdfTextContent(rows, rememberLazyListState(0), onOpenPdf = {}, showBanner = false, marks = { p, b ->
                         if (p == marked.page && b == marked.block) BlockMarks(highlights = listOf(start until start + sentence.length)) else BlockMarks.NONE
                     })

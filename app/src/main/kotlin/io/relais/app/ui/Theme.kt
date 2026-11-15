@@ -120,8 +120,10 @@ val RelaisTypography = Typography(
 /** Section titles and report sub-headings: condensed, bold, capitals. */
 /**
  * Article text sizes, the "Aa" setting (theme-compose.md 9.1): body and report title. Default
- * (17/28 sp) is the third step; 19/31, the size of v0.1.1, is Large. Body subheads derive
- * from the body (ReportScreen, subheadStyle). [button] is the size of its "A" in the control.
+ * (17/28 sp) is the fourth step; 19/31, the size of v0.1.1, is Large. Smallest (14 sp, v0.6)
+ * keeps the line height in proportion. Body subheads derive from the body (ReportScreen,
+ * subheadStyle). [button] is the size of its "A" in the control. Stored by name
+ * (data/Settings.kt, READING_STEPS): the order here must stay the order there.
  */
 enum class TextStep(
     val label: Int,
@@ -131,6 +133,7 @@ enum class TextStep(
     val titleLine: TextUnit,
     val button: TextUnit,
 ) {
+    Smallest(R.string.text_step_smallest, 14.sp, 22.5.sp, 22.sp, 27.sp, 12.sp),
     Smaller(R.string.text_step_smaller, 15.sp, 24.sp, 23.sp, 28.sp, 14.sp),
     Small(R.string.text_step_small, 16.sp, 26.sp, 24.sp, 30.sp, 16.sp),
     Default(R.string.text_step_default, 17.sp, 28.sp, 25.sp, 31.sp, 18.sp),
@@ -159,6 +162,9 @@ val RelaisShapes = Shapes(
  * How dense the whole interface is (theme-compose.md 12.6): list titles, kickers, info lines,
  * row padding, margins, filter pills, section titles and Today's large headline. Compact is the
  * default. [reportStep] is where the report text starts ("Aa" can move it on its own).
+ * [sectionTop] is the space above a section title. [uiScale] scales the other interface text
+ * (buttons, settings, sheets): 1 except for Smallest (v0.6, the founder found the screens still
+ * heavy), whose every text stays at 10 sp or more. Stored by name: adding a level moves no one.
  */
 enum class DisplaySize(
     @StringRes val label: Int,
@@ -179,7 +185,13 @@ enum class DisplaySize(
     val heroTitleLine: TextUnit,
     val heroRatio: Float,
     val reportStep: TextStep,
+    val sectionTop: Dp = 20.dp,
+    val uiScale: Float = 1f,
 ) {
+    Smallest(
+        R.string.display_smallest, 14.sp, 18.sp, 10.sp, 13.sp, 11.sp, 14.sp, 6.dp, 2.dp, 12.dp, 28.dp, 12.sp,
+        12.sp, 16.sp, 20.sp, 25.sp, 2f, TextStep.Smaller, sectionTop = 14.dp, uiScale = 0.9f,
+    ),
     Compact(
         R.string.display_compact, 15.sp, 20.sp, 11.sp, 14.sp, 12.sp, 16.sp, 9.dp, 3.dp, 14.dp, 30.dp, 13.sp,
         13.sp, 18.sp, 22.sp, 27.sp, 2f, TextStep.Small,
@@ -201,13 +213,31 @@ enum class DisplaySize(
 
 val LocalDisplaySize = staticCompositionLocalOf { DisplaySize.Compact }
 
-/** The typography of a display level: list titles, kickers, info lines and the large headline. */
-fun typographyFor(d: DisplaySize): Typography = RelaisTypography.copy(
-    titleMedium = RelaisTypography.titleMedium.copy(fontSize = d.rowTitle, lineHeight = d.rowTitleLine),
-    labelSmall = RelaisTypography.labelSmall.copy(fontSize = d.kicker, lineHeight = d.kickerLine),
-    bodySmall = RelaisTypography.bodySmall.copy(fontSize = d.info, lineHeight = d.infoLine),
-    displaySmall = RelaisTypography.displaySmall.copy(fontSize = d.heroTitle, lineHeight = d.heroTitleLine),
-)
+/**
+ * The typography of a display level: list titles, kickers, info lines and the large headline from
+ * its own sizes, the other styles scaled by [DisplaySize.uiScale] (to the half sp).
+ */
+fun typographyFor(d: DisplaySize): Typography {
+    val t = RelaisTypography
+    fun TextStyle.scaled(): TextStyle = if (d.uiScale == 1f) this else copy(fontSize = fontSize.scaledBy(d.uiScale), lineHeight = lineHeight.scaledBy(d.uiScale))
+    return t.copy(
+        headlineSmall = t.headlineSmall.scaled(),
+        headlineMedium = t.headlineMedium.scaled(),
+        titleLarge = t.titleLarge.scaled(),
+        titleSmall = t.titleSmall.scaled(),
+        bodyLarge = t.bodyLarge.scaled(),
+        bodyMedium = t.bodyMedium.scaled(),
+        labelLarge = t.labelLarge.scaled(),
+        labelMedium = t.labelMedium.scaled(),
+        titleMedium = t.titleMedium.copy(fontSize = d.rowTitle, lineHeight = d.rowTitleLine),
+        labelSmall = t.labelSmall.copy(fontSize = d.kicker, lineHeight = d.kickerLine),
+        bodySmall = t.bodySmall.copy(fontSize = d.info, lineHeight = d.infoLine),
+        displaySmall = t.displaySmall.copy(fontSize = d.heroTitle, lineHeight = d.heroTitleLine),
+    )
+}
+
+/** A size times a factor, to the half sp (13.5 sp, not 13.38); a size that is not in sp stays. */
+private fun TextUnit.scaledBy(factor: Float): TextUnit = if (!isSp) this else (kotlin.math.round(value * factor * 2f) / 2f).sp
 
 /** Spacing; the margins, row padding and pills follow the display level (12.6). */
 object Space {
@@ -216,7 +246,8 @@ object Space {
     val m = 12.dp
     val l = 16.dp
     val xl = 24.dp
-    val section = 20.dp
+    /** The space above a section title: 20 dp, 14 dp at Smallest. */
+    val section: Dp @Composable @ReadOnlyComposable get() = LocalDisplaySize.current.sectionTop
     val screen: Dp @Composable @ReadOnlyComposable get() = LocalDisplaySize.current.screen
     val rowVertical: Dp @Composable @ReadOnlyComposable get() = LocalDisplaySize.current.rowVertical
     val kickerGap: Dp @Composable @ReadOnlyComposable get() = LocalDisplaySize.current.kickerGap
@@ -227,6 +258,34 @@ object Space {
 val Hairline = 1.dp
 val SectionRule = 2.dp
 
+/** Whether the app is dark now: the reader's Appearance, or the phone's (v0.6). */
+val LocalDarkTheme = staticCompositionLocalOf { false }
+
+/** Whether the app is dark with this Appearance, the phone being as it is now. */
+@Composable
+fun isDark(appearance: io.relais.app.data.Appearance): Boolean = appearance.isDark(isSystemInDarkTheme())
+
+/**
+ * While [onDark] is true, light system bar icons, for a screen that draws a dark bar behind them
+ * whatever the theme: the PDF view (pdfBar). Back to the theme's icons when it ends.
+ */
+@Composable
+fun LightSystemBarIcons(onDark: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val themeDark = LocalDarkTheme.current
+    androidx.compose.runtime.DisposableEffect(view, onDark, themeDark) {
+        var context = view.context
+        while (context !is android.app.Activity && context is android.content.ContextWrapper) context = context.baseContext
+        val controller = (context as? android.app.Activity)?.window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        fun icons(light: Boolean) {
+            controller?.isAppearanceLightStatusBars = light
+            controller?.isAppearanceLightNavigationBars = light
+        }
+        icons(light = !(onDark || themeDark))
+        onDispose { icons(light = !themeDark) }
+    }
+}
+
 @Composable
 fun RelaisTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -236,6 +295,7 @@ fun RelaisTheme(
     CompositionLocalProvider(
         LocalRelaisColors provides if (darkTheme) DarkExtra else LightExtra,
         LocalDisplaySize provides display,
+        LocalDarkTheme provides darkTheme,
     ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,

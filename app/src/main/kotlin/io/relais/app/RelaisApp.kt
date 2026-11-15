@@ -25,7 +25,11 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -82,6 +86,27 @@ class AppContainer(private val context: Context) {
     private val database = RelaisDatabase.create(context)
     val dao = database.dao()
     val settings = SettingsStore(context)
+
+    /** The settings at launch, read once before the first request and the first frame. */
+    private val startSettings = runBlocking { settings.current() }
+
+    /**
+     * "Appearance" (v0.6), known from the first frame: the activity colours its window and its
+     * system bars before Compose draws, then follows each change at once.
+     */
+    val appearance: kotlinx.coroutines.flow.StateFlow<io.relais.app.data.Appearance> = settings.flow
+        .map { io.relais.app.data.Appearance.of(it.appearance) }
+        .distinctUntilChanged()
+        .stateIn(scope, SharingStarted.Eagerly, io.relais.app.data.Appearance.of(startSettings.appearance))
+
+    /**
+     * Android 12 and later keep the app's night mode, and draw the launch window with it: no white
+     * flash for a reader who chose Dark on a light phone. Called when the reader changes it.
+     */
+    fun applyNightMode(appearance: io.relais.app.data.Appearance) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return
+        runCatching { context.getSystemService(android.app.UiModeManager::class.java)?.setApplicationNightMode(appearance.nightMode) }
+    }
 
     /** The app's tuning (sync and cache times, features): built-in values, nothing hosted (PLAN.md 0octies). */
     val remoteConfig = io.relais.app.data.RemoteConfigStore()
@@ -155,7 +180,7 @@ class AppContainer(private val context: Context) {
 
     init {
         // Read the appname entered on the phone before the first request, then follow changes.
-        repository.userAppname = runBlocking { settings.current().userAppname }
+        repository.userAppname = startSettings.userAppname
         scope.launch {
             // An appname added on the phone (Settings, Connect, onboarding): sync at once, so the
             // followed countries fill in now and not at the next background sync.
