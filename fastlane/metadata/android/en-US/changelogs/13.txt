@@ -1,0 +1,1 @@
+Search organizations from 2 letters and by the start of a word: "solidar" finds Solidarités International, and an acronym such as HI brings its organization first. A failed search now says why. For Humanity & Inclusion, type HI or humanity. This search is new: if an organization doesn't come up, please open an issue on GitHub.

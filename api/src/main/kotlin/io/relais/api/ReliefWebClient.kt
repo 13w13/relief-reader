@@ -31,7 +31,14 @@ sealed class ApiException(message: String, val status: Int? = null, cause: Throw
     class AccessDenied(message: String) : ApiException(message, 403)
     class NotFound : ApiException("Not found", 404)
     class RateLimited(val retryAfterSeconds: Long?) : ApiException("Rate limited", 429)
-    class Server(status: Int, message: String) : ApiException(message, status)
+    class Server(status: Int, message: String) : ApiException(message, status) {
+        /** The answer came, but not as JSON of the expected shape. */
+        val unreadable: Boolean get() = message.orEmpty().startsWith(UNREADABLE)
+
+        companion object {
+            const val UNREADABLE = "Unreadable response"
+        }
+    }
     /** An HTML page instead of JSON: the request was probably blocked upstream. */
     class Blocked : ApiException("ReliefWeb returned a web page instead of data")
     class Network(cause: Throwable) : ApiException("Network error: ${cause::class.simpleName}", null, cause)
@@ -171,7 +178,7 @@ class ReliefWebClient(
         return try {
             RelaisJson.parseToJsonElement(text)
         } catch (e: Exception) {
-            throw ApiException.Server(response.status.value, "Unreadable response: ${e::class.simpleName}")
+            throw ApiException.Server(response.status.value, "${ApiException.Server.UNREADABLE}: ${e::class.simpleName}")
         }
     }
 
@@ -180,7 +187,7 @@ class ReliefWebClient(
         return try {
             RelaisJson.decodeFromString(ApiResponse.serializer(serializer), text)
         } catch (e: Exception) {
-            throw ApiException.Server(response.status.value, "Unreadable response: ${e::class.simpleName}")
+            throw ApiException.Server(response.status.value, "${ApiException.Server.UNREADABLE}: ${e::class.simpleName}")
         }
     }
 

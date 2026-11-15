@@ -623,30 +623,17 @@ class Repository(
     suspend fun markSourceVisited(id: Long) = dao.markSourceVisited(id, System.currentTimeMillis())
 
     /**
-     * "Search organizations": one request per search, from 2 letters, for the acronyms of two
-     * (HI, WV). It asks for 20 and shows the 10 best by [SourceRanking].
+     * "Search organizations", from 2 letters, for the acronyms of two (HI, WV). It asks for 20
+     * and shows the 10 best by [SourceRanking]. Each word as a beginning first, then at most one
+     * try with the words as typed ([SourceRanking.twoTries]).
      */
     suspend fun searchSources(text: String): List<SourceInfo> {
         if (text.trim().length < 2) return emptyList()
-        // First each word as a beginning; if that fails or finds nothing, one try with the
-        // words as typed. Two requests at most; the last error is the one shown.
-        val first = try {
-            api { it.sources(Requests.searchSources(text, limit = SourceRanking.ASKED, prefix = true)) }.data
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            null
-        }
-        if (!first.isNullOrEmpty()) return SourceRanking.rank(text, first.map { it.toSourceInfo() })
-        val second = try {
-            api { it.sources(Requests.searchSources(text, limit = SourceRanking.ASKED, prefix = false)) }.data
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // The first try answered, with nothing: say "no organization", not an error.
-            if (first != null) return emptyList() else throw e
-        }
-        return SourceRanking.rank(text, second.map { it.toSourceInfo() })
+        val found = SourceRanking.twoTries(
+            first = { api { it.sources(Requests.searchSources(text, limit = SourceRanking.ASKED, prefix = true)) }.data },
+            second = { api { it.sources(Requests.searchSources(text, limit = SourceRanking.ASKED, prefix = false)) }.data },
+        )
+        return SourceRanking.rank(text, found.map { it.toSourceInfo() })
     }
 
     /**

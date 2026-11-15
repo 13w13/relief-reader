@@ -72,6 +72,11 @@ object WhatsNew {
                 Line(R.string.whats_new_05_lead_5, R.string.whats_new_05_text_5),
             ),
         ),
+        Release(
+            versionCode = 13,
+            label = "0.5.1",
+            lines = listOf(Line(R.string.whats_new_051_lead_1, R.string.whats_new_051_text_1)),
+        ),
     )
 
     /** The lines of exactly this version, for the sheet after an update; null: no sheet. */
