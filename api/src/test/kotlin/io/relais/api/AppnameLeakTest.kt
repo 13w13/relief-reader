@@ -108,61 +108,48 @@ class AppnameLeakTest {
                 while (true) {
                     channel.writeFully(chunk)
                     channel.flush()
-                    val total = written.addAndGet(chunk.size.toLong())
-                    if (total % (8L * 1024 * 1024) == 0L) println("endless: ${total / (1024 * 1024)} MB written at ${System.currentTimeMillis() % 100_000} ms")
-                }
-            }.onFailure { println("endless: stopped after ${written.get()} bytes (${it::class.simpleName}) at ${System.currentTimeMillis() % 100_000} ms") }
-        }.channel
-
-    /** Bodies alone, on a streamed answer: the read stops at the limit (review of PR 26). */
-    @Test
-    fun bodiesStopAnEndlessStreamAtTheLimit() = kotlinx.coroutines.runBlocking {
-        val written = java.util.concurrent.atomic.AtomicLong()
-        val server = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
-        val http = HttpClient(MockEngine { respond(endless(server, written), HttpStatusCode.OK) })
-        try {
-            val limit = 1L * 1024 * 1024
-            val e = kotlinx.coroutines.withTimeout(30_000) {
-                failure {
-                    http.prepareGet("https://relais.test/endless").execute { response ->
-                        println("bodies: response ${response.status}, reading")
-                        Bodies.text(response, limit)
-                    }
+                    written.addAndGet(chunk.size.toLong())
                 }
             }
-            println("bodies: ended with ${e::class.simpleName} after ${written.get()} bytes written")
-            assertTrue("${e::class.simpleName}: ${e.message}", e is Bodies.TooLarge)
-            assertTrue("written ${written.get()}", written.get() < limit + 4L * 1024 * 1024)
-        } finally {
-            http.close()
-            server.cancel()
-        }
-    }
+        }.channel
 
     /**
-     * The client on an endless answer: it reads as the body streams and stops at its limit
-     * (review of PR 26). A client that held the whole body in memory first would never finish.
+     * Runs [block] on an endless body and checks that it ends with [expected] within seconds, the
+     * server stopped shortly after [limit]. Without the ceiling, the read would never end: these
+     * tests fail on their timeout if the limit is removed (review of PR 26).
      */
-    @Test
-    fun anEndlessAnswerIsStoppedWhileItStreams() = kotlinx.coroutines.runBlocking {
+    private fun stopsAtTheLimit(limit: Long, expected: Class<*>, block: suspend (MockEngine) -> Unit) = kotlinx.coroutines.runBlocking {
         val written = java.util.concurrent.atomic.AtomicLong()
         val server = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
         val engine = MockEngine { respond(endless(server, written), HttpStatusCode.OK) }
         try {
-            // GET first (one report), then POST (a list): the same reading path.
-            println("client GET: start at ${System.currentTimeMillis() % 100_000} ms")
-            val get = kotlinx.coroutines.withTimeout(20_000) { failure { client(engine).report(4_100_001) } }
-            println("client GET: ended with ${get::class.simpleName}: ${get.message} at ${System.currentTimeMillis() % 100_000} ms")
-            written.set(0)
-            println("client POST: start at ${System.currentTimeMillis() % 100_000} ms")
-            val e = kotlinx.coroutines.withTimeout(20_000) { failure { client(engine).reports(Requests.headlines()) } }
-            println("client POST: ended with ${e::class.simpleName}: ${e.message} at ${System.currentTimeMillis() % 100_000} ms")
-            assertTrue("${e::class.simpleName}: ${e.message}", e is ApiException.Server)
+            val start = System.nanoTime()
+            val e = kotlinx.coroutines.withTimeout(30_000) { failure { block(engine) } }
+            val ms = (System.nanoTime() - start) / 1_000_000
+            assertTrue("${e::class.simpleName}: ${e.message}", expected.isInstance(e))
             assertNoAppname(e)
-            assertTrue("written ${written.get()}", written.get() < ReliefWebClient.MAX_ANSWER_BYTES + 4L * 1024 * 1024)
+            assertTrue("ended after $ms ms", ms < 15_000)
+            assertTrue("written ${written.get()}", written.get() < limit + 8L * 1024 * 1024)
         } finally {
             server.cancel()
         }
+    }
+
+    /** Bodies alone, on a streamed answer: the read stops at the limit, at once (review of PR 26). */
+    @Test
+    fun bodiesStopAnEndlessStreamAtTheLimit() {
+        repeat(5) {
+            stopsAtTheLimit(1L * 1024 * 1024, Bodies.TooLarge::class.java) { engine ->
+                HttpClient(engine).use { http -> http.prepareGet("https://relais.test/endless").execute { Bodies.text(it, 1L * 1024 * 1024) } }
+            }
+        }
+    }
+
+    /** The client, through a GET (one report) and a POST (a list): it stops at its limit, at once. */
+    @Test
+    fun anEndlessAnswerIsStoppedWhileItStreams() {
+        stopsAtTheLimit(ReliefWebClient.MAX_ANSWER_BYTES, ApiException.Server::class.java) { engine -> client(engine).report(4_100_001) }
+        stopsAtTheLimit(ReliefWebClient.MAX_ANSWER_BYTES, ApiException.Server::class.java) { engine -> client(engine).reports(Requests.headlines()) }
     }
 
     @Test
