@@ -23,6 +23,7 @@ import io.relais.app.ui.ConnectScreen
 import io.relais.app.data.needsConnect
 import io.relais.app.ui.RelaisTheme
 import io.relais.app.ui.DisplaySize
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -39,6 +40,13 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handle(intent)
+    }
+
+    /** Each time the app comes to the foreground: the check of a new version, when it is due (once a day). */
+    override fun onStart() {
+        super.onStart()
+        // Silent: an error of the settings store must not reach the app.
+        container.scope.launch { runCatching { container.updateCheck.checkIfDue() } }
     }
 
     @OptIn(ExperimentalComposeUiApi::class)

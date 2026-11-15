@@ -235,6 +235,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     fun setLoadImages(mode: io.relais.app.data.LoadImages) = viewModelScope.launch { c.settings.setLoadImages(mode.name) }
     fun setDisplay(d: DisplaySize) = viewModelScope.launch { c.settings.setDisplay(d.name, d.reportStep.ordinal) }
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
+    fun setUpdateCheck(on: Boolean) = viewModelScope.launch { c.settings.setUpdateCheck(on) }
     fun clearHistory() = viewModelScope.launch { c.repository.clearHistory() }
 
     /** The Library as a file: its name and its JSON (lot 3). */
@@ -468,7 +469,13 @@ fun SettingsScreen(nav: Nav) {
             ) { Text(stringResource(R.string.settings_delete_pdfs)) }
             HorizontalDivider()
 
-            AboutSection(onLicences = nav::licences, onWhatsNew = { showWhatsNew = it })
+            AboutSection(
+                onLicences = nav::licences,
+                onWhatsNew = { showWhatsNew = it },
+                // An F-Droid build has no check, so no switch (UPDATE_CHECK).
+                updateCheck = s.updateCheck.takeIf { BuildConfig.UPDATE_CHECK },
+                onUpdateCheck = vm::setUpdateCheck,
+            )
         }
     }
 
@@ -527,11 +534,17 @@ fun SettingsScreen(nav: Nav) {
 }
 
 /**
- * Settings > About Re.L: what's new, what the app is, its licences and links, its version, then
- * how to say thanks or report something, on GitHub (no server, no tracking).
+ * Settings > About Re.L: what's new, what the app is, its licences and links, its version and
+ * "Check for new versions" ([updateCheck], null when the build has no check), then how to say
+ * thanks or report something, on GitHub (no server, no tracking).
  */
 @Composable
-fun AboutSection(onLicences: () -> Unit, onWhatsNew: (WhatsNew.Release) -> Unit) {
+fun AboutSection(
+    onLicences: () -> Unit,
+    onWhatsNew: (WhatsNew.Release) -> Unit,
+    updateCheck: Boolean? = null,
+    onUpdateCheck: (Boolean) -> Unit = {},
+) {
     val uriHandler = LocalUriHandler.current
     SectionHeader(stringResource(R.string.settings_about))
     // "What's new" (theme-compose.md 13.4): the lines of the latest version that has some.
@@ -563,6 +576,13 @@ fun AboutSection(onLicences: () -> Unit, onWhatsNew: (WhatsNew.Release) -> Unit)
         Text(stringResource(R.string.settings_terms))
     }
     SettingText(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), secondary = true)
+    if (updateCheck != null) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.settings_update_check), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Switch(checked = updateCheck, onCheckedChange = onUpdateCheck, modifier = Modifier.testTag("update_check_switch"))
+        }
+        SettingText(stringResource(R.string.settings_update_check_help), secondary = true)
+    }
     // The founder's request (v0.3.1): a way to say thanks and to give feedback without a server
     // or any tracking. A star and an issue on GitHub; nothing that opens by itself, no reminder.
     SettingText(stringResource(R.string.about_made_with), secondary = true)

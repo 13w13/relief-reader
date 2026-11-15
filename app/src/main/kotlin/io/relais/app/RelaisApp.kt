@@ -119,6 +119,31 @@ class AppContainer(private val context: Context) {
 
     val popular = Popular(context, okHttp, userAgent, repository, dao, config = { remoteConfig.current })
 
+    /**
+     * "A new version is available" (founder, 15/11), while Re.L is not on F-Droid: one GET a day
+     * to GitHub's API, with no appname and a User-Agent that is the same for everyone.
+     */
+    val updateCheck = io.relais.app.data.UpdateCheck(
+        enabled = BuildConfig.UPDATE_CHECK,
+        installed = BuildConfig.VERSION_NAME,
+        settings = { settings.current() },
+        record = { at, found -> settings.recordUpdateCheck(at, found) },
+        online = { network.isOnline() },
+        fetch = ::fetchLatestRelease,
+    )
+
+    private suspend fun fetchLatestRelease(): String? = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        val request = okhttp3.Request.Builder()
+            .url(io.relais.app.data.UpdateCheck.LATEST_URL)
+            .header("User-Agent", io.relais.app.data.UpdateCheck.USER_AGENT)
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .build()
+        okHttp.newCall(request).execute().use { response ->
+            if (response.code == 200) response.peekBody(io.relais.app.data.UpdateCheck.MAX_BYTES).string() else null
+        }
+    }
+
     /** A Library view to open, by its index (Today's "See all" opens History). */
     val libraryRequest = kotlinx.coroutines.flow.MutableStateFlow<Int?>(null)
 

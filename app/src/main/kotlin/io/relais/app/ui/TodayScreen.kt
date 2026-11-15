@@ -130,6 +130,13 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         if (!firstInstall) whatsNew.value = WhatsNew.of(code)
     }
 
+    /** "Re.L 0.5.2 is available" (founder, 15/11): the release found by the daily check, if newer. */
+    val update: StateFlow<io.relais.app.data.LatestRelease?> = c.settings.flow.map { c.updateCheck.notice(it) }
+        .distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** "Not now": no notice for this version; the next one shows again. */
+    fun dismissUpdate(version: String) = viewModelScope.launch { c.settings.dismissUpdate(version) }
+
     /** Today comes on screen: a new visit after 30 minutes away (P14). */
     fun onVisit() = viewModelScope.launch { c.settings.startTodayVisit(System.currentTimeMillis(), VISIT_GAP) }
 
@@ -306,6 +313,8 @@ fun TodayScreen(nav: Nav) {
                 persistent = state.headlines.isEmpty(),
                 snackbar = snackbar,
             )
+            val update by vm.update.collectAsStateWithLifecycle()
+            update?.let { release -> UpdateLine(release, onNotNow = { vm.dismissUpdate(release.version) }) }
             // Without an appname (the public APK's normal case, PLAN.md 0octies): say on each visit
             // what the app shows and what needs an appname. Closable; never over the content.
             if (!state.hasAccess) {

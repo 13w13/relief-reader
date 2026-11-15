@@ -33,6 +33,9 @@ class NetworkMonitor(context: Context, scope: CoroutineScope) {
         )
     }
 
+    /** Online now, asked of Android at the moment of the call (the flow only moves while watched). */
+    fun isOnline(): Boolean = now().online
+
     val state: StateFlow<NetState> = callbackFlow {
         val m = manager
         if (m == null) {
