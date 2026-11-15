@@ -5,6 +5,11 @@ package io.relais.app.ui
 import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
@@ -20,7 +25,8 @@ import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.relais.app.data.Appearance
 import io.relais.app.data.DEFAULT_READING_SIZE
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -66,16 +72,19 @@ class SizeControlsTest {
      * an ellipsis the paragraph is laid out at the full room, so didOverflowWidth is true for
      * "System", 54 px wide in 88 (run of a3982b1), and hasVisualOverflow counts the line box.
      */
-    private fun SemanticsNodeInteraction.assertWhole(what: String) {
+    /** Null when whole, else why the text is cut. */
+    private fun SemanticsNodeInteraction.cut(): String? {
         val r = layout()
         val last = r.lineCount - 1
         val natural = kotlin.math.ceil(r.multiParagraph.intrinsics.maxIntrinsicWidth).toInt()
         val room = r.layoutInput.constraints.maxWidth
         val cut = natural > room || r.isLineEllipsized(last) || r.lineCount > 1
-        assertFalse(
-            "$what is cut: natural width $natural, room $room, ellipsis ${r.isLineEllipsized(last)}, lines ${r.lineCount}, size ${r.size}",
-            cut,
-        )
+        return if (cut) "natural width $natural, room $room, ellipsis ${r.isLineEllipsized(last)}, lines ${r.lineCount}, size ${r.size}" else null
+    }
+
+    private fun SemanticsNodeInteraction.assertWhole(what: String) {
+        val why = cut()
+        assertNull("$what is cut: $why", why)
     }
 
     private val labels = listOf("System", "Light", "Dark", "Smallest", "Compact", "Default", "Large")
@@ -96,6 +105,29 @@ class SizeControlsTest {
     fun atSmallestNoLabelIsCut() {
         reading(fontScale = 1.3f, display = DisplaySize.Smallest)
         labels.forEach { compose.onNodeWithText(it, useUnmergedTree = true).assertWhole(it) }
+    }
+
+    /** The check itself: a label too long for its room is caught, in a plain text and in the control. */
+    @Test
+    fun aLabelTooLongForItsRoomIsCaught() {
+        val long = "A label far too long for any segment on this phone"
+        compose.setContent {
+            RelaisTheme(darkTheme = false) {
+                Column {
+                    Text(long, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(80.dp).testTag("narrow_ellipsis"))
+                    Text(long, maxLines = 1, modifier = Modifier.width(80.dp).testTag("narrow_clip"))
+                    Text("Short", maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(200.dp).testTag("wide"))
+                    SegmentedChoice(options = listOf(long, "Two"), selected = long, label = { it }, onSelect = {}, optionTag = { "option_" + it.length })
+                }
+            }
+        }
+        compose.waitForIdle()
+        assertNotNull(compose.onNodeWithTag("narrow_ellipsis", useUnmergedTree = true).cut())
+        assertNotNull(compose.onNodeWithTag("narrow_clip", useUnmergedTree = true).cut())
+        assertNull(compose.onNodeWithTag("wide", useUnmergedTree = true).cut())
+        // In the control, even alone on its row, the long label doesn't fit 360 dp: it is caught.
+        assertNotNull(compose.onNodeWithText(long, useUnmergedTree = true).cut())
+        compose.onNodeWithText("Two", useUnmergedTree = true).assertWhole("Two")
     }
 
     @Test
