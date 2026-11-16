@@ -46,7 +46,10 @@ class NetworkClientsTest {
                 socket.use {
                     val reader = it.getInputStream().bufferedReader()
                     val path = reader.readLine()?.split(' ')?.getOrNull(1) ?: return@use
-                    while (!reader.readLine().isNullOrEmpty()) Unit
+                    // The headers, up to the empty line, are not needed.
+                    do {
+                        val header = reader.readLine()
+                    } while (!header.isNullOrEmpty())
                     asked += path
                     it.getOutputStream().apply { write(answer(path).toByteArray()); flush() }
                 }
