@@ -121,6 +121,7 @@ jobs:
         with:
           name: test-reports
           path: '**/build/reports/tests/'
+          retention-days: 7
 
       # The release build with R8, signed with the debug key (build type "minified"), after the
       # debug uploads above: a failure of R8 does not cost the screenshots and the debug APK.
@@ -204,4 +205,3 @@ jobs:
             exit 1
           fi
           echo "The APK asks for exactly the permissions the README lists."
-          retention-days: 7
