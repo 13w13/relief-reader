@@ -411,7 +411,7 @@ fun SettingsScreen(nav: Nav) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
 
             SectionHeader(stringResource(R.string.settings_reading))
-            AppearanceChoice(io.relais.app.data.Appearance.of(s.appearance), vm::setAppearance)
+            AppearanceChoice(io.relais.app.data.Appearance.of(s.appearance), onChoose = vm::setAppearance)
             // "Display" for the whole app, then the report text (theme-compose.md 12.6).
             TextSizeControl(
                 s.readingSize,
@@ -634,8 +634,8 @@ fun AboutSection(
 @Composable
 internal fun AppearanceChoice(
     current: io.relais.app.data.Appearance,
-    onChoose: (io.relais.app.data.Appearance) -> Unit,
     inset: androidx.compose.ui.unit.Dp = Space.screen,
+    onChoose: (io.relais.app.data.Appearance) -> Unit,
 ) {
     Text(
         stringResource(R.string.settings_appearance),
@@ -698,7 +698,7 @@ internal fun WelcomeStep(
                 Spacer(Modifier.height(16.dp))
                 Text(stringResource(R.string.welcome_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(24.dp))
-                AppearanceChoice(appearance, onAppearance, inset = 0.dp)
+                AppearanceChoice(appearance, inset = 0.dp, onChoose = onAppearance)
             }
         }
         Button(
