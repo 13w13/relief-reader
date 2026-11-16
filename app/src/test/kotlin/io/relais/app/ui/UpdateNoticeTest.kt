@@ -260,4 +260,88 @@ class UpdateNoticeTest {
         state = ManualCheck.Available(LatestRelease("0.7.1", page))
         compose.onNodeWithTag("check_now_download").assertDoesNotExist()
     }
+
+    // --- Please update and the reminder that a version is old (founder, 16/11) --------------------
+
+    private val asking = LatestRelease(
+        "0.7.1",
+        "https://github.com/13w13/relief-reader/releases/tag/v0.7.1",
+        "https://github.com/13w13/relief-reader/releases/download/v0.7.1/rel-0.7.1.apk",
+        minimum = "0.7.0",
+    )
+
+    @Test
+    fun pleaseUpdateHasDownloadAndTheReleaseButNoNotNow() {
+        val opened = mutableListOf<String>()
+        compose.setContent { RelaisTheme(darkTheme = false) { PleaseUpdateLine(asking, onOpen = { opened += it }) } }
+        compose.onNodeWithText("Please update Re.L to 0.7.1.").assertIsDisplayed()
+        compose.onNodeWithText("Not now").assertDoesNotExist()
+        compose.onNodeWithTag("please_update_download").performClick()
+        compose.onNodeWithTag("please_update_open").performClick()
+        assertEquals(listOf(asking.apk, asking.url), opened)
+    }
+
+    @Test
+    fun pleaseUpdateWithoutAValidApkHasNoDownload() {
+        compose.setContent { RelaisTheme(darkTheme = false) { PleaseUpdateLine(asking.copy(apk = null), onOpen = {}) } }
+        compose.onNodeWithTag("please_update_download").assertDoesNotExist()
+        compose.onNodeWithTag("please_update_open").assertIsDisplayed()
+    }
+
+    @Test
+    fun theReminderChecksOrRests() {
+        var checks = 0
+        var rests = 0
+        var notice by androidx.compose.runtime.mutableStateOf(io.relais.app.data.VersionNotice.Aged(2))
+        compose.setContent { RelaisTheme(darkTheme = false) { AgedLine(notice, onCheckNow = { checks++ }, onNotNow = { rests++ }) } }
+        compose.onNodeWithText("This version of Re.L is 2 months old. Check for a newer one.").assertIsDisplayed()
+        compose.onNodeWithTag("aged_check_now").performClick()
+        compose.onNodeWithTag("aged_not_now").performClick()
+        assertEquals(1, checks)
+        assertEquals(1, rests)
+        notice = io.relais.app.data.VersionNotice.Aged(2, checking = true)
+        compose.onNodeWithText("Checking…").assertIsDisplayed()
+        compose.onNodeWithTag("aged_check_now").assertIsNotEnabled()
+        notice = io.relais.app.data.VersionNotice.Aged(2, failure = "no connection")
+        compose.onNodeWithText("Couldn't check (no connection)").assertIsDisplayed()
+        compose.onNodeWithTag("aged_check_now").assertIsEnabled()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun theNewLinesFitA360dpPhoneAtLargeText() {
+        var which by androidx.compose.runtime.mutableStateOf(0)
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                RelaisTheme(darkTheme = false) {
+                    if (which == 0) PleaseUpdateLine(asking, onOpen = {}) else AgedLine(io.relais.app.data.VersionNotice.Aged(2), onCheckNow = {}, onNotNow = {})
+                }
+            }
+        }
+        fun inside(line: String, vararg tags: String) {
+            val l = compose.onNodeWithTag(line).getBoundsInRoot()
+            tags.forEach { tag ->
+                val b = compose.onNodeWithTag(tag).getBoundsInRoot()
+                assertTrue("$tag inside $line: $b in $l", b.left >= l.left && b.right <= l.right && b.bottom <= l.bottom)
+            }
+        }
+        inside("please_update_line", "please_update_open", "please_update_download")
+        which = 1
+        inside("aged_line", "aged_not_now", "aged_check_now")
+    }
+
+    @Test
+    fun aboutShowsAStoredPleaseUpdateUnderCheckNow() {
+        compose.setContent { RelaisTheme(darkTheme = false) { CheckNow(ManualCheck.Idle, onCheckNow = {}, onOpen = {}, standing = asking) } }
+        compose.onNodeWithText("Please update Re.L to 0.7.1.").assertIsDisplayed()
+        compose.onNodeWithTag("check_now_download").assertIsDisplayed()
+        compose.onNodeWithTag("check_now_release").assertIsDisplayed()
+    }
+
+    @Test
+    fun checkNowSaysPleaseUpdateWhenTheReleaseAsks() {
+        compose.setContent { RelaisTheme(darkTheme = false) { CheckNow(ManualCheck.Available(asking, pleaseUpdate = true), onCheckNow = {}, onOpen = {}) } }
+        compose.onNodeWithText("Please update Re.L to 0.7.1.").assertIsDisplayed()
+    }
 }

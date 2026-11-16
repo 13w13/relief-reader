@@ -114,6 +114,18 @@ class SettingsStoreTest {
         store.recordUpdateCheck(now + 2, LatestRelease("0.5.5", "https://github.com/13w13/relief-reader/releases/tag/v0.5.5"))
         assertEquals("0.5.5", store.current().updateVersion)
         assertNull(store.current().updateApk)
+        // "Please update" (16/11): the minimum goes with its release, like the APK; none from 0.6.x.
+        assertNull(store.current().updateMinimum)
+        store.recordUpdateCheck(now + 3, LatestRelease("0.5.6", "https://github.com/13w13/relief-reader/releases/tag/v0.5.6", minimum = "0.5.5"))
+        assertEquals("0.5.5", store.current().updateMinimum)
+        store.recordUpdateCheck(now + 4, null)
+        assertEquals("0.5.5", store.current().updateMinimum)
+        store.recordUpdateCheck(now + 5, LatestRelease("0.5.7", "https://github.com/13w13/relief-reader/releases/tag/v0.5.7"))
+        assertNull(store.current().updateMinimum)
+        // The reminder's "Not now".
+        assertEquals(0L, store.current().agedDismissedAt)
+        store.dismissAged(now)
+        assertEquals(now, store.current().agedDismissedAt)
 
         // Appearance (v0.6): System by default, then each choice comes back. Chosen on the welcome
         // screen (16/11), before the first launch is done: saved at once, read by Settings later.

@@ -130,12 +130,30 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         if (!firstInstall) whatsNew.value = WhatsNew.of(code)
     }
 
-    /** "Re.L 0.5.2 is available" (founder, 15/11): the release found by the check, if newer. */
-    val update: StateFlow<io.relais.app.data.LatestRelease?> = c.settings.flow.map { c.updateCheck.notice(it) }
-        .distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /**
+     * The one version line (founder, 15/11 and 16/11): "Please update", "Re.L 0.5.2 is
+     * available", or "This version of Re.L is 2 months old", never two at once.
+     */
+    val versionNotice: StateFlow<io.relais.app.data.VersionNotice?> =
+        combine(c.settings.flow, c.updateCheck.manual) { s, manual -> c.updateCheck.banner(s, manual) }
+            .distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** "Not now": no notice for this version; the next one shows again. */
+    /** "Not now": no notice for this version for 3 days; a newer one shows at once. */
     fun dismissUpdate(version: String) = viewModelScope.launch { c.settings.dismissUpdate(version) }
+
+    /** "Not now" on the reminder that this version is old: back in 14 days. */
+    fun dismissAged() = viewModelScope.launch { c.settings.dismissAged() }
+
+    /**
+     * "Check now" on the reminder: the same check as in Settings, in the app's scope. Up to date,
+     * the reminder rests 14 days, as with "Not now"; a newer version takes its place.
+     */
+    fun checkNow() {
+        c.scope.launch {
+            val result = runCatching { c.updateCheck.checkNow() }.getOrNull()
+            if (result is io.relais.app.data.ManualCheck.UpToDate) runCatching { c.settings.dismissAged() }
+        }
+    }
 
     /** Today comes on screen: a new visit after 30 minutes away (P14). */
     fun onVisit() = viewModelScope.launch { c.settings.startTodayVisit(System.currentTimeMillis(), VISIT_GAP) }
@@ -313,8 +331,14 @@ fun TodayScreen(nav: Nav) {
                 persistent = state.headlines.isEmpty(),
                 snackbar = snackbar,
             )
-            val update by vm.update.collectAsStateWithLifecycle()
-            update?.let { release -> UpdateLine(release, onNotNow = { vm.dismissUpdate(release.version) }) }
+            val versionNotice by vm.versionNotice.collectAsStateWithLifecycle()
+            when (val notice = versionNotice) {
+                is io.relais.app.data.VersionNotice.PleaseUpdate -> PleaseUpdateLine(notice.release)
+                is io.relais.app.data.VersionNotice.Available ->
+                    UpdateLine(notice.release, onNotNow = { vm.dismissUpdate(notice.release.version) })
+                is io.relais.app.data.VersionNotice.Aged -> AgedLine(notice, onCheckNow = vm::checkNow, onNotNow = vm::dismissAged)
+                null -> Unit
+            }
             // Without an appname (the public APK's normal case, PLAN.md 0octies): say on each visit
             // what the app shows and what needs an appname. Closable; never over the content.
             if (!state.hasAccess) {

@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -26,6 +27,7 @@ import io.relais.app.R
 import io.relais.app.data.LatestRelease
 import io.relais.app.data.ManualCheck
 import io.relais.app.data.UpdateCheck
+import io.relais.app.data.VersionNotice
 
 /**
  * "Re.L 0.5.2 is available" at the top of Today (founder, 15/11): the same compact line as the
@@ -80,6 +82,92 @@ fun UpdateLine(release: LatestRelease, onNotNow: () -> Unit, onOpen: (String) ->
 }
 
 /**
+ * "Please update Re.L to 0.7.1." (founder, 16/11): the latest release asks this version to update.
+ * The same line as the notice, with "Download" (a valid APK only) and "See the release", and no
+ * "Not now": it stays until the app is up to date. Nothing is blocked.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun PleaseUpdateLine(release: LatestRelease, onOpen: (String) -> Unit = rememberReleaseOpener()) {
+    val cs = MaterialTheme.colorScheme
+    MessageThenActions(
+        Modifier.fillMaxWidth().background(cs.surfaceVariant).heightIn(min = 40.dp)
+            .padding(start = Space.screen, end = Space.xs).testTag("please_update_line"),
+        message = {
+            Text(
+                stringResource(R.string.update_please, release.version),
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurface,
+                modifier = Modifier.padding(vertical = 6.dp).testTag("please_update_text"),
+            )
+        },
+        actions = {
+            FlowRow(horizontalArrangement = Arrangement.End) {
+                TextButton(
+                    onClick = { UpdateCheck.releasePage(release.url)?.let(onOpen) },
+                    contentPadding = PaddingValues(horizontal = Space.s),
+                    modifier = Modifier.testTag("please_update_open"),
+                ) {
+                    Text(stringResource(R.string.update_see_release))
+                }
+                if (UpdateCheck.apkLink(release.apk, release.version) != null) {
+                    TextButton(
+                        onClick = { UpdateCheck.apkLink(release.apk, release.version)?.let(onOpen) },
+                        contentPadding = PaddingValues(horizontal = Space.s),
+                        modifier = Modifier.testTag("please_update_download"),
+                    ) {
+                        Text(stringResource(R.string.update_download))
+                    }
+                }
+            }
+        },
+    )
+}
+
+/**
+ * "This version of Re.L is 2 months old. Check for a newer one." (founder, 16/11): from the phone's
+ * date only, no request. "Check now" runs the check (inactive while it runs, and the line says
+ * so), "Not now" hides it for 14 days. A failed check is said in the line.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun AgedLine(notice: VersionNotice.Aged, onCheckNow: () -> Unit, onNotNow: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    MessageThenActions(
+        Modifier.fillMaxWidth().background(cs.surfaceVariant).heightIn(min = 40.dp)
+            .padding(start = Space.screen, end = Space.xs).testTag("aged_line"),
+        message = {
+            val failure = notice.failure
+            Text(
+                when {
+                    notice.checking -> stringResource(R.string.update_checking)
+                    failure != null -> stringResource(R.string.update_check_failed, failure)
+                    else -> pluralStringResource(R.plurals.update_aged, notice.months, notice.months)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 6.dp).testTag("aged_text"),
+            )
+        },
+        actions = {
+            FlowRow(horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onNotNow, contentPadding = PaddingValues(horizontal = Space.s), modifier = Modifier.testTag("aged_not_now")) {
+                    Text(stringResource(R.string.update_not_now))
+                }
+                TextButton(
+                    onClick = onCheckNow,
+                    enabled = !notice.checking,
+                    contentPadding = PaddingValues(horizontal = Space.s),
+                    modifier = Modifier.testTag("aged_check_now"),
+                ) {
+                    Text(stringResource(R.string.update_check_now))
+                }
+            }
+        },
+    )
+}
+
+/**
  * "Check now" in Settings > About (founder, 16/11), under the version line: the button, then the
  * result under it, never in a dialog. The button is inactive while a check is under way. A new
  * version offers "Download the APK" (only with a valid APK) and "See the release", both opened in
@@ -87,7 +175,7 @@ fun UpdateLine(release: LatestRelease, onNotNow: () -> Unit, onOpen: (String) ->
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun CheckNow(state: ManualCheck, onCheckNow: () -> Unit, onOpen: (String) -> Unit) {
+internal fun CheckNow(state: ManualCheck, onCheckNow: () -> Unit, onOpen: (String) -> Unit, standing: LatestRelease? = null) {
     val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().testTag("check_now")) {
         TextButton(
@@ -97,12 +185,15 @@ internal fun CheckNow(state: ManualCheck, onCheckNow: () -> Unit, onOpen: (Strin
         ) {
             Text(stringResource(R.string.update_check_now))
         }
-        val message = when (state) {
+        // Before any tap, a stored "Please update" ([standing]) shows as if just found.
+        val shown = if (state == ManualCheck.Idle && standing != null) ManualCheck.Available(standing, pleaseUpdate = true) else state
+        val message = when (shown) {
             ManualCheck.Idle -> null
             ManualCheck.Checking -> stringResource(R.string.update_checking)
-            is ManualCheck.UpToDate -> stringResource(R.string.update_up_to_date, state.installed)
-            is ManualCheck.Available -> stringResource(R.string.update_found, state.release.version)
-            is ManualCheck.Failed -> stringResource(R.string.update_check_failed, state.reason)
+            is ManualCheck.UpToDate -> stringResource(R.string.update_up_to_date, shown.installed)
+            is ManualCheck.Available ->
+                stringResource(if (shown.pleaseUpdate) R.string.update_please else R.string.update_found, shown.release.version)
+            is ManualCheck.Failed -> stringResource(R.string.update_check_failed, shown.reason)
         }
         if (message != null) {
             Text(
@@ -112,8 +203,8 @@ internal fun CheckNow(state: ManualCheck, onCheckNow: () -> Unit, onOpen: (Strin
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("check_now_result"),
             )
         }
-        if (state is ManualCheck.Available) {
-            val release = state.release
+        if (shown is ManualCheck.Available) {
+            val release = shown.release
             FlowRow(Modifier.padding(horizontal = 8.dp)) {
                 if (UpdateCheck.apkLink(release.apk, release.version) != null) {
                     TextButton(

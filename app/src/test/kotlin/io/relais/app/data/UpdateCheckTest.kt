@@ -227,6 +227,7 @@ class UpdateCheckTest {
                         updateVersion = found?.version ?: settings.updateVersion,
                         updateUrl = found?.url ?: settings.updateUrl,
                         updateApk = if (found != null) found.apk else settings.updateApk,
+                        updateMinimum = if (found != null) found.minimum else settings.updateMinimum,
                     )
                 },
                 online = { online },
@@ -625,4 +626,169 @@ class UpdateCheckTest {
     }
 
     private val phone0 = 1_794_700_000_000L
+
+    // --- "Please update" (founder, 16/11) ---------------------------------------------------------
+
+    private fun withBody(body: String, tag: String = "v0.7.1") =
+        """{"tag_name": "$tag", "html_url": "https://github.com/13w13/relief-reader/releases/tag/$tag", "draft": false, "prerelease": false, "assets": [], "body": ${kotlinx.serialization.json.JsonPrimitive(body)}}"""
+
+    private val notes = "Re.L 0.7.1, a fix.\n\n<!-- please-update-below: 0.7.0 -->\n\n## What changed\n- PDFs."
+
+    @Test
+    fun theMarkerIsReadFromTheNotes() {
+        assertEquals("0.7.0", UpdateCheck.parse(withBody(notes))?.minimum)
+        // Windows line ends, spaces around the line.
+        assertEquals("0.7.0", UpdateCheck.parse(withBody("Notes\r\n   <!-- please-update-below: 0.7.0 -->   \r\nEnd"))?.minimum)
+        // Equal to the release itself: allowed (every older version).
+        assertEquals("0.7.1", UpdateCheck.parse(withBody("<!-- please-update-below: 0.7.1 -->"))?.minimum)
+    }
+
+    @Test
+    fun aMissingDoubleOddOrTooHighMarkerAsksNothing() {
+        listOf(
+            "No marker at all.",
+            "",
+            // Twice, even the same.
+            "<!-- please-update-below: 0.7.0 -->\n<!-- please-update-below: 0.7.0 -->",
+            // Unreadable versions, a "v", another form.
+            "<!-- please-update-below: 0.7.x -->",
+            "<!-- please-update-below: v0.7.0 -->",
+            "<!-- please-update-below: 0.7.0-beta -->",
+            "<!-- please-update-below:0.7.0 -->",
+            "<!-- please-update-below: 0.7.0 --> and more",
+            "Text <!-- please-update-below: 0.7.0 -->",
+            "<!-- please-update-below: -->",
+            // Newer than the release: it would reach versions after the latest.
+            "<!-- please-update-below: 0.7.2 -->",
+            "<!-- please-update-below: 9.9.9 -->",
+        ).forEach { body ->
+            val release = UpdateCheck.parse(withBody(body))
+            assertEquals(body, "0.7.1", release?.version)
+            assertNull(body, release?.minimum)
+        }
+        // No body at all.
+        assertNull(UpdateCheck.parse(answer())?.minimum)
+    }
+
+    private val release071 = LatestRelease("0.7.1", "https://github.com/13w13/relief-reader/releases/tag/v0.7.1", minimum = "0.7.0")
+
+    @Test
+    fun onlyAVersionBelowTheMinimumIsAskedToUpdate() {
+        assertTrue(release071.asksUpdateFrom("0.6.2"))
+        assertTrue(release071.asksUpdateFrom("0.6.9.9"))
+        assertFalse(release071.asksUpdateFrom("0.7.0"))
+        assertFalse(release071.asksUpdateFrom("0.7.1"))
+        assertFalse(release071.copy(minimum = null).asksUpdateFrom("0.1"))
+    }
+
+    private fun stored(minimum: String?, version: String = "0.7.1") = Settings(
+        updateVersion = version,
+        updateUrl = "https://github.com/13w13/relief-reader/releases/tag/v$version",
+        updateMinimum = minimum,
+    )
+
+    private val day = UpdateCheck.DAY
+    private val t0 = 1_794_700_000_000L
+
+    private fun banner(s: Settings, installed: String = "0.6.2", manual: ManualCheck = ManualCheck.Idle, now: Long = t0, releaseDate: String = "2026-11-17", enabled: Boolean = true) =
+        UpdateCheck.banner(enabled, s, installed, now, manual, releaseDate)
+
+    @Test
+    fun pleaseUpdateHasNoNotNowAndStaysUntilUpToDate() {
+        val s = stored("0.7.0")
+        assertEquals(VersionNotice.PleaseUpdate(release071), banner(s))
+        // "Not now" on this version does not hide it.
+        assertEquals(VersionNotice.PleaseUpdate(release071), banner(s.copy(updateDismissed = "0.7.1", updateDismissedAt = t0)))
+        // Installed at the minimum: the ordinary notice, which "Not now" hides.
+        assertEquals(VersionNotice.Available(release071), banner(s, installed = "0.7.0"))
+        assertNull(banner(s.copy(updateDismissed = "0.7.1", updateDismissedAt = t0), installed = "0.7.0"))
+        // Up to date: nothing.
+        assertNull(banner(s, installed = "0.7.1"))
+    }
+
+    @Test
+    fun aStoredMinimumIsCheckedAgainOnReading() {
+        // From 0.6.x: no minimum. A changed value, newer than its release or unreadable: none.
+        listOf(null, "0.7.2", "x", "v0.7.0", "").forEach { minimum ->
+            assertEquals("$minimum", VersionNotice.Available(release071.copy(minimum = null)), banner(stored(minimum)))
+        }
+    }
+
+    @Test
+    fun theSwitchOffOrTheFlagOffMeansNoPleaseUpdate() {
+        assertNull(UpdateCheck.notice(true, stored("0.7.0").copy(updateCheck = false), "0.6.2", t0))
+        assertNull(banner(stored("0.7.0"), enabled = false))
+        // Switch off, a young version: no line at all.
+        assertNull(banner(stored("0.7.0").copy(updateCheck = false), now = t0))
+    }
+
+    @Test
+    fun checkNowSaysPleaseUpdate() {
+        val phone = Phone(reply = { withBody(notes) })
+        phone.settings = phone.settings.copy(updateCheck = false)
+        val result = phone.tap()
+        // Installed 0.5.1, below 0.7.0.
+        assertTrue(result is ManualCheck.Available && result.pleaseUpdate)
+        assertEquals("0.7.0", phone.settings.updateMinimum)
+        // Shown on Today from the tap, the switch being off.
+        assertTrue(UpdateCheck.banner(true, phone.settings, "0.5.1", phone.now, result, "") is VersionNotice.PleaseUpdate)
+        // A later release without a marker removes the minimum.
+        phone.reply = { withBody("No marker", tag = "v0.7.2") }
+        phone.now += UpdateCheck.MIN_GAP
+        phone.tap()
+        assertNull(phone.settings.updateMinimum)
+    }
+
+    // --- The reminder that this version is old (founder, 16/11) ------------------------------------
+
+    private val released = java.time.LocalDate.parse("2026-11-17").atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    @Test
+    fun theReminderComesAfter60Days() {
+        assertNull(Aging.months("2026-11-17", released + 59 * day, 0))
+        assertNull(Aging.months("2026-11-17", released + 60 * day - 1, 0))
+        assertEquals(2, Aging.months("2026-11-17", released + 60 * day, 0))
+        assertEquals(3, Aging.months("2026-11-17", released + 95 * day, 0))
+        // With the switch off too: it contacts no one.
+        assertEquals(VersionNotice.Aged(2), banner(Settings(updateCheck = false), now = released + 60 * day))
+    }
+
+    @Test
+    fun notNowHidesTheReminderFor14Days() {
+        val at = released + 70 * day
+        assertNull(Aging.months("2026-11-17", at + 14 * day - 1, dismissedAt = at))
+        assertEquals(2, Aging.months("2026-11-17", at + 14 * day, dismissedAt = at))
+    }
+
+    @Test
+    fun aWrongClockOrDateShowsNoReminder() {
+        // The phone's date before the release, or more than 10 years after it.
+        assertNull(Aging.months("2026-11-17", released - day, 0))
+        assertNull(Aging.months("2026-11-17", released + 3700 * day, 0))
+        assertEquals(120, Aging.months("2026-11-17", released + 3600 * day, 0))
+        // No date, or not one.
+        listOf("", "2026-02-30", "17/11/2026", "soon").forEach { assertNull(it, Aging.months(it, released + 100 * day, 0)) }
+    }
+
+    @Test
+    fun theFlagOffMeansNoReminder() {
+        assertNull(banner(Settings(), now = released + 100 * day, enabled = false))
+    }
+
+    @Test
+    fun oneVersionLineAtATime() {
+        val old = released + 100 * day
+        // Please update first, then available, then the reminder.
+        assertTrue(banner(stored("0.7.0"), now = old) is VersionNotice.PleaseUpdate)
+        assertTrue(banner(stored(null), now = old) is VersionNotice.Available)
+        assertTrue(banner(Settings(), now = old) is VersionNotice.Aged)
+        // An available version closed with "Not now": the reminder may show instead.
+        assertTrue(banner(stored(null).copy(updateDismissed = "0.7.1", updateDismissedAt = old), now = old) is VersionNotice.Aged)
+        // The reminder says when its check runs and when it fails.
+        assertEquals(VersionNotice.Aged(3, checking = true), banner(Settings(), now = old, manual = ManualCheck.Checking))
+        assertEquals(VersionNotice.Aged(3, failure = "no connection"), banner(Settings(), now = old, manual = ManualCheck.Failed("no connection")))
+        // A check that found a newer version replaces it, even with the switch off.
+        val found = ManualCheck.Available(release071.copy(minimum = null))
+        assertEquals(VersionNotice.Available(release071.copy(minimum = null)), banner(Settings(updateCheck = false), now = old, manual = found))
+    }
 }

@@ -81,6 +81,10 @@ data class Settings(
     val updateVersion: String? = null,
     val updateUrl: String? = null,
     val updateApk: String? = null,
+    /** The version below which that release asks to update (its notes); none from 0.6.x. */
+    val updateMinimum: String? = null,
+    /** "This version of Re.L is 2 months old" closed with "Not now": hidden for 14 days (Aging). */
+    val agedDismissedAt: Long = 0,
     /**
      * The version whose notice was closed with "Not now", and when: it shows again 3 days later
      * (UpdateCheck.NOT_NOW_FOR), and a newer version at once (16/11).
@@ -205,6 +209,8 @@ class SettingsStore(private val context: Context) {
         val updateVersion = stringPreferencesKey("update_version")
         val updateUrl = stringPreferencesKey("update_url")
         val updateApk = stringPreferencesKey("update_apk")
+        val updateMinimum = stringPreferencesKey("update_minimum")
+        val agedDismissedAt = longPreferencesKey("aged_dismissed_at")
         val updateDismissed = stringPreferencesKey("update_dismissed")
         val updateDismissedAt = UpdateDismissedMigration.AT
         val updateHeldUntil = longPreferencesKey("update_held_until")
@@ -251,6 +257,8 @@ class SettingsStore(private val context: Context) {
             updateVersion = p[Keys.updateVersion],
             updateUrl = p[Keys.updateUrl],
             updateApk = p[Keys.updateApk],
+            updateMinimum = p[Keys.updateMinimum],
+            agedDismissedAt = p[Keys.agedDismissedAt] ?: 0,
             updateDismissed = p[Keys.updateDismissed],
             updateDismissedAt = p[Keys.updateDismissedAt] ?: 0,
             updateHeldUntil = p[Keys.updateHeldUntil] ?: 0,
@@ -341,6 +349,9 @@ class SettingsStore(private val context: Context) {
             it[Keys.updateUrl] = found.url
             val apk = found.apk
             if (apk != null) it[Keys.updateApk] = apk else it.remove(Keys.updateApk)
+            // The minimum goes with its release too: a release without one asks nothing.
+            val minimum = found.minimum
+            if (minimum != null) it[Keys.updateMinimum] = minimum else it.remove(Keys.updateMinimum)
         }
     }
 
@@ -351,6 +362,9 @@ class SettingsStore(private val context: Context) {
     }
 
     suspend fun holdUpdateCheck(until: Long) = context.dataStore.edit { it[Keys.updateHeldUntil] = until }
+
+    /** "Not now" on the reminder that this version is old: back in 14 days. */
+    suspend fun dismissAged(at: Long = System.currentTimeMillis()) = context.dataStore.edit { it[Keys.agedDismissedAt] = at }
 
     /** Keeps the 50 latest hidden pins: older ones have long left the 30-day window. */
     suspend fun hidePin(reportId: Long) = context.dataStore.edit { p ->

@@ -174,6 +174,7 @@ class AppContainer(private val context: Context) {
         online = { network.isOnline() },
         fetch = { io.relais.app.data.HttpClients.latestRelease(okHttp) },
         hold = { until -> settings.holdUpdateCheck(until) },
+        releaseDate = BuildConfig.RELEASE_DATE,
     )
 
     /** A Library view to open, by its index (Today's "See all" opens History). */
