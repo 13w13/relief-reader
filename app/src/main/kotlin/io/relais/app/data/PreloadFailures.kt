@@ -42,7 +42,8 @@ class PreloadFailures(private val file: File) {
          */
         internal fun file(dir: File, versionCode: Int): File {
             val current = "preload_failures-$versionCode.tsv"
-            dir.listFiles { f -> f.name.startsWith("preload_failures") && f.name != current }?.forEach { it.delete() }
+            // Not the current file's .tmp: another worker may be writing it (review of PR 38).
+            dir.listFiles { f -> f.name.startsWith("preload_failures") && f.name != current && f.name != "$current.tmp" }?.forEach { it.delete() }
             return File(dir, current)
         }
     }
