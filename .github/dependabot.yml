@@ -1,16 +1,19 @@
 version: 2
+# Monthly, not weekly: a personal app maintained on spare time, where weekly batches left
+# 7 pull requests open after one week. Security updates do not follow this schedule:
+# GitHub opens them as soon as an alert exists (Security > Dependabot).
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
   # Libraries of the app (audit S1, 9.6), reviewed like any change. Small groups since the
   # security audit of 15/11: one batch of 30 updates (PR 9) could not be read. A library in no
   # group gets a pull request of its own.
   - package-ecosystem: gradle
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 10
     groups:
       # Android Gradle plugin, Kotlin, its compiler plugins and KSP move together.
@@ -27,7 +30,7 @@ updates:
         patterns: ["junit*", "org.robolectric*", "io.github.takahirom.roborazzi*", "androidx.test*"]
     # Major versions change the build or the API (AGP 9 builds Kotlin in and refuses the
     # kotlin-android plugin; Gradle 9; OkHttp 5; a new Compose BOM year). They are done on
-    # purpose, one at a time, not by the weekly batch.
+    # purpose, one at a time, not by the monthly batch.
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
