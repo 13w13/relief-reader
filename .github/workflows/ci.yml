@@ -172,10 +172,25 @@ jobs:
 
       # pdfbox-android logs through android.util.Log; were commons-logging on the classpath, R8
       # would need a rule for it (proguard-rules.pro).
-      - name: Check that commons-logging is not in the release
+      # The network libraries of the release as Gradle resolves them: the catalog gives the version
+      # asked for, and OkHttp also comes through Ktor's engine and Coil, so the highest one wins.
+      # commons-logging must not be there: R8 has no keep rule for it.
+      - name: Show the release's network libraries, check commons-logging
         if: hashFiles('app/build.gradle.kts') != ''
         run: |
-          if ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath | grep -i 'commons-logging'; then
+          set -eu
+          DEPS="$RUNNER_TEMP/release-dependencies.txt"
+          ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath > "$DEPS"
+          echo "OkHttp, Ktor's OkHttp engine and Coil's network module in releaseRuntimeClasspath:"
+          NETWORK=$(grep -E 'com\.squareup\.okhttp3:|io\.ktor:ktor-client-okhttp|io\.coil-kt\.coil3:coil-network-okhttp' "$DEPS" | sed 's/^[-| +\\]*//' | sort -u || true)
+          if [ -z "$NETWORK" ]; then
+            echo "::error::No OkHttp in the release classpath."
+            exit 1
+          fi
+          echo "$NETWORK"
+          echo "Which library asks for which OkHttp, and the one Gradle keeps:"
+          ./gradlew --no-daemon -q :app:dependencyInsight --configuration releaseRuntimeClasspath --dependency com.squareup.okhttp3:okhttp
+          if grep -i 'commons-logging' "$DEPS"; then
             echo "::error::commons-logging is in the release classpath: add a keep rule for org.apache.commons.logging."
             exit 1
           fi
