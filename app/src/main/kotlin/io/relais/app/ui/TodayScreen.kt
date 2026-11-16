@@ -130,7 +130,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         if (!firstInstall) whatsNew.value = WhatsNew.of(code)
     }
 
-    /** "Re.L 0.5.2 is available" (founder, 15/11): the release found by the daily check, if newer. */
+    /** "Re.L 0.5.2 is available" (founder, 15/11): the release found by the check, if newer. */
     val update: StateFlow<io.relais.app.data.LatestRelease?> = c.settings.flow.map { c.updateCheck.notice(it) }
         .distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

@@ -39,7 +39,7 @@ Re.L is not on Google Play. Its inclusion in F-Droid has been requested ([fdroid
 
 To update, install the new APK over the old one. Your countries, Library and settings stay. To hear about new versions:
 
-- **In the app.** Once a day, Re.L checks this page's latest release, and Today says when a newer version is out. **See the release** opens the release page; the app never downloads or installs anything itself. Turn it off in Settings > About Re.L > **Check for new versions**.
+- **In the app.** When you open Re.L, at most once an hour, it checks this page's latest release, and Today says when a newer version is out. **Not now** hides the notice for 3 days; a newer version shows at once. **Check now**, in Settings > About Re.L, checks at once, even with the automatic check off. **Download** opens the new APK in your browser, which downloads it; open the file to install it. **See the release** opens the release page. The app itself never downloads or installs anything. Turn the automatic check off in Settings > About Re.L > **Check for new versions**.
 - **On GitHub.** Use **Watch > Custom > Releases** on this page.
 - **With [Obtainium](https://github.com/ImranR98/Obtainium).** Add this repository's address: Obtainium follows its releases and offers to install each new APK.
 
@@ -90,7 +90,7 @@ What it connects to, and when:
 - **`api.reliefweb.int` and `reliefweb.int`**, for reports, the headlines feed and the Most read file.
 - **PDFs, from `reliefweb.int` only.** On Wi-Fi, Re.L downloads the PDFs of recent reports on what you follow, without a tap (Settings > Storage > **Download PDFs on Wi-Fi**, on by default). A PDF hosted anywhere else is not downloaded; the report offers to open it in your browser.
 - **Photos and images.** The photo of the next headline loads ahead of time, so the pile turns without waiting. When a report includes an image hosted on another site, the app loads it from there, and that site sees your IP address. Settings > Reading > **Load images** limits images to Wi-Fi, or turns them off.
-- **`api.github.com`, once a day**, for the number of the latest release. It carries no appname, no account and nothing about you, though GitHub sees your IP address, as any site does. Settings > About Re.L > **Check for new versions** turns it off.
+- **`api.github.com`, when you open Re.L (at most once an hour) and when you tap Check now**, for the number of the latest release and the address of its APK. It carries no appname, no account and nothing about you, but GitHub sees your IP address at each check, so roughly whenever you open the app. "Check now" sends at most one request every 30 seconds. Settings > About Re.L > **Check for new versions** turns off every automatic check; then only a tap on Check now asks.
 
 Every request carries the same User-Agent, `Re.L/Android`, with no version number. Only https is used.
 

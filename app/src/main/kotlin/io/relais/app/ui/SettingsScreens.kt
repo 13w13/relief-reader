@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -237,11 +238,19 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
     fun setUpdateCheck(on: Boolean) = viewModelScope.launch { c.settings.setUpdateCheck(on) }
 
-    /** "Appearance": saved, then given to Android for the launch window (Android 12 and later). */
-    fun setAppearance(appearance: io.relais.app.data.Appearance) = viewModelScope.launch {
-        c.settings.setAppearance(appearance)
-        c.applyNightMode(appearance)
+    /** "Check now" (founder, 16/11) and its result, kept by the app while it runs. */
+    val manualCheck = c.updateCheck.manual
+
+    /** A result of Check now older than a few minutes goes (review of PR 44). */
+    fun forgetOldCheck() = c.updateCheck.forgetOldResult()
+
+    /** In the app's scope: leaving Settings does not cancel the check, its result waits there. */
+    fun checkNow() {
+        c.scope.launch { runCatching { c.updateCheck.checkNow() } }
     }
+
+    /** "Appearance": saved, then given to Android for the launch window (Android 12 and later). */
+    fun setAppearance(appearance: io.relais.app.data.Appearance) = viewModelScope.launch { c.setAppearance(appearance) }
     fun clearHistory() = viewModelScope.launch { c.repository.clearHistory() }
 
     /** The Library as a file: its name and its JSON (lot 3). */
@@ -298,6 +307,9 @@ fun SettingsScreen(nav: Nav) {
     var shortenHistory by remember { mutableStateOf<Triple<Int, Int, Int>?>(null) }
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
+    val manualCheck by vm.manualCheck.collectAsStateWithLifecycle()
+    // Each time Settings comes on screen, a stale result of Check now goes; a rotation keeps it.
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { vm.forgetOldCheck() }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) vm.setDigest(context, true, s.digestHour, s.digestMinute)
     }
@@ -404,7 +416,7 @@ fun SettingsScreen(nav: Nav) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
 
             SectionHeader(stringResource(R.string.settings_reading))
-            AppearanceChoice(io.relais.app.data.Appearance.of(s.appearance), vm::setAppearance)
+            AppearanceChoice(io.relais.app.data.Appearance.of(s.appearance), onChoose = vm::setAppearance)
             // "Display" for the whole app, then the report text (theme-compose.md 12.6).
             TextSizeControl(
                 s.readingSize,
@@ -482,9 +494,11 @@ fun SettingsScreen(nav: Nav) {
             AboutSection(
                 onLicences = nav::licences,
                 onWhatsNew = { showWhatsNew = it },
-                // An F-Droid build has no check, so no switch (UPDATE_CHECK).
+                // An F-Droid build has no check, so no switch and no "Check now" (UPDATE_CHECK).
                 updateCheck = s.updateCheck.takeIf { BuildConfig.UPDATE_CHECK },
                 onUpdateCheck = vm::setUpdateCheck,
+                checkNow = manualCheck.takeIf { BuildConfig.UPDATE_CHECK },
+                onCheckNow = vm::checkNow,
             )
         }
     }
@@ -544,9 +558,10 @@ fun SettingsScreen(nav: Nav) {
 }
 
 /**
- * Settings > About Re.L: what's new, what the app is, its licences and links, its version and
- * "Check for new versions" ([updateCheck], null when the build has no check), then how to say
- * thanks or report something, on GitHub (no server, no tracking).
+ * Settings > About Re.L: what's new, what the app is, its licences and links, its version,
+ * "Check now" ([checkNow], its state; null when the build has no check) and "Check for new
+ * versions" ([updateCheck], null when the build has no check), then how to say thanks or report
+ * something, on GitHub (no server, no tracking).
  */
 @Composable
 fun AboutSection(
@@ -554,6 +569,9 @@ fun AboutSection(
     onWhatsNew: (WhatsNew.Release) -> Unit,
     updateCheck: Boolean? = null,
     onUpdateCheck: (Boolean) -> Unit = {},
+    checkNow: io.relais.app.data.ManualCheck? = null,
+    onCheckNow: () -> Unit = {},
+    onOpen: (String) -> Unit = rememberReleaseOpener(),
 ) {
     val uriHandler = LocalUriHandler.current
     SectionHeader(stringResource(R.string.settings_about))
@@ -586,6 +604,11 @@ fun AboutSection(
         Text(stringResource(R.string.settings_terms))
     }
     SettingText(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), secondary = true)
+    // A tap is an explicit request: it works with the switch off too (founder, 16/11).
+    if (checkNow != null) {
+        CheckNow(checkNow, onCheckNow, onOpen)
+        SettingText(stringResource(R.string.update_check_now_help), secondary = true)
+    }
     if (updateCheck != null) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.settings_update_check), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -610,14 +633,19 @@ fun AboutSection(
 
 /**
  * "Appearance" (v0.6): follow the phone, or always light, or always dark. Applies at once. The
- * same title and segmented control as "Display" and "Report text" below it.
+ * same title and segmented control as "Display" and "Report text" below it. Also on the welcome
+ * screen (16/11), with [inset] 0 since that screen has its own margins.
  */
 @Composable
-internal fun AppearanceChoice(current: io.relais.app.data.Appearance, onChoose: (io.relais.app.data.Appearance) -> Unit) {
+internal fun AppearanceChoice(
+    current: io.relais.app.data.Appearance,
+    inset: androidx.compose.ui.unit.Dp = Space.screen,
+    onChoose: (io.relais.app.data.Appearance) -> Unit,
+) {
     Text(
         stringResource(R.string.settings_appearance),
         style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(horizontal = Space.screen).padding(top = Space.s, bottom = Space.m),
+        modifier = Modifier.padding(horizontal = inset).padding(top = Space.s, bottom = Space.m),
     )
     SegmentedChoice(
         options = io.relais.app.data.Appearance.entries,
@@ -632,7 +660,7 @@ internal fun AppearanceChoice(current: io.relais.app.data.Appearance, onChoose: 
             )
         },
         onSelect = onChoose,
-        modifier = Modifier.padding(horizontal = Space.screen).testTag("appearance"),
+        modifier = Modifier.padding(horizontal = inset).testTag("appearance"),
         optionTag = { "appearance_" + it.name.lowercase() },
     )
 }
@@ -648,6 +676,42 @@ private fun SettingText(text: String, secondary: Boolean = false) {
 }
 
 // --- M1 to M4: first launch --------------------------------------------------------------------
+
+/**
+ * The welcome screen: what Re.L is, then "Appearance" (founder, 16/11), the control of Settings >
+ * Reading, System by default, applied and saved at once, no confirmation. The text and the choice
+ * are centred and scroll when they don't fit (360 x 640 dp, text at 200 %); "Get started" stays at
+ * the bottom, always on screen.
+ */
+@Composable
+internal fun WelcomeStep(
+    appearance: io.relais.app.data.Appearance,
+    onAppearance: (io.relais.app.data.Appearance) -> Unit,
+    onContinue: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp).testTag("welcome")) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val room = maxHeight
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                    .heightIn(min = room).padding(vertical = 24.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.welcome_text), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.welcome_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(24.dp))
+                AppearanceChoice(appearance, inset = 0.dp, onChoose = onAppearance)
+            }
+        }
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp).testTag("welcome_continue"),
+        ) { Text(stringResource(R.string.welcome_button)) }
+    }
+}
 
 private enum class Step { WELCOME, COUNTRIES, ACCESS, DIGEST }
 
@@ -684,19 +748,18 @@ fun OnboardingFlow() {
         step = Step.DIGEST
     }
 
+    // The appearance the app is drawn with (AppContainer.appearance, read from the settings store
+    // at launch): what the welcome screen shows is what is saved, so a rotation or a stop of the
+    // app in the middle keeps it, without a frame of System first (review of PR 44), and Settings
+    // shows it afterwards.
+    val appearance by c.appearance.collectAsStateWithLifecycle()
+
     when (step) {
-        Step.WELCOME -> Column(
-            Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(R.string.welcome_text), style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(R.string.welcome_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(32.dp))
-            Button(onClick = ::afterWelcome, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.welcome_button)) }
-        }
+        Step.WELCOME -> WelcomeStep(
+            appearance = appearance,
+            onAppearance = { scope.launch { c.setAppearance(it) } },
+            onContinue = ::afterWelcome,
+        )
 
         Step.COUNTRIES -> Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             PickCountriesScreen(onDone = ::afterCountries, onboarding = true, onSkip = ::afterCountries)

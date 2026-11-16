@@ -21,7 +21,7 @@ import kotlinx.serialization.Serializable
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
     name = "settings",
-    produceMigrations = { listOf(ReadingStepMigration) },
+    produceMigrations = { listOf(ReadingStepMigration, UpdateDismissedMigration()) },
 )
 
 data class Settings(
@@ -77,14 +77,24 @@ data class Settings(
     val updateCheck: Boolean = true,
     /** The last request to GitHub for the latest release, answered or not. */
     val updateCheckedAt: Long = 0,
-    /** The latest release found: its version ("0.5.2") and its page. */
+    /** The latest release found: its version ("0.5.2"), its page, and its APK (none from 0.6.x). */
     val updateVersion: String? = null,
     val updateUrl: String? = null,
-    /** The version whose notice was closed with "Not now": the next one shows again. */
+    val updateApk: String? = null,
+    /**
+     * The version whose notice was closed with "Not now", and when: it shows again 3 days later
+     * (UpdateCheck.NOT_NOW_FOR), and a newer version at once (16/11).
+     */
     val updateDismissed: String? = null,
+    val updateDismissedAt: Long = 0,
+    /** GitHub refused for its quota: no automatic check before this time (UpdateCheck). */
+    val updateHeldUntil: Long = 0,
     /** "Appearance": the name of an [Appearance], System when unset (v0.6). */
     val appearance: String = Appearance.SYSTEM.name,
 )
+
+/** The first launch setup shows until it is done: never again for a reader who updates. */
+val Settings.needsOnboarding: Boolean get() = !onboardingDone
 
 /**
  * After the onboarding, "Connect to ReliefWeb" shows once more only for a phone with no appname
@@ -134,6 +144,27 @@ object ReadingStepMigration : androidx.datastore.core.DataMigration<Preferences>
     override suspend fun cleanUp() {}
 }
 
+/**
+ * "Not now" stored by 0.6.x has a version and no date: it is dated at the update (16/11), so its
+ * notice comes back 3 days later instead of never, and nothing reads a missing date.
+ */
+class UpdateDismissedMigration(private val now: () -> Long = System::currentTimeMillis) : androidx.datastore.core.DataMigration<Preferences> {
+    companion object {
+        val VERSION = stringPreferencesKey("update_dismissed")
+        val AT = longPreferencesKey("update_dismissed_at")
+    }
+
+    override suspend fun shouldMigrate(currentData: Preferences): Boolean = currentData[VERSION] != null && currentData[AT] == null
+
+    override suspend fun migrate(currentData: Preferences): Preferences {
+        val prefs = currentData.toMutablePreferences()
+        prefs[AT] = now()
+        return prefs.toPreferences()
+    }
+
+    override suspend fun cleanUp() {}
+}
+
 /** What a country page remembers (produit/filtres-following.md 3.1): its tab and its filters. */
 @Serializable
 data class CountryPrefs(val tab: String? = null, val filter: CountryFilter = CountryFilter())
@@ -176,7 +207,10 @@ class SettingsStore(private val context: Context) {
         val updateCheckedAt = longPreferencesKey("update_checked_at")
         val updateVersion = stringPreferencesKey("update_version")
         val updateUrl = stringPreferencesKey("update_url")
+        val updateApk = stringPreferencesKey("update_apk")
         val updateDismissed = stringPreferencesKey("update_dismissed")
+        val updateDismissedAt = UpdateDismissedMigration.AT
+        val updateHeldUntil = longPreferencesKey("update_held_until")
         val appearance = stringPreferencesKey("appearance")
         fun country(id: Long) = stringPreferencesKey("country_$id")
     }
@@ -219,7 +253,10 @@ class SettingsStore(private val context: Context) {
             updateCheckedAt = p[Keys.updateCheckedAt] ?: 0,
             updateVersion = p[Keys.updateVersion],
             updateUrl = p[Keys.updateUrl],
+            updateApk = p[Keys.updateApk],
             updateDismissed = p[Keys.updateDismissed],
+            updateDismissedAt = p[Keys.updateDismissedAt] ?: 0,
+            updateHeldUntil = p[Keys.updateHeldUntil] ?: 0,
             appearance = Appearance.of(p[Keys.appearance]).name,
         )
     }
@@ -296,16 +333,33 @@ class SettingsStore(private val context: Context) {
     suspend fun setPdfCapMb(mb: Int) = context.dataStore.edit { it[Keys.pdfCapMb] = mb }
     suspend fun setUpdateCheck(on: Boolean) = context.dataStore.edit { it[Keys.updateCheck] = on }
 
-    /** A check of the latest release: its time always; the release only when one was read. */
+    /**
+     * A check of the latest release: its time always; the release only when one was read. Its APK
+     * goes with it: a release without a valid one removes the address of the previous release.
+     */
     suspend fun recordUpdateCheck(at: Long, found: LatestRelease?) = context.dataStore.edit {
         it[Keys.updateCheckedAt] = at
         if (found != null) {
             it[Keys.updateVersion] = found.version
             it[Keys.updateUrl] = found.url
+            val apk = found.apk
+            if (apk != null) it[Keys.updateApk] = apk else it.remove(Keys.updateApk)
         }
     }
 
-    suspend fun dismissUpdate(version: String) = context.dataStore.edit { it[Keys.updateDismissed] = version }
+    /** "Not now": this version, and when, so that its notice comes back 3 days later. */
+    suspend fun dismissUpdate(version: String, at: Long = System.currentTimeMillis()) = context.dataStore.edit {
+        it[Keys.updateDismissed] = version
+        it[Keys.updateDismissedAt] = at
+    }
+
+    suspend fun holdUpdateCheck(until: Long) = context.dataStore.edit { it[Keys.updateHeldUntil] = until }
+
+    /** A Check now found a newer version: "Not now" no longer hides it (review of PR 44). */
+    suspend fun clearUpdateDismissed() = context.dataStore.edit {
+        it.remove(Keys.updateDismissed)
+        it.remove(Keys.updateDismissedAt)
+    }
 
     /** Keeps the 50 latest hidden pins: older ones have long left the 30-day window. */
     suspend fun hidePin(reportId: Long) = context.dataStore.edit { p ->

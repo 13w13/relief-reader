@@ -97,9 +97,12 @@ object WhatsNew {
         Release(
             versionCode = 17,
             label = "0.7",
-            lines = listOf(
+            lines = listOfNotNull(
                 Line(R.string.whats_new_07_lead_1, R.string.whats_new_07_text_1),
                 Line(R.string.whats_new_07_lead_2, R.string.whats_new_07_text_2),
+                // Not in a build without the check (F-Droid).
+                Line(R.string.whats_new_07_lead_3, R.string.whats_new_07_text_3).takeIf { io.relais.app.BuildConfig.UPDATE_CHECK },
+                Line(R.string.whats_new_07_lead_4, R.string.whats_new_07_text_4),
             ),
         ),
     )
