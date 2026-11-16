@@ -144,6 +144,9 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
     /** "Not now" on the reminder that this version is old: back in 14 days. */
     fun dismissAged() = viewModelScope.launch { c.settings.dismissAged() }
 
+    /** A result of Check now older than a few minutes no longer shows in the reminder. */
+    fun forgetOldCheck() = c.updateCheck.forgetOldResult()
+
     /**
      * "Check now" on the reminder: the same check as in Settings, in the app's scope. Up to date,
      * the reminder rests 14 days, as with "Not now"; a newer version takes its place.
@@ -332,6 +335,8 @@ fun TodayScreen(nav: Nav) {
                 snackbar = snackbar,
             )
             val versionNotice by vm.versionNotice.collectAsStateWithLifecycle()
+            // A stale "Couldn't check" or "available" from hours ago goes (review of PR 44).
+            androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { vm.forgetOldCheck() }
             when (val notice = versionNotice) {
                 is io.relais.app.data.VersionNotice.PleaseUpdate -> PleaseUpdateLine(notice.release)
                 is io.relais.app.data.VersionNotice.Available ->
