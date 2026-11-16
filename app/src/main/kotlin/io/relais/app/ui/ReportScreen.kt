@@ -77,6 +77,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -912,9 +913,7 @@ internal fun FilesSection(
                                 )
                             }
                         }
-                        (downloads[file.url] as? DownloadState.Failed)?.let { failed ->
-                            Text(stringResource(R.string.report_download_failed, failed.reason), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("file_failed"))
-                        }
+                        (downloads[file.url] as? DownloadState.Failed)?.let { failed -> DownloadFailed(failed, file) }
                         if (downloads[file.url] == DownloadState.Refused) {
                             Text(stringResource(R.string.report_download_refused), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -932,6 +931,27 @@ internal fun FilesSection(
             }
         }
     }
+}
+
+/**
+ * A download that failed (issue 36): its reason in brackets, "Download failed (HTTP 404).", and
+ * "Open in browser", as for a refused file: the browser may get the file when the app could not.
+ * "Try again" stays on the file's button.
+ */
+@Composable
+private fun DownloadFailed(failed: DownloadState.Failed, file: FileLite) {
+    val uriHandler = LocalUriHandler.current
+    Text(
+        stringResource(R.string.report_download_failed, failed.reason),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.testTag("file_failed"),
+    )
+    TextButton(
+        onClick = { safeOpen(uriHandler, file.url) },
+        contentPadding = PaddingValues(horizontal = 0.dp),
+        modifier = Modifier.testTag("file_failed_open_browser"),
+    ) { Text(stringResource(R.string.action_open_browser)) }
 }
 
 /** "Read", its progress and "Cancel", or ReliefWeb's page for a file over 100 MB. */
@@ -1015,9 +1035,7 @@ internal fun FileLines(
                             )
                         }
                     }
-                    (downloads[file.url] as? DownloadState.Failed)?.let { failed ->
-                        Text(stringResource(R.string.report_download_failed, failed.reason), style = MaterialTheme.typography.bodySmall, color = cs.error, modifier = Modifier.testTag("file_failed"))
-                    }
+                    (downloads[file.url] as? DownloadState.Failed)?.let { failed -> DownloadFailed(failed, file) }
                     if (downloads[file.url] == DownloadState.Refused) {
                         Text(stringResource(R.string.report_download_refused), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     }

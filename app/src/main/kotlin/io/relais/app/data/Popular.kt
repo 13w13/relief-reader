@@ -92,9 +92,7 @@ class Popular(
         if (!config().features.mostRead) return@withContext
         if (cached != null && now - cached.checkedAt < config().cacheHours.mostRead * Repository.ONE_HOUR) return@withContext
         if (connectivity?.isActiveNetworkMetered != false) return@withContext
-        val request = Request.Builder().url(MostRead.URL).header("User-Agent", userAgent)
-            .apply { cached?.etag?.let { header("If-None-Match", it) } }
-            .build()
+        val request = mostReadRequest(userAgent, cached?.etag)
         // At most a minute and [MOST_READ_MAX_BYTES] (security audit of 15/11).
         val call = okHttp.newCall(request).apply { timeout().timeout(60, java.util.concurrent.TimeUnit.SECONDS) }
         call.execute().use { response ->
@@ -160,3 +158,9 @@ internal class CappedInputStream(private val input: java.io.InputStream, private
 
     override fun read(b: ByteArray, off: Int, len: Int): Int = counted(input.read(b, off, len))
 }
+
+/** The request for the Most read file: its User-Agent, and the ETag of the copy on the phone. */
+internal fun mostReadRequest(userAgent: String, etag: String?): Request =
+    Request.Builder().url(MostRead.URL).header("User-Agent", userAgent)
+        .apply { etag?.let { header("If-None-Match", it) } }
+        .build()

@@ -643,4 +643,6 @@
     <string name="whats_new_06_text_2">Display has a Smallest level, and Aa a smaller report text.</string>
     <string name="whats_new_06_lead_3">New versions on Today.</string>
     <string name="whats_new_06_text_3">Re.L checks GitHub once a day. Turn it off in Settings &gt; About.</string>
+    <string name="whats_new_062_lead_1">PDFs download again.</string>
+    <string name="whats_new_062_text_1">Re.L 0.6.1 could not download them; this version fixes it.</string>
 </resources>

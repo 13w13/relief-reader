@@ -110,9 +110,6 @@ class UpdateCheck(
         const val DAY = 24 * 60 * 60 * 1000L
         const val LATEST_URL = "https://api.github.com/repos/13w13/relief-reader/releases/latest"
 
-        /** The same for every phone and version: nothing that tells one reader from another. */
-        const val USER_AGENT = "Re.L (Android)"
-
         /** A release answer is a few kilobytes; more than this is not one. */
         const val MAX_BYTES = 512L * 1024
 

@@ -65,7 +65,7 @@ class PdfHostsTest {
         }
     }.build()
 
-    private fun downloader() = PdfDownloader(context, db.dao(), okHttp, scope, "Re.L (Android)")
+    private fun downloader() = PdfDownloader(context, db.dao(), okHttp, scope, HttpClients.USER_AGENT)
 
     @Before
     fun open() {
@@ -100,7 +100,7 @@ class PdfHostsTest {
         val request = requests.single()
         assertEquals("/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/2026%20Rowca%20regional%20funding%20status%20new%2016%2011%202026.pdf", request.url.encodedPath)
         assertEquals("GET", request.method)
-        assertEquals("Re.L (Android)", request.header("User-Agent"))
+        assertEquals("Re.L/Android", request.header("User-Agent"))
         // Nothing else from the app: no Range, no Referer, no Accept.
         assertEquals(listOf("User-Agent"), request.headers.names().toList())
 
