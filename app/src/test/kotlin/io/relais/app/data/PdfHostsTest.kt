@@ -152,7 +152,7 @@ class PdfHostsTest {
 
     /** A file the phone cannot write reads "could not save the file", not a network failure (review of PR 38). */
     @Test
-    fun aFileThatCannotBeWrittenSaysSo() = runBlocking {
+    fun aFileThatCannotBeWrittenSaysSo() = runBlocking<Unit> {
         val pdfs = downloader()
         // The PDF folder replaced by a plain file: the download cannot be written there.
         val folder = File(context.cacheDir, "pdf").apply { deleteRecursively() }
