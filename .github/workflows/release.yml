@@ -1,5 +1,8 @@
 name: Release
 
+# Shown in the Actions list, so that the run waiting for the founder's approval is easy to find.
+run-name: "TO APPROVE: publish Re.L ${{ github.ref_name }}"
+
 # Builds the release APK signed with the founder's key (RELEASE_* secrets), then publishes it as
 # a GitHub Release with its checksum and a provenance attestation. Without the key the build
 # fails: the debug key is public, an APK signed with it is not a release.
