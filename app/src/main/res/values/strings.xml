@@ -543,7 +543,7 @@
     <string name="update_see_release">See the release</string>
     <string name="update_not_now">Not now</string>
     <string name="settings_update_check">Check for new versions</string>
-    <string name="settings_update_check_help">When you open Re.L, at most once an hour, it asks GitHub (api.github.com) for the number of its latest version. It sends nothing about you.</string>
+    <string name="settings_update_check_help">When you open Re.L, at most once an hour, it asks GitHub (api.github.com) for the number of its latest version, and whether older versions should update. It sends nothing about you.</string>
     <!-- The first launch tour (issue 37): one idea per page, two sentences at most. -->
     <string name="tour_today_title">Today</string>
     <string name="tour_today_text">The day\'s headlines, chosen by ReliefWeb editors, in a pile you swipe through. The page has an end, so you know when you\'re up to date.</string>
@@ -572,6 +572,13 @@
     <string name="update_check_failed">Couldn\'t check (%1$s)</string>
     <string name="update_download_apk">Download the APK</string>
     <string name="update_download">Download</string>
+    <!-- The latest release asks this version to update (please-update-below in its notes; 16/11). -->
+    <string name="update_please">Please update Re.L to %1$s.</string>
+    <!-- From the phone's date and BuildConfig.RELEASE_DATE, no request (16/11). -->
+    <plurals name="update_aged">
+        <item quantity="one">This version of Re.L is %d month old. Check for a newer one.</item>
+        <item quantity="other">This version of Re.L is %d months old. Check for a newer one.</item>
+    </plurals>
     <string name="update_check_now_help">Check now asks GitHub right away, even with the automatic check off. A new version downloads in your browser; Re.L itself never downloads or installs anything.</string>
     <string name="today_headlines_only">Headlines only. Add an appname in Settings to read full reports, country pages and search.</string>
     <!-- T19, open source (GPL-3.0-or-later) -->
@@ -679,10 +686,10 @@
     <string name="whats_new_07_text_1">The app file is now 6.5 MB instead of 19.7 MB.</string>
     <string name="whats_new_07_lead_2">Clearer download errors.</string>
     <string name="whats_new_07_text_2">If a PDF can\'t be saved on your phone, Re.L says so.</string>
-    <string name="whats_new_07_lead_3">Check for a new version.</string>
-    <string name="whats_new_07_text_3">Settings &gt; About: Check now, with a link to the APK.</string>
-    <string name="whats_new_07_lead_4">Light or dark from the start.</string>
-    <string name="whats_new_07_text_4">A new install chooses it on the welcome screen.</string>
-    <string name="whats_new_07_lead_5">A short tour of the app.</string>
-    <string name="whats_new_07_text_5">Settings &gt; About: Show the tour again.</string>
+    <string name="whats_new_07_lead_3">Check now.</string>
+    <string name="whats_new_07_text_3">Settings &gt; About: check at once, with a direct link to the APK.</string>
+    <string name="whats_new_07_lead_4">When to update.</string>
+    <string name="whats_new_07_text_4">Checked when you open Re.L; Today says when to update.</string>
+    <string name="whats_new_07_lead_5">A tour, and light or dark.</string>
+    <string name="whats_new_07_text_5">New installs get both; the tour is in Settings &gt; About.</string>
 </resources>

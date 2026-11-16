@@ -100,9 +100,11 @@ object WhatsNew {
             lines = listOfNotNull(
                 Line(R.string.whats_new_07_lead_1, R.string.whats_new_07_text_1),
                 Line(R.string.whats_new_07_lead_2, R.string.whats_new_07_text_2),
-                // Not in a build without the check (F-Droid).
+                // Check now, the check at each opening, Please update and the reminder: not in a
+                // build without the check (F-Droid).
                 Line(R.string.whats_new_07_lead_3, R.string.whats_new_07_text_3).takeIf { io.relais.app.BuildConfig.UPDATE_CHECK },
-                Line(R.string.whats_new_07_lead_4, R.string.whats_new_07_text_4),
+                Line(R.string.whats_new_07_lead_4, R.string.whats_new_07_text_4).takeIf { io.relais.app.BuildConfig.UPDATE_CHECK },
+                // The welcome screen's Appearance and the tour, one line.
                 Line(R.string.whats_new_07_lead_5, R.string.whats_new_07_text_5),
             ),
         ),

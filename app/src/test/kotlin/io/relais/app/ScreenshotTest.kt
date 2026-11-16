@@ -247,6 +247,38 @@ class ScreenshotTest {
         }
     }
 
+    /** Today with "Please update" or the reminder that the version is old (founder, 16/11). */
+    @Composable
+    private fun TodayWith(line: @Composable () -> Unit, headlines: List<ReportEntity>) {
+        Column {
+            line()
+            TodayPile(headlines, readIds = setOf(headlines[0].id), page = 1)
+        }
+    }
+
+    private val asking = LatestRelease(
+        "0.7.1",
+        "https://github.com/13w13/relief-reader/releases/tag/v0.7.1",
+        "https://github.com/13w13/relief-reader/releases/download/v0.7.1/rel-0.7.1.apk",
+        minimum = "0.7.0",
+    )
+
+    @Test
+    fun todayPleaseUpdate() = shoot("today-please-update") { TodayWith({ io.relais.app.ui.PleaseUpdateLine(asking, onOpen = {}) }, reports("headlines.json").take(6)) }
+
+    @Test
+    fun todayPleaseUpdateDark() = shoot("today-please-update-dark", dark = true) { TodayWith({ io.relais.app.ui.PleaseUpdateLine(asking, onOpen = {}) }, reports("headlines.json").take(6)) }
+
+    @Test
+    fun todayAged() = shoot("today-aged") {
+        TodayWith({ io.relais.app.ui.AgedLine(io.relais.app.data.VersionNotice.Aged(2), onCheckNow = {}, onNotNow = {}) }, reports("headlines.json").take(6))
+    }
+
+    @Test
+    fun todayAgedDark() = shoot("today-aged-dark", dark = true) {
+        TodayWith({ io.relais.app.ui.AgedLine(io.relais.app.data.VersionNotice.Aged(2), onCheckNow = {}, onNotNow = {}) }, reports("headlines.json").take(6))
+    }
+
     /** Settings > About with the result of "Check now" under its button (founder, 16/11). */
     private fun aboutChecked(name: String, state: io.relais.app.data.ManualCheck) = shoot(name) {
         Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {

@@ -50,10 +50,25 @@ object AppVersion {
 }
 
 /**
- * The latest published release: its version without the "v" ("0.5.2"), its page on GitHub, and
- * the address of its APK when the release has exactly one that [UpdateCheck.apkLink] accepts.
+ * The latest published release: its version without the "v" ("0.5.2"), its page on GitHub, the
+ * address of its APK when the release has exactly one that [UpdateCheck.apkLink] accepts, and the
+ * version below which it asks readers to update ([minimum], from its notes; founder, 16/11).
  */
-data class LatestRelease(val version: String, val url: String, val apk: String? = null)
+data class LatestRelease(val version: String, val url: String, val apk: String? = null, val minimum: String? = null) {
+    /** Whether [installed] is below the minimum this release asks for: "Please update", no "Not now". */
+    fun asksUpdateFrom(installed: String): Boolean = minimum != null && AppVersion.isNewer(minimum, installed)
+}
+
+/**
+ * The one version line of Today (founder, 16/11), the first that applies: "Please update",
+ * "available", or the reminder that this version is old. Never two at once.
+ */
+sealed interface VersionNotice {
+    data class PleaseUpdate(val release: LatestRelease) : VersionNotice
+    data class Available(val release: LatestRelease) : VersionNotice
+    /** [months] old; [checking] while its "Check now" runs, [failure] when it failed. */
+    data class Aged(val months: Int, val checking: Boolean = false, val failure: String? = null) : VersionNotice
+}
 
 /**
  * "Check now" in Settings > About (founder, 16/11): its state, shown under the button. Unlike the
@@ -64,7 +79,8 @@ sealed interface ManualCheck {
     data object Checking : ManualCheck
     /** The latest release is not newer than [installed]. */
     data class UpToDate(val installed: String) : ManualCheck
-    data class Available(val release: LatestRelease) : ManualCheck
+    /** [pleaseUpdate]: the release asks the installed version to update. */
+    data class Available(val release: LatestRelease, val pleaseUpdate: Boolean = false) : ManualCheck
     data class Failed(val reason: String) : ManualCheck
 }
 
@@ -87,8 +103,11 @@ sealed interface ManualCheck {
  * @param fetch the body of a 200 answer of [LATEST_URL], or null; may throw, for another status
  *   with [HttpStatusException], for a quota refusal with [RateLimitedException].
  * @param hold notes the time before which no automatic request goes (a quota refusal).
+ * @param releaseDate the day this version was published (BuildConfig.RELEASE_DATE), for [Aging].
  * @param forgetNotNow clears "Not now": a Check now that finds a newer version shows it on Today
  *   too (review of PR 44), since the reader just asked.
+ * @param restAged rests the reminder that this version is old for 14 days: a Check now, from
+ *   Today or Settings, that finds the app up to date (review of PR 46).
  */
 class UpdateCheck(
     private val enabled: Boolean,
@@ -99,7 +118,9 @@ class UpdateCheck(
     private val fetch: suspend () -> String?,
     private val now: () -> Long = System::currentTimeMillis,
     private val hold: suspend (until: Long) -> Unit = {},
+    private val releaseDate: String = "",
     private val forgetNotNow: suspend () -> Unit = {},
+    private val restAged: suspend () -> Unit = {},
 ) {
     /** One request at a time, the daily one and "Check now" together. */
     private val mutex = Mutex()
@@ -176,7 +197,11 @@ class UpdateCheck(
                     !online() -> ManualCheck.Failed(NO_CONNECTION)
                     else -> request(at)
                 }
-            }.also { if (it is ManualCheck.Available) forgetNotNow() }
+            }.also {
+                // Written before the result shows, so the reminder never flashes back in between.
+                if (it is ManualCheck.Available) forgetNotNow()
+                if (it is ManualCheck.UpToDate) restAged()
+            }
         } catch (e: CancellationException) {
             _manual.value = ManualCheck.Idle
             throw e
@@ -201,7 +226,7 @@ class UpdateCheck(
             val release = found
             when {
                 release == null -> ManualCheck.Failed(UNREADABLE)
-                AppVersion.isNewer(release.version, installed) -> ManualCheck.Available(release)
+                AppVersion.isNewer(release.version, installed) -> ManualCheck.Available(release, release.asksUpdateFrom(installed))
                 else -> ManualCheck.UpToDate(installed)
             }
         } catch (e: CancellationException) {
@@ -220,6 +245,12 @@ class UpdateCheck(
 
     /** The release to announce on Today, or null. */
     fun notice(s: Settings): LatestRelease? = notice(enabled, s, installed, now())
+
+    /** The stored release when it asks this version to update, for Settings > About; else null. */
+    fun pleaseUpdate(s: Settings): LatestRelease? = found(enabled, s, installed)?.takeIf { it.asksUpdateFrom(installed) }
+
+    /** Today's version line, from the settings and the state of "Check now". */
+    fun banner(s: Settings, manual: ManualCheck): VersionNotice? = banner(enabled, s, installed, now(), manual, releaseDate)
 
     companion object {
         const val HOUR = 60 * 60 * 1000L
@@ -259,7 +290,30 @@ class UpdateCheck(
             if (AppVersion.parse(tag) == null) return null
             val page = obj.string("html_url")?.let { releasePage(it) } ?: return null
             val version = tag.removePrefix("v").removePrefix("V")
-            return LatestRelease(version, page, apkAsset(obj["assets"], version))
+            return LatestRelease(version, page, apkAsset(obj["assets"], version), pleaseUpdateBelow(obj.string("body"), version))
+        }
+
+        /** The marker in a release's notes (release-notes/vX.Y.Z.md; RELEASING.md). */
+        private val PLEASE_UPDATE = Regex("^<!-- please-update-below: ([0-9.]+) -->$")
+
+        /**
+         * The version below which a release asks readers to update: exactly one line of the
+         * notes ([body]) that reads `<!-- please-update-below: X.Y.Z -->`, a readable version, not
+         * newer than the release itself ([version]), so that a changed marker can never reach
+         * versions after the latest. Anything else, two such lines included, gives null.
+         */
+        fun pleaseUpdateBelow(body: String?, version: String): String? {
+            val lines = body?.lines()?.map { it.trim() }?.filter { it.contains("please-update-below") } ?: return null
+            val value = PLEASE_UPDATE.matchEntire(lines.singleOrNull() ?: return null)?.groupValues?.get(1) ?: return null
+            return minimumFor(value, version)
+        }
+
+        /** [minimum] when it is a readable version written without "v", not newer than [version]. */
+        fun minimumFor(minimum: String?, version: String): String? {
+            val m = minimum?.takeIf { it.firstOrNull()?.isDigit() == true } ?: return null
+            val parsed = AppVersion.parse(m) ?: return null
+            val release = AppVersion.parse(version) ?: return null
+            return m.takeIf { AppVersion.compare(parsed, release) <= 0 }
         }
 
         private fun JsonObject.string(name: String): String? =
@@ -327,12 +381,48 @@ class UpdateCheck(
          * "Download" until the next check.
          */
         fun notice(enabled: Boolean, s: Settings, installed: String, now: Long): LatestRelease? {
+            val release = found(enabled, s, installed) ?: return null
+            // "Please update" has no "Not now": it stays until the app is up to date.
+            if (release.asksUpdateFrom(installed)) return release
+            if (dismissed(s, release.version, now)) return null
+            return release
+        }
+
+        private fun dismissed(s: Settings, version: String, now: Long) =
+            version == s.updateDismissed && now - s.updateDismissedAt in 0L until NOT_NOW_FOR
+
+        /**
+         * The stored release when the build and the switch allow it, it is newer than [installed]
+         * and its page is safe; its APK and its minimum checked again (none from 0.6.x).
+         */
+        fun found(enabled: Boolean, s: Settings, installed: String): LatestRelease? {
             if (!enabled || !s.updateCheck) return null
             val version = s.updateVersion ?: return null
-            if (version == s.updateDismissed && now - s.updateDismissedAt in 0L until NOT_NOW_FOR) return null
             if (!AppVersion.isNewer(version, installed)) return null
             val page = s.updateUrl?.let { releasePage(it) } ?: return null
-            return LatestRelease(version, page, apkLink(s.updateApk, version))
+            return LatestRelease(version, page, apkLink(s.updateApk, version), minimumFor(s.updateMinimum, version))
+        }
+
+        /**
+         * Today's version line: the stored release ("Please update" first), else the release a
+         * "Check now" just found (a tap is an explicit request, even with the switch off), else
+         * the reminder that this version is old. None without the build flag (F-Droid).
+         */
+        fun banner(enabled: Boolean, s: Settings, installed: String, now: Long, manual: ManualCheck, releaseDate: String): VersionNotice? {
+            if (!enabled) return null
+            notice(enabled, s, installed, now)?.let { release ->
+                return if (release.asksUpdateFrom(installed)) VersionNotice.PleaseUpdate(release) else VersionNotice.Available(release)
+            }
+            (manual as? ManualCheck.Available)?.release?.let { release ->
+                if (release.asksUpdateFrom(installed)) return VersionNotice.PleaseUpdate(release)
+                if (!dismissed(s, release.version, now)) return VersionNotice.Available(release)
+            }
+            // A newer version is known, even closed with "Not now": the reminder does not take its
+            // place, or its Check now would find that version again and undo "Not now" (review of
+            // PR 46). With the switch off, nothing is known, and the reminder still shows.
+            if (found(enabled, s, installed) != null || manual is ManualCheck.Available) return null
+            val months = Aging.months(releaseDate, now, s.agedDismissedAt) ?: return null
+            return VersionNotice.Aged(months, checking = manual == ManualCheck.Checking, failure = (manual as? ManualCheck.Failed)?.reason)
         }
     }
 }
@@ -361,5 +451,29 @@ internal object RateLimit {
             runCatching { Math.multiplyExact(seconds, 1000L) }.getOrNull()?.takeIf { seconds > 0 }
         }
         return listOfNotNull(after, reset).filter { it > now }.maxOrNull()
+    }
+}
+
+/**
+ * "This version of Re.L is 2 months old" (founder, 16/11): from the phone's date and the day the
+ * version was published, with no request. 60 days after that day, unless closed with "Not now"
+ * less than 14 days ago. A phone date before the release, or more than 10 years after it, is
+ * wrong: no line.
+ */
+object Aging {
+    const val AFTER_DAYS = 60L
+    const val NOT_NOW_DAYS = 14L
+    private const val DAY = 24 * 60 * 60 * 1000L
+
+    /** How many months old this version is (60 days = 2), when the line shows; else null. */
+    fun months(releaseDate: String, now: Long, dismissedAt: Long): Int? {
+        val released = runCatching {
+            java.time.LocalDate.parse(releaseDate).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        }.getOrNull() ?: return null
+        if (now < released || now - released > 3653 * DAY) return null
+        val days = (now - released) / DAY
+        if (days < AFTER_DAYS) return null
+        if (now - dismissedAt in 0L until NOT_NOW_DAYS * DAY) return null
+        return (days / 30).toInt()
     }
 }
