@@ -74,6 +74,14 @@ jobs:
         # recordRoborazziDebug runs the unit tests and writes the screenshots.
         run: ./gradlew --no-daemon :app:recordRoborazziDebug :app:assembleDebug
 
+      # The release build with R8, signed with the debug key (build type "minified"): a code R8
+      # removed by mistake shows here, or on a phone with the APK uploaded below.
+      - name: Build the release with R8
+        if: hashFiles('app/build.gradle.kts') != ''
+        run: |
+          ./gradlew --no-daemon :app:assembleMinified
+          ls -l app/build/outputs/apk/minified/*.apk
+
       - name: Upload the Room schemas
         if: always() && hashFiles('app/schemas/**') != ''
         continue-on-error: true
@@ -103,6 +111,15 @@ jobs:
           name: rel-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           # 19 MB a run: kept 3 days (artifact storage quota hit on 12/11).
+          retention-days: 3
+
+      - name: Upload the minified APK
+        if: hashFiles('app/build/outputs/apk/minified/*.apk') != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rel-minified-apk
+          path: app/build/outputs/apk/minified/*.apk
           retention-days: 3
 
       - name: Upload screenshots
