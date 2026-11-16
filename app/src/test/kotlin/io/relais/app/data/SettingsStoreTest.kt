@@ -126,12 +126,11 @@ class SettingsStoreTest {
         assertNull(store.current().updateApk)
 
         // Appearance (v0.6): System by default, then each choice comes back. Chosen on the welcome
-        // screen (16/11), before the first launch is done: saved at once, read by Settings later.
+        // screen (16/11): saved at once, whatever the state of the first launch, read by Settings
+        // later (WelcomeTest for the screen itself).
         assertEquals(Appearance.SYSTEM.name, store.current().appearance)
-        assertFalse(store.current().onboardingDone)
         store.setAppearance(Appearance.DARK)
         assertEquals(Appearance.DARK.name, store.current().appearance)
-        assertFalse(store.current().onboardingDone)
         store.setAppearance(Appearance.LIGHT)
         assertEquals(Appearance.LIGHT.name, store.current().appearance)
 
