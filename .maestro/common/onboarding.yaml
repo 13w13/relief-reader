@@ -7,6 +7,9 @@
 #   PREFIX  screenshot prefix of the calling journey (p1, p2...)
 #   DIGEST  "allow": "Turn on", then Android's "Allow" if the dialog shows
 #           "skip":  "Not now"
+#   TOUR    optional; "walk": stop on the first page of the tour (issue 37) for the journey to
+#           go through it (p11-tour). Otherwise the tour is skipped, when there is one: a build
+#           before 0.7.0 (upgrade/u1-before) has none.
 appId: org.relreader.app
 ---
 # A system dialog of the CI emulator can cover the app: dismiss it first.
@@ -87,8 +90,25 @@ appId: org.relreader.app
     commands:
       - tapOn: "Not now"
 
-# Today
+# The tour (issue 37), between the setup and Today since 0.7.0.
 - extendedWaitUntil:
     visible:
-      id: "tab_today"
+      id: "tab_today|tour_skip"
     timeout: 30000
+- runFlow:
+    when:
+      true: ${typeof TOUR === 'undefined' || TOUR != 'walk'}
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: "tour_skip"
+          commands:
+            - takeScreenshot: ${PREFIX}-05b-tour
+            - tapOn:
+                id: "tour_skip"
+      # Today
+      - extendedWaitUntil:
+          visible:
+            id: "tab_today"
+          timeout: 30000

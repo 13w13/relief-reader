@@ -24,6 +24,8 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.relais.app.ui.MainScreen
 import io.relais.app.ui.OnboardingFlow
+import io.relais.app.ui.TourScreen
+import io.relais.app.data.showsTour
 import io.relais.app.ui.ConnectScreen
 import io.relais.app.data.needsConnect
 import io.relais.app.data.needsOnboarding
@@ -105,6 +107,8 @@ class MainActivity : ComponentActivity() {
                     when {
                         current == null -> Box(Modifier.fillMaxSize())
                         current.needsOnboarding -> OnboardingFlow()
+                        // The tour (issue 37): once, right after the first launch setup, before Today.
+                        current.showsTour -> TourScreen(onDone = { container.scope.launch { runCatching { container.settings.setTourSeen() } } })
                         needsConnect(current, BuildConfig.RELIEFWEB_APPNAME) -> ConnectScreen()
                         else -> MainScreen()
                     }

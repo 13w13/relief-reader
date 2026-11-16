@@ -25,6 +25,8 @@ Re.L is a preview, built in the open in my free time, to stay closer to the huma
 - **No AI in the app.** No generated summaries, no scores. You read what the organizations wrote.
 - **No ads, no account, no tracking.** Re.L collects no data.
 
+After the first launch setup, a short tour shows each screen; Settings > About Re.L > **Show the tour again** opens it again.
+
 ## Get it
 
 1. **Download the APK** from the [latest release](https://github.com/13w13/relief-reader/releases/latest) and open it on your phone (Android 8.0 or later).

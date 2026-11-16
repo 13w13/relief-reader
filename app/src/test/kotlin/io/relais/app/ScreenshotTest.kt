@@ -200,6 +200,53 @@ class ScreenshotTest {
     @Config(qualifiers = "w360dp-h640dp-xxhdpi")
     fun welcomeLargeText() = welcome("welcome-font-200", dark = false, io.relais.app.data.Appearance.SYSTEM, fontScale = 2f)
 
+    /** The first launch tour (issue 37): each page in light, two in dark, one at 200 % text. */
+    private fun tour(name: String, page: Int, dark: Boolean = false) = shoot(name, dark = dark) { io.relais.app.ui.TourScreen(onDone = {}, initialPage = page) }
+
+    @Test
+    fun tourToday() = tour("tour-1-today", 0)
+
+    @Test
+    fun tourFollowing() = tour("tour-2-following", 1)
+
+    @Test
+    fun tourReport() = tour("tour-3-report", 2)
+
+    @Test
+    fun tourHighlight() = tour("tour-4-highlight", 3)
+
+    @Test
+    fun tourOffline() = tour("tour-5-offline", 4)
+
+    @Test
+    fun tourTodayDark() = tour("tour-1-today-dark", 0, dark = true)
+
+    /** Offline, the sample rows are drawn as online ones (review of PR 45). */
+    @Test
+    fun tourTodayOffline() = shoot("tour-1-today-offline") {
+        CompositionLocalProvider(io.relais.app.ui.LocalOffline provides true) { io.relais.app.ui.TourScreen(onDone = {}, initialPage = 0) }
+    }
+
+    @Test
+    fun tourReportDark() = tour("tour-3-report-dark", 2, dark = true)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xxhdpi")
+    fun tourLargeText() = shoot("tour-4-highlight-font-200") {
+        val density = LocalDensity.current
+        CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+            io.relais.app.ui.TourScreen(onDone = {}, initialPage = 3)
+        }
+    }
+
+    /** Settings > About with "Show the tour again" (issue 37). */
+    @Test
+    fun aboutWithTheTour() = shoot("about-tour") {
+        Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            io.relais.app.ui.AboutSection(onLicences = {}, onWhatsNew = {}, onTour = {})
+        }
+    }
+
     /** Today with "Please update" or the reminder that the version is old (founder, 16/11). */
     @Composable
     private fun TodayWith(line: @Composable () -> Unit, headlines: List<ReportEntity>) {

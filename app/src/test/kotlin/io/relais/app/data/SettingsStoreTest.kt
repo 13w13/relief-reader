@@ -15,6 +15,7 @@ import io.relais.app.ui.TextStep
 import io.relais.app.ui.WelcomeStep
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -75,9 +76,16 @@ class SettingsStoreTest {
         // The real store runs the migrations it is built with (review of PR 24): the same 19 sp.
         val before = System.currentTimeMillis()
         val store = SettingsStore(context)
-        // A reader who updates never sees the first launch setup again (review of PR 44).
+        // A reader updating from 0.6.x never sees the first launch setup again (review of PR 44),
+        // nor gets the tour uninvited (issue 37).
         assertTrue(store.current().onboardingDone)
         assertFalse(store.current().needsOnboarding)
+        assertFalse(store.current().showsTour)
+        // A first launch setup that ends: the tour once, then never again after Skip or Start reading.
+        store.setOnboardingDone()
+        assertTrue(store.current().showsTour)
+        store.setTourSeen()
+        assertFalse(store.current().showsTour)
         // The 0.6.x "Not now" is dated at the update: its notice comes back 3 days later.
         assertEquals("0.6.1", store.current().updateDismissed)
         assertTrue(store.current().updateDismissedAt in before..System.currentTimeMillis())
@@ -173,10 +181,17 @@ class SettingsStoreTest {
         val appearance = store.flow.map { Appearance.of(it.appearance) }
             .stateIn(flowScope, SharingStarted.Eagerly, Appearance.of(store.current().appearance))
         val restoration = StateRestorationTester(compose)
+        // One composition per test: the welcome screen, then the tour (below).
+        var screen by androidx.compose.runtime.mutableStateOf("welcome")
         restoration.setContent {
             val shown by appearance.collectAsState()
             RelaisTheme(darkTheme = shown == Appearance.DARK) {
-                WelcomeStep(appearance = shown, onAppearance = { runBlocking { store.setAppearance(it) } }, onContinue = {})
+                if (screen == "welcome") {
+                    WelcomeStep(appearance = shown, onAppearance = { runBlocking { store.setAppearance(it) } }, onContinue = {})
+                } else {
+                    // As MainActivity: the end of the tour notes it seen in the store.
+                    io.relais.app.ui.TourScreen(onDone = { runBlocking { store.setTourSeen() } })
+                }
             }
         }
         compose.onNodeWithTag("appearance_light").performScrollTo().assertIsSelected()
@@ -186,6 +201,13 @@ class SettingsStoreTest {
         compose.onNodeWithTag("appearance_dark").assertIsSelected()
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithTag("appearance_dark").performScrollTo().assertIsSelected()
+
+        // The tour after a first launch setup, ended with Skip: seen, in the real store (review of PR 45).
+        store.setOnboardingDone()
+        assertTrue(store.current().showsTour)
+        screen = "tour"
+        compose.onNodeWithTag("tour_skip").performClick()
+        assertFalse(store.current().showsTour)
         flowScope.cancel()
         store.setAppearance(Appearance.LIGHT)
 
