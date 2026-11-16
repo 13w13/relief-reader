@@ -645,4 +645,9 @@
     <string name="whats_new_06_text_3">Re.L checks GitHub once a day. Turn it off in Settings &gt; About.</string>
     <string name="whats_new_062_lead_1">PDFs download again.</string>
     <string name="whats_new_062_text_1">Re.L 0.6.1 could not download them; this version fixes it.</string>
+    <!-- What's new in 0.7 (release-notes/v0.7.0.md). -->
+    <string name="whats_new_07_lead_1">A third of the size.</string>
+    <string name="whats_new_07_text_1">The app file is now 6.5 MB instead of 19.7 MB.</string>
+    <string name="whats_new_07_lead_2">Clearer download errors.</string>
+    <string name="whats_new_07_text_2">If a PDF can\'t be saved on your phone, Re.L says so.</string>
 </resources>
