@@ -74,7 +74,7 @@ private class TooLargeException(val bytes: Long) : IOException("Over the size li
 private class RefusedHostException : IOException("Not a ReliefWeb file")
 
 /** The server answered with an error status. */
-internal class HttpStatusException(val code: Int) : IOException("HTTP $code")
+internal open class HttpStatusException(val code: Int) : IOException("HTTP $code")
 
 /** What came back is not a PDF (a web page, an error message). */
 internal class NotPdfException : IOException("Not a PDF")

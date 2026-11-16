@@ -57,7 +57,7 @@ data class LatestRelease(val version: String, val url: String, val apk: String? 
 
 /**
  * "Check now" in Settings > About (founder, 16/11): its state, shown under the button. Unlike the
- * daily check, a failure is said, with its reason ("no connection", "HTTP 403").
+ * automatic check, a failure is said, with its reason ("no connection", "HTTP 403").
  */
 sealed interface ManualCheck {
     data object Idle : ManualCheck
@@ -69,21 +69,24 @@ sealed interface ManualCheck {
 }
 
 /**
- * "A new version is available" while Re.L is not on F-Droid (founder, 15/11). At most one
- * request a day, when the app comes to the foreground with a network: GET [LATEST_URL], with no
- * token, no appname and a generic User-Agent. Every failure is silent and waits for the next day.
- * [checkNow] asks at once, when the reader taps "Check now" (founder, 16/11), and says its result.
+ * "A new version is available" while Re.L is not on F-Droid (founder, 15/11). When the app comes
+ * to the foreground with a network, at most once every [INTERVAL] (an hour since 16/11: the
+ * founder's colleagues should not stay on old versions): GET [LATEST_URL], with no token, no
+ * appname and a generic User-Agent. Every failure is silent and waits for the next interval; a
+ * quota refusal (403, 429) waits until the time GitHub gives, if later. [checkNow] asks at once,
+ * when the reader taps "Check now" (founder, 16/11), and says its result.
  * Nothing is downloaded or installed by the app: the release page and the APK open in the browser.
  *
  * @param enabled the UPDATE_CHECK build flag: false (an F-Droid build) means no request, no
  *   notice and no switch.
  * @param installed the installed versionName.
  * @param settings the reader's settings: the switch, the last check, the release found, the
- *   version dismissed with "Not now".
+ *   version dismissed with "Not now" and when, the time before which GitHub asked not to come back.
  * @param record notes a check: its time, and the release it found, if any.
  * @param online whether the phone has a network now.
  * @param fetch the body of a 200 answer of [LATEST_URL], or null; may throw, for another status
- *   with [HttpStatusException].
+ *   with [HttpStatusException], for a quota refusal with [RateLimitedException].
+ * @param hold notes the time before which no automatic request goes (a quota refusal).
  */
 class UpdateCheck(
     private val enabled: Boolean,
@@ -93,6 +96,7 @@ class UpdateCheck(
     private val online: () -> Boolean,
     private val fetch: suspend () -> String?,
     private val now: () -> Long = System::currentTimeMillis,
+    private val hold: suspend (until: Long) -> Unit = {},
 ) {
     /** One request at a time, the daily one and "Check now" together. */
     private val mutex = Mutex()
@@ -106,10 +110,10 @@ class UpdateCheck(
     val manual: StateFlow<ManualCheck> = _manual.asStateFlow()
 
     /**
-     * Sends the request if it is due: the build and the switch allow it, the last check is 24 hours
-     * old or more (or in the future, after a clock change), and there is a network. The time is
-     * noted whatever the answer, so a failure waits for the next day. Returns whether a request
-     * was sent.
+     * Sends the request if it is due: the build and the switch allow it, the last check is
+     * [INTERVAL] old or more (or in the future, after a clock change), GitHub's quota time has
+     * passed, and there is a network. The time is noted whatever the answer, so a failure waits
+     * for the next interval; offline, nothing is noted. Returns whether a request was sent.
      */
     suspend fun checkIfDue(): Boolean {
         if (!enabled) return false
@@ -121,14 +125,16 @@ class UpdateCheck(
         if (!s.updateCheck) return false
         val at = now()
         val since = at - s.updateCheckedAt
-        if (since in 0L until DAY) return false
+        if (since in 0L until INTERVAL) return false
+        // A quota refusal: not before the time GitHub gave (capped at a day, for a clock change).
+        if (at < s.updateHeldUntil && s.updateHeldUntil - at <= DAY) return false
         if (!online()) return false
         request(at)
         return true
     }
 
     /**
-     * "Check now": asks at once, without the 24-hour rule and even with the switch off, since a tap
+     * "Check now": asks at once, without the interval and even with the switch off, since a tap
      * is an explicit request. Never more than one request every [MIN_GAP] (GitHub allows 60 an
      * hour per address): a tap sooner gets the result of the last request again. A tap while a
      * request is under way waits for it and gets its result. Offline, it fails without a request.
@@ -171,6 +177,10 @@ class UpdateCheck(
             }
         } catch (e: CancellationException) {
             throw e
+        } catch (e: RateLimitedException) {
+            // Never a retry loop: the next automatic request waits for GitHub's time, or the interval.
+            hold(e.until ?: (at + INTERVAL))
+            ManualCheck.Failed(failureReason(e))
         } catch (e: Exception) {
             ManualCheck.Failed(failureReason(e))
         }
@@ -180,10 +190,17 @@ class UpdateCheck(
     }
 
     /** The release to announce on Today, or null. */
-    fun notice(s: Settings): LatestRelease? = notice(enabled, s, installed)
+    fun notice(s: Settings): LatestRelease? = notice(enabled, s, installed, now())
 
     companion object {
-        const val DAY = 24 * 60 * 60 * 1000L
+        const val HOUR = 60 * 60 * 1000L
+        const val DAY = 24 * HOUR
+
+        /** The automatic check: at most one request in this time (founder, 16/11; a day before). */
+        const val INTERVAL = HOUR
+
+        /** "Not now" hides the notice of this version for this time; a newer version shows at once. */
+        const val NOT_NOW_FOR = 3 * DAY
 
         /** "Check now": at most one request in this time, however often the button is tapped. */
         const val MIN_GAP = 30_000L
@@ -271,17 +288,40 @@ class UpdateCheck(
 
         /**
          * The notice: the build and the switch allow it, a release was found, it is newer than
-         * the installed version, it is not the one dismissed with "Not now", and its page is safe.
-         * Its APK only when the stored address is still valid for this version; a value stored by
-         * 0.6.x has none, so no "Download" until the next check.
+         * the installed version, it was not dismissed with "Not now" less than [NOT_NOW_FOR] ago
+         * (a newer version shows at once), and its page is safe. Its APK only when the stored
+         * address is still valid for this version; a value stored by 0.6.x has none, so no
+         * "Download" until the next check.
          */
-        fun notice(enabled: Boolean, s: Settings, installed: String): LatestRelease? {
+        fun notice(enabled: Boolean, s: Settings, installed: String, now: Long): LatestRelease? {
             if (!enabled || !s.updateCheck) return null
             val version = s.updateVersion ?: return null
-            if (version == s.updateDismissed) return null
+            if (version == s.updateDismissed && now - s.updateDismissedAt in 0L until NOT_NOW_FOR) return null
             if (!AppVersion.isNewer(version, installed)) return null
             val page = s.updateUrl?.let { releasePage(it) } ?: return null
             return LatestRelease(version, page, apkLink(s.updateApk, version))
         }
+    }
+}
+
+/**
+ * GitHub refused the request for its quota (403 or 429; 60 requests an hour per address, shared by
+ * everyone behind the same office Wi-Fi). [until] is the time it gave, or null.
+ */
+internal class RateLimitedException(code: Int, val until: Long?) : HttpStatusException(code)
+
+internal object RateLimit {
+    /**
+     * The time GitHub asks to wait for, from its headers: retry-after (seconds, or an HTTP date),
+     * else x-ratelimit-reset (epoch seconds), when it is later than [now]. Null without a readable
+     * one.
+     */
+    fun until(retryAfter: String?, rateLimitReset: String?, now: Long): Long? {
+        val after = retryAfter?.trim()?.let { text ->
+            text.toLongOrNull()?.takeIf { it >= 0 }?.let { now + it * 1000 }
+                ?: runCatching { java.time.ZonedDateTime.parse(text, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli() }.getOrNull()
+        }
+        val reset = rateLimitReset?.trim()?.toLongOrNull()?.takeIf { it > 0 }?.let { it * 1000 }
+        return (after ?: reset)?.takeIf { it > now }
     }
 }

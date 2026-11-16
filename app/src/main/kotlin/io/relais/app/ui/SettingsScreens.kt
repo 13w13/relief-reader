@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -246,10 +247,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /** "Appearance": saved, then given to Android for the launch window (Android 12 and later). */
-    fun setAppearance(appearance: io.relais.app.data.Appearance) = viewModelScope.launch {
-        c.settings.setAppearance(appearance)
-        c.applyNightMode(appearance)
-    }
+    fun setAppearance(appearance: io.relais.app.data.Appearance) = viewModelScope.launch { c.setAppearance(appearance) }
     fun clearHistory() = viewModelScope.launch { c.repository.clearHistory() }
 
     /** The Library as a file: its name and its JSON (lot 3). */
@@ -630,14 +628,19 @@ fun AboutSection(
 
 /**
  * "Appearance" (v0.6): follow the phone, or always light, or always dark. Applies at once. The
- * same title and segmented control as "Display" and "Report text" below it.
+ * same title and segmented control as "Display" and "Report text" below it. Also on the welcome
+ * screen (16/11), with [inset] 0 since that screen has its own margins.
  */
 @Composable
-internal fun AppearanceChoice(current: io.relais.app.data.Appearance, onChoose: (io.relais.app.data.Appearance) -> Unit) {
+internal fun AppearanceChoice(
+    current: io.relais.app.data.Appearance,
+    onChoose: (io.relais.app.data.Appearance) -> Unit,
+    inset: androidx.compose.ui.unit.Dp = Space.screen,
+) {
     Text(
         stringResource(R.string.settings_appearance),
         style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(horizontal = Space.screen).padding(top = Space.s, bottom = Space.m),
+        modifier = Modifier.padding(horizontal = inset).padding(top = Space.s, bottom = Space.m),
     )
     SegmentedChoice(
         options = io.relais.app.data.Appearance.entries,
@@ -652,7 +655,7 @@ internal fun AppearanceChoice(current: io.relais.app.data.Appearance, onChoose: 
             )
         },
         onSelect = onChoose,
-        modifier = Modifier.padding(horizontal = Space.screen).testTag("appearance"),
+        modifier = Modifier.padding(horizontal = inset).testTag("appearance"),
         optionTag = { "appearance_" + it.name.lowercase() },
     )
 }
@@ -668,6 +671,42 @@ private fun SettingText(text: String, secondary: Boolean = false) {
 }
 
 // --- M1 to M4: first launch --------------------------------------------------------------------
+
+/**
+ * The welcome screen: what Re.L is, then "Appearance" (founder, 16/11), the control of Settings >
+ * Reading, System by default, applied and saved at once, no confirmation. The text and the choice
+ * are centred and scroll when they don't fit (360 x 640 dp, text at 200 %); "Get started" stays at
+ * the bottom, always on screen.
+ */
+@Composable
+internal fun WelcomeStep(
+    appearance: io.relais.app.data.Appearance,
+    onAppearance: (io.relais.app.data.Appearance) -> Unit,
+    onContinue: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp).testTag("welcome")) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val room = maxHeight
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                    .heightIn(min = room).padding(vertical = 24.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.welcome_text), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.welcome_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(24.dp))
+                AppearanceChoice(appearance, onAppearance, inset = 0.dp)
+            }
+        }
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp).testTag("welcome_continue"),
+        ) { Text(stringResource(R.string.welcome_button)) }
+    }
+}
 
 private enum class Step { WELCOME, COUNTRIES, ACCESS, DIGEST }
 
@@ -704,19 +743,16 @@ fun OnboardingFlow() {
         step = Step.DIGEST
     }
 
+    // The appearance in the settings store: what the welcome screen shows is what is saved, so a
+    // rotation or a stop of the app in the middle keeps it, and Settings shows it afterwards.
+    val stored by c.settings.flow.collectAsStateWithLifecycle(initialValue = null)
+
     when (step) {
-        Step.WELCOME -> Column(
-            Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(R.string.welcome_text), style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(R.string.welcome_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(32.dp))
-            Button(onClick = ::afterWelcome, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.welcome_button)) }
-        }
+        Step.WELCOME -> WelcomeStep(
+            appearance = io.relais.app.data.Appearance.of(stored?.appearance),
+            onAppearance = { scope.launch { c.setAppearance(it) } },
+            onContinue = ::afterWelcome,
+        )
 
         Step.COUNTRIES -> Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             PickCountriesScreen(onDone = ::afterCountries, onboarding = true, onSkip = ::afterCountries)

@@ -232,6 +232,7 @@ class UpdateCheckTest {
                 online = { online },
                 fetch = { requests++; reply() },
                 now = { now },
+                hold = { until -> settings = settings.copy(updateHeldUntil = until) },
             )
         }
 
@@ -263,24 +264,26 @@ class UpdateCheckTest {
     }
 
     @Test
-    fun atMostOneRequestEvery24Hours() {
+    fun atMostOneRequestAnHour() {
+        assertEquals(60 * 60 * 1000L, UpdateCheck.INTERVAL)
         val phone = Phone(reply = { release })
         phone.open()
-        phone.now += UpdateCheck.DAY - 1
+        // 59 min 59 s later: no request; an hour: one.
+        phone.now += UpdateCheck.INTERVAL - 1_000
         assertFalse(phone.open())
         assertEquals(1, phone.requests)
-        phone.now += 1
+        phone.now += 1_000
         assertTrue(phone.open())
         assertEquals(2, phone.requests)
-        // Opened many times the same day: still two.
-        repeat(5) { phone.now += 60_000; phone.open() }
+        // Back to the foreground many times in the hour (another app, the share menu): still two.
+        repeat(10) { phone.now += 60_000; phone.open() }
         assertEquals(2, phone.requests)
     }
 
     @Test
     fun aClockSetBackDoesNotBlockTheCheck() {
         val phone = Phone(reply = { release })
-        phone.settings = phone.settings.copy(updateCheckedAt = phone.now + 3 * UpdateCheck.DAY)
+        phone.settings = phone.settings.copy(updateCheckedAt = phone.now + 3 * UpdateCheck.INTERVAL)
         assertTrue(phone.open())
         assertEquals(1, phone.requests)
     }
@@ -299,21 +302,39 @@ class UpdateCheckTest {
     }
 
     @Test
-    fun notNowHidesThisVersionOnly() {
+    fun notNowHidesThisVersionForThreeDays() {
+        assertEquals(3 * UpdateCheck.DAY, UpdateCheck.NOT_NOW_FOR)
         val phone = Phone(reply = { release })
         phone.open()
         assertEquals("0.5.2", phone.notice?.version)
-        phone.settings = phone.settings.copy(updateDismissed = "0.5.2")
+        phone.settings = phone.settings.copy(updateDismissed = "0.5.2", updateDismissedAt = phone.now)
         assertNull(phone.notice)
         // The next day, the same release: still hidden.
         phone.now += UpdateCheck.DAY
         phone.open()
         assertNull(phone.notice)
-        // A later release shows again.
-        phone.reply = { answer(tag = "\"v0.5.3\"", url = "\"https://github.com/13w13/relief-reader/releases/tag/v0.5.3\"") }
-        phone.now += UpdateCheck.DAY
+        // Just under 3 days: hidden; 3 days: back.
+        phone.now += 2 * UpdateCheck.DAY - 1
+        assertNull(phone.notice)
+        phone.now += 1
+        assertEquals("0.5.2", phone.notice?.version)
+    }
+
+    @Test
+    fun aNewerVersionShowsDespiteARecentNotNow() {
+        val phone = Phone(reply = { answer(tag = "\"v0.5.3\"", url = "\"https://github.com/13w13/relief-reader/releases/tag/v0.5.3\"") })
+        phone.settings = Settings(updateDismissed = "0.5.2", updateDismissedAt = phone.now - 60_000)
         phone.open()
         assertEquals("0.5.3", phone.notice?.version)
+    }
+
+    @Test
+    fun aNotNowDatedInTheFutureHidesNothing() {
+        // A clock set back after the tap: the notice is not hidden for longer than 3 days.
+        val phone = Phone(reply = { release })
+        phone.open()
+        phone.settings = phone.settings.copy(updateDismissed = "0.5.2", updateDismissedAt = phone.now + UpdateCheck.DAY)
+        assertEquals("0.5.2", phone.notice?.version)
     }
 
     @Test
@@ -321,7 +342,7 @@ class UpdateCheckTest {
         val phone = Phone(reply = { release })
         phone.open()
         phone.settings = phone.settings.copy(updateCheck = false)
-        repeat(3) { phone.now += UpdateCheck.DAY; assertFalse(phone.open()) }
+        repeat(3) { phone.now += UpdateCheck.INTERVAL; assertFalse(phone.open()) }
         assertEquals(1, phone.requests)
         assertNull(phone.notice)
         // Back on: the notice found before shows, and the check runs again.
@@ -336,13 +357,13 @@ class UpdateCheckTest {
         val phone = Phone(enabled = false, reply = { release })
         // Even with a newer release noted before (an APK from GitHub replaced by a build without the check).
         phone.settings = Settings(updateVersion = "0.6.0", updateUrl = "https://github.com/13w13/relief-reader/releases/tag/v0.6.0")
-        repeat(3) { phone.now += UpdateCheck.DAY; assertFalse(phone.open()) }
+        repeat(3) { phone.now += UpdateCheck.INTERVAL; assertFalse(phone.open()) }
         assertEquals(0, phone.requests)
         assertNull(phone.notice)
     }
 
     @Test
-    fun failuresAreSilentAndWaitForTheNextDay() {
+    fun failuresAreSilentAndWaitForTheNextInterval() {
         val failures = listOf<() -> String?>(
             { throw java.io.IOException("offline") },
             { null }, // a 403 of the hourly quota, a 404, a 500: the fetch gives no body
@@ -353,12 +374,12 @@ class UpdateCheckTest {
         for (failure in failures) {
             val phone = Phone(reply = failure)
             // A release found the day before stays.
-            phone.settings = Settings(updateCheckedAt = phone.now - UpdateCheck.DAY, updateVersion = "0.5.2", updateUrl = "https://github.com/13w13/relief-reader/releases/tag/v0.5.2")
+            phone.settings = Settings(updateCheckedAt = phone.now - UpdateCheck.INTERVAL, updateVersion = "0.5.2", updateUrl = "https://github.com/13w13/relief-reader/releases/tag/v0.5.2")
             assertTrue(phone.open())
             assertEquals(phone.now, phone.settings.updateCheckedAt)
             assertEquals("0.5.2", phone.notice?.version)
-            // No new try the same day.
-            phone.now += 60 * 60 * 1000L
+            // No new try within the interval.
+            phone.now += UpdateCheck.INTERVAL - 1
             assertFalse(phone.open())
             assertEquals(1, phone.requests)
         }
@@ -535,4 +556,73 @@ class UpdateCheckTest {
         assertNull(phone.settings.updateApk)
         assertNull(phone.notice?.apk)
     }
+
+    // --- GitHub's quota (16/11) -------------------------------------------------------------------
+
+    @Test
+    fun aQuotaRefusalWaitsForTheTimeGitHubGives() {
+        val phone = Phone(reply = { throw RateLimitedException(403, phone0 + 3 * UpdateCheck.HOUR) })
+        phone.open()
+        assertEquals(1, phone.requests)
+        assertEquals(phone0 + 3 * UpdateCheck.HOUR, phone.settings.updateHeldUntil)
+        // After the interval, still before GitHub's time: no request, and no loop.
+        phone.now += UpdateCheck.INTERVAL
+        assertFalse(phone.open())
+        phone.now += UpdateCheck.HOUR
+        assertFalse(phone.open())
+        assertEquals(1, phone.requests)
+        // GitHub's time reached: one request.
+        phone.reply = { release }
+        phone.now = phone0 + 3 * UpdateCheck.HOUR
+        assertTrue(phone.open())
+        assertEquals(2, phone.requests)
+    }
+
+    @Test
+    fun aQuotaRefusalWithoutAHeaderWaitsAnHour() {
+        listOf(403, 429).forEach { code ->
+            val phone = Phone(reply = { throw RateLimitedException(code, null) })
+            assertTrue(phone.open())
+            assertEquals(phone0 + UpdateCheck.INTERVAL, phone.settings.updateHeldUntil)
+            phone.now += UpdateCheck.INTERVAL - 1
+            assertFalse(phone.open())
+            phone.now += 1
+            assertTrue(phone.open())
+            assertEquals("$code", 2, phone.requests)
+        }
+    }
+
+    @Test
+    fun aQuotaTimeMoreThanADayAwayIsIgnored() {
+        // A clock set back, or an odd header: never blocked for more than a day.
+        val phone = Phone(reply = { release })
+        phone.settings = Settings(updateHeldUntil = phone.now + 2 * UpdateCheck.DAY)
+        assertTrue(phone.open())
+    }
+
+    @Test
+    fun theQuotaHeadersAreRead() {
+        val now = 1_794_700_000_000L
+        assertEquals(now + 120_000, RateLimit.until("120", null, now))
+        assertEquals(1_794_703_600_000L, RateLimit.until(null, "1794703600", now))
+        // retry-after first.
+        assertEquals(now + 60_000, RateLimit.until("60", "1794703600", now))
+        assertEquals(
+            java.time.ZonedDateTime.parse("Mon, 16 Nov 2026 22:00:00 GMT", java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli(),
+            RateLimit.until("Mon, 16 Nov 2026 22:00:00 GMT", null, 1_794_000_000_000L),
+        )
+        // Nothing readable, or a time already past: null, so an hour.
+        listOf<Pair<String?, String?>>(null to null, "soon" to null, "-5" to null, null to "x", null to "0", null to "1700000000").forEach { (after, reset) ->
+            assertNull("$after $reset", RateLimit.until(after, reset, now))
+        }
+    }
+
+    @Test
+    fun checkNowAfterAQuotaRefusalSaysItAndHoldsTheAutomaticCheck() {
+        val phone = Phone(reply = { throw RateLimitedException(429, null) })
+        assertEquals(ManualCheck.Failed("HTTP 429"), phone.tap())
+        assertEquals(phone0 + UpdateCheck.INTERVAL, phone.settings.updateHeldUntil)
+    }
+
+    private val phone0 = 1_794_700_000_000L
 }

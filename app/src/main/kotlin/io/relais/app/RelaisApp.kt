@@ -116,6 +116,15 @@ class AppContainer(private val context: Context) {
         runCatching { context.getSystemService(android.app.UiModeManager::class.java)?.setApplicationNightMode(appearance.nightMode) }
     }
 
+    /**
+     * "Appearance", from Settings or the welcome screen (16/11): saved at once, then given to
+     * Android, the same way from both, so the colours change without a flash.
+     */
+    suspend fun setAppearance(appearance: io.relais.app.data.Appearance) {
+        settings.setAppearance(appearance)
+        applyNightMode(appearance)
+    }
+
     /** The app's tuning (sync and cache times, features): built-in values, nothing hosted (PLAN.md 0octies). */
     val remoteConfig = io.relais.app.data.RemoteConfigStore()
 
@@ -153,8 +162,9 @@ class AppContainer(private val context: Context) {
     val popular = Popular(context, okHttp, userAgent, repository, dao, config = { remoteConfig.current })
 
     /**
-     * "A new version is available" (founder, 15/11), while Re.L is not on F-Droid: one GET a day
-     * to GitHub's API, with no appname and a User-Agent that is the same for everyone.
+     * "A new version is available" (founder, 15/11), while Re.L is not on F-Droid: one GET at most
+     * every hour (16/11), when the app comes to the foreground, to GitHub's API, with no appname
+     * and a User-Agent that is the same for everyone.
      */
     val updateCheck = io.relais.app.data.UpdateCheck(
         enabled = BuildConfig.UPDATE_CHECK,
@@ -163,6 +173,7 @@ class AppContainer(private val context: Context) {
         record = { at, found -> settings.recordUpdateCheck(at, found) },
         online = { network.isOnline() },
         fetch = { io.relais.app.data.HttpClients.latestRelease(okHttp) },
+        hold = { until -> settings.holdUpdateCheck(until) },
     )
 
     /** A Library view to open, by its index (Today's "See all" opens History). */

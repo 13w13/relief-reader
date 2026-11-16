@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
         handle(intent)
     }
 
-    /** Each time the app comes to the foreground: the check of a new version, when it is due (once a day). */
+    /** Each time the app comes to the foreground: the check of a new version, when it is due (at most once an hour). */
     override fun onStart() {
         super.onStart()
         // Silent: an error of the settings store must not reach the app.

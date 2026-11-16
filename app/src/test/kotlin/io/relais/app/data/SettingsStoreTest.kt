@@ -44,11 +44,19 @@ class SettingsStoreTest {
         // (19 sp). Written by a DataStore of its own, closed before the app's opens the file.
         val writer = CoroutineScope(Dispatchers.IO + Job())
         val v05 = PreferenceDataStoreFactory.create(scope = writer, produceFile = { context.preferencesDataStoreFile("settings") })
-        v05.edit { it[intPreferencesKey("reading_size")] = 3 }
+        v05.edit {
+            it[intPreferencesKey("reading_size")] = 3
+            // "Not now" as 0.6.x stored it: a version, no date.
+            it[androidx.datastore.preferences.core.stringPreferencesKey("update_dismissed")] = "0.6.1"
+        }
         writer.coroutineContext.job.cancelAndJoin()
 
-        // The real store runs the migration it is built with (review of PR 24): the same 19 sp.
+        // The real store runs the migrations it is built with (review of PR 24): the same 19 sp.
+        val before = System.currentTimeMillis()
         val store = SettingsStore(context)
+        // The 0.6.x "Not now" is dated at the update: its notice comes back 3 days later.
+        assertEquals("0.6.1", store.current().updateDismissed)
+        assertTrue(store.current().updateDismissedAt in before..System.currentTimeMillis())
         assertEquals("Large", READING_STEPS[store.current().readingSize])
         assertEquals(19.sp, TextStep.entries[store.current().readingSize].body)
         var now = 1_794_700_000_000L
@@ -81,7 +89,7 @@ class SettingsStoreTest {
         assertEquals("0.5.2", check.notice(store.current())?.version)
 
         // "Not now" hides 0.5.2; 0.5.3 shows.
-        store.dismissUpdate("0.5.2")
+        store.dismissUpdate("0.5.2", now)
         assertNull(check.notice(store.current()))
         now += UpdateCheck.DAY
         reply = { answer("0.5.3") }
@@ -107,10 +115,13 @@ class SettingsStoreTest {
         assertEquals("0.5.5", store.current().updateVersion)
         assertNull(store.current().updateApk)
 
-        // Appearance (v0.6): System by default, then each choice comes back.
+        // Appearance (v0.6): System by default, then each choice comes back. Chosen on the welcome
+        // screen (16/11), before the first launch is done: saved at once, read by Settings later.
         assertEquals(Appearance.SYSTEM.name, store.current().appearance)
+        assertFalse(store.current().onboardingDone)
         store.setAppearance(Appearance.DARK)
         assertEquals(Appearance.DARK.name, store.current().appearance)
+        assertFalse(store.current().onboardingDone)
         store.setAppearance(Appearance.LIGHT)
         assertEquals(Appearance.LIGHT.name, store.current().appearance)
 

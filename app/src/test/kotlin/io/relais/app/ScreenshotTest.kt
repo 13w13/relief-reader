@@ -180,6 +180,26 @@ class ScreenshotTest {
         }
     }
 
+    /** The welcome screen with "Appearance" (founder, 16/11), on a small phone. */
+    private fun welcome(name: String, dark: Boolean, appearance: io.relais.app.data.Appearance, fontScale: Float = 1f) = shoot(name, dark = dark) {
+        val density = LocalDensity.current
+        CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+            io.relais.app.ui.WelcomeStep(appearance = appearance, onAppearance = {}, onContinue = {})
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xxhdpi")
+    fun welcomeLight() = welcome("welcome", dark = false, io.relais.app.data.Appearance.SYSTEM)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xxhdpi")
+    fun welcomeDark() = welcome("welcome-dark", dark = true, io.relais.app.data.Appearance.DARK)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xxhdpi")
+    fun welcomeLargeText() = welcome("welcome-font-200", dark = false, io.relais.app.data.Appearance.SYSTEM, fontScale = 2f)
+
     /** Settings > About with the result of "Check now" under its button (founder, 16/11). */
     private fun aboutChecked(name: String, state: io.relais.app.data.ManualCheck) = shoot(name) {
         Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
