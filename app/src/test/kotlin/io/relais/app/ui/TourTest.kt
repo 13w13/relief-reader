@@ -29,6 +29,9 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.unit.Density
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.combinedClickable
@@ -221,17 +224,17 @@ class TourTest {
     @Test
     fun fromSettingsADoubleSkipComesBackToSettings() {
         compose.setContent {
-            val controller = androidx.navigation.compose.rememberNavController()
+            val controller = rememberNavController()
             val nav = androidx.compose.runtime.remember(controller) { Nav(controller) }
             RelaisTheme(darkTheme = false) {
-                androidx.navigation.compose.NavHost(controller, startDestination = TourTestToday) {
-                    androidx.navigation.compose.composable<TourTestToday> {
+                NavHost(controller, startDestination = TourTestToday) {
+                    composable<TourTestToday> {
                         androidx.compose.material3.TextButton(onClick = { controller.navigate(TourTestSettings) }) { androidx.compose.material3.Text("Open the settings") }
                     }
-                    androidx.navigation.compose.composable<TourTestSettings> {
+                    composable<TourTestSettings> {
                         androidx.compose.material3.TextButton(onClick = nav::tour) { androidx.compose.material3.Text("Show the tour again") }
                     }
-                    androidx.navigation.compose.composable<TourRoute> { TourScreen(onDone = { nav.back() }) }
+                    composable<TourRoute> { TourScreen(onDone = { nav.back() }) }
                 }
             }
         }
