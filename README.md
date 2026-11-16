@@ -83,6 +83,8 @@ Android permissions, all of them:
 
 No location, contacts, camera, microphone, files or phone state.
 
+<!-- permissions: android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.POST_NOTIFICATIONS android.permission.WAKE_LOCK android.permission.RECEIVE_BOOT_COMPLETED android.permission.FOREGROUND_SERVICE ${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION -->
+
 What it connects to, and when:
 
 - **`api.reliefweb.int` and `reliefweb.int`**, for reports, the headlines feed and the Most read file.

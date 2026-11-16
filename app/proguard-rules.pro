@@ -2,9 +2,22 @@
 # Most libraries ship their own rules (AndroidX, Room, WorkManager, OkHttp, Coil,
 # kotlinx.serialization). Only what they leave out is here.
 
-# Stack traces stay readable in bug reports: file names and line numbers are kept.
+# Stack traces: line numbers are kept, source file names become "SourceFile", and classes and
+# methods are renamed. The mapping.txt of each build turns a trace back (retrace): CI keeps it as an
+# artifact of the minified build, and release.yml attaches it to each release.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# WorkManager stores scheduled work by the worker's class name. A worker renamed by R8 could not be
+# found after an update from a version built without R8 (0.6.x): SyncWorker and DigestWorker do
+# not schedule themselves again. Their names and constructors stay; CI checks the mapping.
+-keep class io.relais.app.work.** extends androidx.work.ListenableWorker {
+    <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
+# Exception names are shown on screen as a diagnosis (e::class.simpleName: "Network error:
+# SocketTimeoutException", a failed organization search): renamed, they would read "a".
+-keepnames class * extends java.lang.Throwable
 
 # Navigation routes are @Serializable objects and classes, found by their serializers.
 -keep @kotlinx.serialization.Serializable class io.relais.** { *; }

@@ -109,6 +109,9 @@ android {
             applicationIdSuffix = ".minified"
             versionNameSuffix = "-minified"
             matchingFallbacks += listOf("release")
+            // A test build: no daily request to GitHub for its "-minified" version. Its appname is
+            // empty, as in release (initWith); CI checks both in the generated BuildConfig.
+            buildConfigField("boolean", "UPDATE_CHECK", "false")
         }
     }
 

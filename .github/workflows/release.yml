@@ -88,13 +88,21 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/release.keystore"
 
-      - name: Name the APK and its checksum
+      # The APK, its checksum, and R8's mapping.txt, which turns a stack trace of this APK back into
+      # readable names (retrace). The checksum is the APK's only; publish checks one APK.
+      - name: Name the APK, its checksum and its mapping
         run: |
           set -eu
           VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"(.*)".*/\1/')
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/rel-$VERSION.apk"
           (cd dist && sha256sum "rel-$VERSION.apk" > "rel-$VERSION.apk.sha256")
+          MAPPING=app/build/outputs/mapping/release/mapping.txt
+          if [ ! -s "$MAPPING" ]; then
+            echo "::error::No R8 mapping.txt for the release build."
+            exit 1
+          fi
+          cp "$MAPPING" "dist/rel-$VERSION-mapping.txt"
           ls -l dist
 
       # Handed to the publish job; a release asset does not count against the artifact quota,
