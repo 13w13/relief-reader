@@ -52,7 +52,8 @@ class PdfHostsTest {
     /** Every request as it left the app (before OkHttp adds its own headers). */
     private val requests: MutableList<okhttp3.Request> = Collections.synchronizedList(ArrayList())
 
-    private val okHttp = OkHttpClient.Builder().addInterceptor { chain ->
+    /** The app's own base client (HttpClients.base), the made-up server at the end of its chain (review of PR 38). */
+    private val okHttp = HttpClients.base().newBuilder().addInterceptor { chain ->
         val url = chain.request().url.toString()
         asked += url
         requests += chain.request()
@@ -143,6 +144,24 @@ class PdfHostsTest {
         assertEquals("secure connection failed", failureReason(javax.net.ssl.SSLHandshakeException("handshake")))
         assertEquals("not a PDF", failureReason(NotPdfException()))
         assertEquals("too many redirects", failureReason(TooManyRedirectsException()))
+        assertEquals("could not save the file", failureReason(SaveFailedException(java.io.IOException("ENOSPC (No space left on device)"))))
+        assertEquals("empty answer", failureReason(EmptyBodyException()))
+        // Never a class name on screen.
+        assertEquals("unexpected error", failureReason(IllegalStateException("odd")))
+    }
+
+    /** A file the phone cannot write reads "could not save the file", not a network failure (review of PR 38). */
+    @Test
+    fun aFileThatCannotBeWrittenSaysSo() = runBlocking {
+        val pdfs = downloader()
+        // The PDF folder replaced by a plain file: the download cannot be written there.
+        val folder = File(context.cacheDir, "pdf").apply { deleteRecursively() }
+        folder.writeText("not a folder")
+        val url = "https://reliefweb.int/attachments/c9/report.pdf"
+        pdfs.start(url, 44)
+        val state = withTimeout(5_000) { pdfs.states.first { it[url] is DownloadState.Failed } }
+        assertEquals(DownloadState.Failed("could not save the file"), state[url])
+        folder.delete()
     }
 
     /** Issue 36: after an update, the files the preload gave up on are tried again. */
@@ -151,9 +170,12 @@ class PdfHostsTest {
         val dir = File(context.filesDir, "preload-test").apply { deleteRecursively(); mkdirs() }
         File(dir, "preload_failures.tsv").writeText("2\t1\thttps://reliefweb.int/attachments/x.pdf\n")
         File(dir, "preload_failures-15.tsv").writeText("2\t1\thttps://reliefweb.int/attachments/y.pdf\n")
+        // Another worker writing the current file: its .tmp stays (review of PR 38).
+        File(dir, "preload_failures-16.tsv.tmp").writeText("2\t1\thttps://reliefweb.int/attachments/w.pdf\n")
         val current = PreloadFailures.file(dir, versionCode = 16)
         assertEquals("preload_failures-16.tsv", current.name)
-        assertEquals(emptyList<String>(), dir.listFiles().orEmpty().map { it.name })
+        assertEquals(listOf("preload_failures-16.tsv.tmp"), dir.listFiles().orEmpty().map { it.name })
+        File(dir, "preload_failures-16.tsv.tmp").delete()
         current.writeText("2\t1\thttps://reliefweb.int/attachments/z.pdf\n")
         assertEquals(current, PreloadFailures.file(dir, versionCode = 16))
         assertTrue(current.exists())
@@ -184,6 +206,8 @@ class PdfHostsTest {
         redirects["https://reliefweb.int/sites/default/files/resources/report.pdf"] = "/sites/default/files/resources/report-v2.pdf"
         val result = downloader().download("https://reliefweb.int/attachments/b2/report.pdf", 3, 1_000_000)
         assertTrue(result.toString(), result is Preloaded.Saved)
+        // Every hop carries the app's User-Agent (review of PR 38).
+        assertEquals(listOf(HttpClients.USER_AGENT, HttpClients.USER_AGENT, HttpClients.USER_AGENT), requests.map { it.header("User-Agent") })
         assertEquals(
             listOf(
                 "https://reliefweb.int/attachments/b2/report.pdf",

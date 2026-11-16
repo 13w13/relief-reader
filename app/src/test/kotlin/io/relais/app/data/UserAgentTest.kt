@@ -101,6 +101,26 @@ class UserAgentTest {
         assertSent("PDF")
     }
 
+    /** A redirect hop goes through the base client too (review of PR 38). */
+    @Test
+    fun pdfsThroughARedirect() = runBlocking {
+        val from = "https://reliefweb.int/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/report"
+        val base = HttpClients.base().newBuilder().addInterceptor { chain ->
+            val request = chain.request()
+            if (request.url.toString() == from) {
+                sent += request.url.toString() to request.header("User-Agent")
+                Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(302).message("Found")
+                    .header("Location", "$from.pdf").body("".toResponseBody()).build()
+            } else {
+                chain.proceed(request)
+            }
+        }.build()
+        val pdfs = PdfDownloader(context, db.dao(), served(base), scope, "Re.L (Android)")
+        assertTrue(pdfs.download(from, 2, 1_000_000) is Preloaded.Saved)
+        assertEquals(listOf(from, "$from.pdf"), sent.map { it.first })
+        assertSent("PDF through a redirect")
+    }
+
     @Test
     fun images() {
         val client = served(HttpClients.images(HttpClients.base()))

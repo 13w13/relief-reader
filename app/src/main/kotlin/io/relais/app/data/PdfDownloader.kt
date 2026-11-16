@@ -79,6 +79,12 @@ internal class HttpStatusException(val code: Int) : IOException("HTTP $code")
 /** What came back is not a PDF (a web page, an error message). */
 internal class NotPdfException : IOException("Not a PDF")
 
+/** The file could not be written on the phone (no space left, storage gone): not the network. */
+internal class SaveFailedException(cause: Throwable? = null) : IOException("Could not save the file", cause)
+
+/** An answer without a body. */
+internal class EmptyBodyException : IOException("Empty answer")
+
 /** More redirects than [PdfDownloader.MAX_REDIRECTS]. */
 internal class TooManyRedirectsException : IOException("Too many redirects")
 
@@ -92,10 +98,13 @@ internal fun failureReason(e: Throwable): String = when (e) {
     is java.net.UnknownHostException -> "address not found"
     is NotPdfException -> "not a PDF"
     is TooManyRedirectsException -> "too many redirects"
+    is SaveFailedException -> "could not save the file"
+    is EmptyBodyException -> "empty answer"
     is javax.net.ssl.SSLException -> "secure connection failed"
     is java.net.SocketTimeoutException -> "timed out"
     is IOException -> "no connection"
-    else -> e::class.simpleName ?: "error"
+    // In words, never a class name (review of PR 38).
+    else -> "unexpected error"
 }
 
 /**
@@ -228,18 +237,29 @@ class PdfDownloader(
         try {
             open(url).use { response ->
                 if (!response.isSuccessful) throw HttpStatusException(response.code)
-                val body = response.body ?: throw IOException("Empty body")
+                val body = response.body ?: throw EmptyBodyException()
                 val total = body.contentLength()
                 if (total > maxBytes) throw TooLargeException(total)
                 body.byteStream().use { input ->
-                    part.outputStream().use { output ->
+                    // Writing on the phone fails apart from reading from the network: a full
+                    // storage reads "could not save the file", not "no connection" (review of PR 38).
+                    val file = try {
+                        part.outputStream()
+                    } catch (e: IOException) {
+                        throw SaveFailedException(e)
+                    }
+                    file.use { output ->
                         val buffer = ByteArray(64 * 1024)
                         var read: Int
                         var done = 0L
                         var lastShown = 0f
                         while (input.read(buffer).also { read = it } != -1) {
                             currentCoroutineContext().ensureActive()
-                            output.write(buffer, 0, read)
+                            try {
+                                output.write(buffer, 0, read)
+                            } catch (e: IOException) {
+                                throw SaveFailedException(e)
+                            }
                             done += read
                             // A server that announces no size, or a smaller one, is stopped at the limit.
                             if (done > maxBytes) throw TooLargeException(done)
@@ -258,7 +278,7 @@ class PdfDownloader(
             if (!looksLikePdf(part)) throw NotPdfException()
             val target = File(dir, name)
             if (target.exists()) target.delete()
-            if (!part.renameTo(target)) throw IOException("Could not save the file")
+            if (!part.renameTo(target)) throw SaveFailedException()
             dao.upsertPdf(PdfEntity(url, reportId, target.absolutePath, target.length(), System.currentTimeMillis()))
             return target
         } finally {
