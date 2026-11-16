@@ -74,12 +74,23 @@ Keep your appname to yourself. Don't publish it, don't paste it in an issue, and
 
 Re.L has no account, no ads, no analytics and no crash reporting. What you follow, what you read, your highlights and your appname stay on your phone: Android's cloud backup and its transfer to a new phone don't copy them (Settings > **Back up your library** makes a file for that). It asks for internet access and, if you want the daily summary or alerts, for notifications.
 
+Android permissions, all of them:
+
+- **Internet** and **network state**: to read ReliefWeb, and to download PDFs on Wi-Fi only.
+- **Notifications**: the daily summary and the alerts. From Android 13, Android asks you first and you can say no; before that, turn them off in Android's settings for Re.L.
+- **Run in the background, restart after a reboot, keep the phone awake a moment**: added by WorkManager, the Android library that schedules the daily refresh and the alerts. Android grants them without asking. They don't give access to anything on your phone.
+- **A permission named `org.relreader.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`**: added by AndroidX, so that no other app can send Re.L internal messages.
+
+No location, contacts, camera, microphone, files or phone state.
+
+<!-- permissions: android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.POST_NOTIFICATIONS android.permission.WAKE_LOCK android.permission.RECEIVE_BOOT_COMPLETED android.permission.FOREGROUND_SERVICE ${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION -->
+
 What it connects to, and when:
 
 - **`api.reliefweb.int` and `reliefweb.int`**, for reports, the headlines feed and the Most read file.
 - **PDFs, from `reliefweb.int` only.** On Wi-Fi, Re.L downloads the PDFs of recent reports on what you follow, without a tap (Settings > Storage > **Download PDFs on Wi-Fi**, on by default). A PDF hosted anywhere else is not downloaded; the report offers to open it in your browser.
 - **Photos and images.** The photo of the next headline loads ahead of time, so the pile turns without waiting. When a report includes an image hosted on another site, the app loads it from there, and that site sees your IP address. Settings > Reading > **Load images** limits images to Wi-Fi, or turns them off.
-- **`api.github.com`, once a day**, for the number of the latest release. It carries no appname, no account and nothing about you, though GitHub sees your IP address, as any site does. Settings > About Re.L > **Check for new versions** turns it off, and a build from F-Droid, once Re.L is there, has no such check.
+- **`api.github.com`, once a day**, for the number of the latest release. It carries no appname, no account and nothing about you, though GitHub sees your IP address, as any site does. Settings > About Re.L > **Check for new versions** turns it off.
 
 Every request carries the same User-Agent, `Re.L/Android`, with no version number. Only https is used.
 
