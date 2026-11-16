@@ -63,6 +63,19 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
+      # The day the version is published (RELEASING.md): Today's reminder that a version is old
+      # counts from it. A wrong one would show it too early or never.
+      - name: Check the release date
+        if: hashFiles('app/build.gradle.kts') != ''
+        run: |
+          set -eu
+          DATE=$(sed -n 's/^ *val releaseDate = "\(.*\)"$/\1/p' app/build.gradle.kts)
+          if ! printf '%s' "$DATE" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' || [ "$(date -u -d "$DATE" +%F 2>/dev/null || true)" != "$DATE" ]; then
+            echo "::error::releaseDate in app/build.gradle.kts is not a valid yyyy-MM-dd date: '$DATE'."
+            exit 1
+          fi
+          echo "releaseDate $DATE."
+
       - name: Test the API module
         run: ./gradlew --no-daemon :api:test
 

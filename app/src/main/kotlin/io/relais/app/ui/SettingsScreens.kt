@@ -241,6 +241,9 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     /** "Check now" (founder, 16/11) and its result, kept by the app while it runs. */
     val manualCheck = c.updateCheck.manual
 
+    /** The stored release when it asks this version to update, shown under "Check now". */
+    fun pleaseUpdate(s: io.relais.app.data.Settings) = c.updateCheck.pleaseUpdate(s)
+
     /** A result of Check now older than a few minutes goes (review of PR 44). */
     fun forgetOldCheck() = c.updateCheck.forgetOldResult()
 
@@ -499,6 +502,7 @@ fun SettingsScreen(nav: Nav) {
                 onUpdateCheck = vm::setUpdateCheck,
                 checkNow = manualCheck.takeIf { BuildConfig.UPDATE_CHECK },
                 onCheckNow = vm::checkNow,
+                pleaseUpdate = vm.pleaseUpdate(s),
             )
         }
     }
@@ -572,6 +576,7 @@ fun AboutSection(
     checkNow: io.relais.app.data.ManualCheck? = null,
     onCheckNow: () -> Unit = {},
     onOpen: (String) -> Unit = rememberReleaseOpener(),
+    pleaseUpdate: io.relais.app.data.LatestRelease? = null,
 ) {
     val uriHandler = LocalUriHandler.current
     SectionHeader(stringResource(R.string.settings_about))
@@ -606,7 +611,7 @@ fun AboutSection(
     SettingText(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), secondary = true)
     // A tap is an explicit request: it works with the switch off too (founder, 16/11).
     if (checkNow != null) {
-        CheckNow(checkNow, onCheckNow, onOpen)
+        CheckNow(checkNow, onCheckNow, onOpen, standing = pleaseUpdate)
         SettingText(stringResource(R.string.update_check_now_help), secondary = true)
     }
     if (updateCheck != null) {
