@@ -12,7 +12,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getBoundsInRoot
-import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
@@ -31,8 +30,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * "Appearance" on the welcome screen (founder, 16/11). The choice lives in the settings store; here
- * a variable stands for it, as OnboardingFlow reads the store and writes to it at once.
+ * "Appearance" on the welcome screen (founder, 16/11): its layout and its control. The choice
+ * lives in the settings store; here a variable stands for it. The real store, and a rotation, are
+ * in SettingsStoreTest (one DataStore per process).
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -76,19 +76,6 @@ class WelcomeTest {
         assertEquals(Appearance.LIGHT, stored)
         compose.onNodeWithTag("welcome_continue").performClick()
         assertEquals(1, continued)
-    }
-
-    @Test
-    fun theChoiceSurvivesARotation() {
-        val restoration = StateRestorationTester(compose)
-        restoration.setContent {
-            RelaisTheme(darkTheme = stored == Appearance.DARK) {
-                WelcomeStep(appearance = stored, onAppearance = { stored = it }, onContinue = {})
-            }
-        }
-        compose.onNodeWithTag("appearance_dark").performScrollTo().performClick()
-        restoration.emulateSavedInstanceStateRestore()
-        compose.onNodeWithTag("appearance_dark").performScrollTo().assertIsSelected()
     }
 
     /** "Get started" stays on screen, whole; the choice is reachable by scrolling. */

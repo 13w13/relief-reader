@@ -97,6 +97,9 @@ data class Settings(
     val appearance: String = Appearance.SYSTEM.name,
 )
 
+/** The first launch setup shows until it is done: never again for a reader who updates. */
+val Settings.needsOnboarding: Boolean get() = !onboardingDone
+
 /**
  * After the onboarding, "Connect to ReliefWeb" shows once more only for a phone with no appname
  * at all (none entered, none built in) that never answered it: an update from an APK with the
@@ -365,6 +368,12 @@ class SettingsStore(private val context: Context) {
 
     /** "Not now" on the reminder that this version is old: back in 14 days. */
     suspend fun dismissAged(at: Long = System.currentTimeMillis()) = context.dataStore.edit { it[Keys.agedDismissedAt] = at }
+
+    /** A Check now found a newer version: "Not now" no longer hides it (review of PR 44). */
+    suspend fun clearUpdateDismissed() = context.dataStore.edit {
+        it.remove(Keys.updateDismissed)
+        it.remove(Keys.updateDismissedAt)
+    }
 
     /** Keeps the 50 latest hidden pins: older ones have long left the 30-day window. */
     suspend fun hidePin(reportId: Long) = context.dataStore.edit { p ->

@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import io.relais.app.R
@@ -200,7 +202,10 @@ internal fun CheckNow(state: ManualCheck, onCheckNow: () -> Unit, onOpen: (Strin
                 message,
                 style = MaterialTheme.typography.bodyMedium,
                 color = cs.onSurface,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("check_now_result"),
+                // Read out by TalkBack when it changes: the reader tapped and waits (review of PR 44).
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    .semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }
+                    .testTag("check_now_result"),
             )
         }
         if (shown is ManualCheck.Available) {

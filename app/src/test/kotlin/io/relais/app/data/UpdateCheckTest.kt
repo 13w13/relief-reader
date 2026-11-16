@@ -234,6 +234,7 @@ class UpdateCheckTest {
                 fetch = { requests++; reply() },
                 now = { now },
                 hold = { until -> settings = settings.copy(updateHeldUntil = until) },
+                forgetNotNow = { settings = settings.copy(updateDismissed = null, updateDismissedAt = 0) },
             )
         }
 
@@ -367,7 +368,7 @@ class UpdateCheckTest {
     fun failuresAreSilentAndWaitForTheNextInterval() {
         val failures = listOf<() -> String?>(
             { throw java.io.IOException("offline") },
-            { null }, // a 403 of the hourly quota, a 404, a 500: the fetch gives no body
+            { throw HttpStatusException(404) },
             { """{"message": "API rate limit exceeded"}""" },
             { "<html></html>" },
             { throw IllegalStateException("odd") },
@@ -606,8 +607,13 @@ class UpdateCheckTest {
         val now = 1_794_700_000_000L
         assertEquals(now + 120_000, RateLimit.until("120", null, now))
         assertEquals(1_794_703_600_000L, RateLimit.until(null, "1794703600", now))
-        // retry-after first.
-        assertEquals(now + 60_000, RateLimit.until("60", "1794703600", now))
+        // Both: the later of the two.
+        assertEquals(1_794_703_600_000L, RateLimit.until("60", "1794703600", now))
+        assertEquals(now + 7_200_000, RateLimit.until("7200", "1794703600", now))
+        // Numbers too large to be a wait are not read, and never overflow.
+        assertNull(RateLimit.until("99999999999999999", null, now))
+        assertNull(RateLimit.until(null, Long.MAX_VALUE.toString(), now))
+        assertEquals(1_794_703_600_000L, RateLimit.until("99999999999999999", "1794703600", now))
         assertEquals(
             java.time.ZonedDateTime.parse("Mon, 16 Nov 2026 22:00:00 GMT", java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli(),
             RateLimit.until("Mon, 16 Nov 2026 22:00:00 GMT", null, 1_794_000_000_000L),
@@ -790,5 +796,64 @@ class UpdateCheckTest {
         // A check that found a newer version replaces it, even with the switch off.
         val found = ManualCheck.Available(release071.copy(minimum = null))
         assertEquals(VersionNotice.Available(release071.copy(minimum = null)), banner(Settings(updateCheck = false), now = old, manual = found))
+    }
+
+    // --- Review of PR 44 ---------------------------------------------------------------------------
+
+    @Test
+    fun aStoreThatCannotWriteNeverLeavesCheckingForGood() {
+        val check = UpdateCheck(
+            enabled = true, installed = "0.5.1", settings = { Settings() },
+            record = { _, _ -> throw java.io.IOException("No space left on device") },
+            online = { true }, fetch = { answer() }, now = { phone0 },
+        )
+        val result = runBlocking { check.checkNow() }
+        // Said as what it is, not as a network failure.
+        assertEquals(ManualCheck.Failed("could not save the result"), result)
+        assertEquals(result, check.manual.value)
+        // The hold of a quota refusal failing the same way.
+        val held = UpdateCheck(
+            enabled = true, installed = "0.5.1", settings = { Settings() }, record = { _, _ -> },
+            online = { true }, fetch = { throw RateLimitedException(403, null) }, now = { phone0 },
+            hold = { throw IllegalStateException("store closed") },
+        )
+        assertEquals(ManualCheck.Failed("could not save the result"), runBlocking { held.checkNow() })
+        assertFalse(held.manual.value == ManualCheck.Checking)
+    }
+
+    @Test
+    fun anOldResultGoesWhenSettingsComesBack() {
+        val phone = Phone(reply = { release })
+        phone.tap()
+        assertTrue(phone.check.manual.value is ManualCheck.Available)
+        // A rotation, a few minutes later: kept.
+        phone.now += UpdateCheck.RESULT_FOR - 1
+        phone.check.forgetOldResult()
+        assertTrue(phone.check.manual.value is ManualCheck.Available)
+        // Later: gone.
+        phone.now += 1
+        phone.check.forgetOldResult()
+        assertEquals(ManualCheck.Idle, phone.check.manual.value)
+    }
+
+    @Test
+    fun checkNowFindingANewerVersionClearsNotNow() {
+        val phone = Phone(reply = { release })
+        phone.open()
+        phone.settings = phone.settings.copy(updateDismissed = "0.5.2", updateDismissedAt = phone.now)
+        assertNull(phone.notice)
+        phone.now += UpdateCheck.MIN_GAP
+        assertTrue(phone.tap() is ManualCheck.Available)
+        // The reader just asked: Today shows the same as Settings.
+        assertEquals("0.5.2", phone.notice?.version)
+        assertNull(phone.settings.updateDismissed)
+    }
+
+    @Test
+    fun checkNowUpToDateKeepsNotNow() {
+        val phone = Phone(reply = { answer(tag = "\"v0.5.1\"", url = "\"https://github.com/13w13/relief-reader/releases/tag/v0.5.1\"") })
+        phone.settings = phone.settings.copy(updateDismissed = "0.5.0", updateDismissedAt = phone.now)
+        phone.tap()
+        assertEquals("0.5.0", phone.settings.updateDismissed)
     }
 }
