@@ -237,6 +237,14 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     fun setAlerts(on: Boolean) = viewModelScope.launch { c.settings.setAlerts(on) }
     fun setUpdateCheck(on: Boolean) = viewModelScope.launch { c.settings.setUpdateCheck(on) }
 
+    /** "Check now" (founder, 16/11) and its result, kept by the app while it runs. */
+    val manualCheck = c.updateCheck.manual
+
+    /** In the app's scope: leaving Settings does not cancel the check, its result waits there. */
+    fun checkNow() {
+        c.scope.launch { runCatching { c.updateCheck.checkNow() } }
+    }
+
     /** "Appearance": saved, then given to Android for the launch window (Android 12 and later). */
     fun setAppearance(appearance: io.relais.app.data.Appearance) = viewModelScope.launch {
         c.settings.setAppearance(appearance)
@@ -298,6 +306,7 @@ fun SettingsScreen(nav: Nav) {
     var shortenHistory by remember { mutableStateOf<Triple<Int, Int, Int>?>(null) }
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
+    val manualCheck by vm.manualCheck.collectAsStateWithLifecycle()
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) vm.setDigest(context, true, s.digestHour, s.digestMinute)
     }
@@ -482,9 +491,11 @@ fun SettingsScreen(nav: Nav) {
             AboutSection(
                 onLicences = nav::licences,
                 onWhatsNew = { showWhatsNew = it },
-                // An F-Droid build has no check, so no switch (UPDATE_CHECK).
+                // An F-Droid build has no check, so no switch and no "Check now" (UPDATE_CHECK).
                 updateCheck = s.updateCheck.takeIf { BuildConfig.UPDATE_CHECK },
                 onUpdateCheck = vm::setUpdateCheck,
+                checkNow = manualCheck.takeIf { BuildConfig.UPDATE_CHECK },
+                onCheckNow = vm::checkNow,
             )
         }
     }
@@ -544,9 +555,10 @@ fun SettingsScreen(nav: Nav) {
 }
 
 /**
- * Settings > About Re.L: what's new, what the app is, its licences and links, its version and
- * "Check for new versions" ([updateCheck], null when the build has no check), then how to say
- * thanks or report something, on GitHub (no server, no tracking).
+ * Settings > About Re.L: what's new, what the app is, its licences and links, its version,
+ * "Check now" ([checkNow], its state; null when the build has no check) and "Check for new
+ * versions" ([updateCheck], null when the build has no check), then how to say thanks or report
+ * something, on GitHub (no server, no tracking).
  */
 @Composable
 fun AboutSection(
@@ -554,6 +566,9 @@ fun AboutSection(
     onWhatsNew: (WhatsNew.Release) -> Unit,
     updateCheck: Boolean? = null,
     onUpdateCheck: (Boolean) -> Unit = {},
+    checkNow: io.relais.app.data.ManualCheck? = null,
+    onCheckNow: () -> Unit = {},
+    onOpen: (String) -> Unit = rememberReleaseOpener(),
 ) {
     val uriHandler = LocalUriHandler.current
     SectionHeader(stringResource(R.string.settings_about))
@@ -586,6 +601,11 @@ fun AboutSection(
         Text(stringResource(R.string.settings_terms))
     }
     SettingText(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), secondary = true)
+    // A tap is an explicit request: it works with the switch off too (founder, 16/11).
+    if (checkNow != null) {
+        CheckNow(checkNow, onCheckNow, onOpen)
+        SettingText(stringResource(R.string.update_check_now_help), secondary = true)
+    }
     if (updateCheck != null) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.settings_update_check), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))

@@ -77,9 +77,10 @@ data class Settings(
     val updateCheck: Boolean = true,
     /** The last request to GitHub for the latest release, answered or not. */
     val updateCheckedAt: Long = 0,
-    /** The latest release found: its version ("0.5.2") and its page. */
+    /** The latest release found: its version ("0.5.2"), its page, and its APK (none from 0.6.x). */
     val updateVersion: String? = null,
     val updateUrl: String? = null,
+    val updateApk: String? = null,
     /** The version whose notice was closed with "Not now": the next one shows again. */
     val updateDismissed: String? = null,
     /** "Appearance": the name of an [Appearance], System when unset (v0.6). */
@@ -176,6 +177,7 @@ class SettingsStore(private val context: Context) {
         val updateCheckedAt = longPreferencesKey("update_checked_at")
         val updateVersion = stringPreferencesKey("update_version")
         val updateUrl = stringPreferencesKey("update_url")
+        val updateApk = stringPreferencesKey("update_apk")
         val updateDismissed = stringPreferencesKey("update_dismissed")
         val appearance = stringPreferencesKey("appearance")
         fun country(id: Long) = stringPreferencesKey("country_$id")
@@ -219,6 +221,7 @@ class SettingsStore(private val context: Context) {
             updateCheckedAt = p[Keys.updateCheckedAt] ?: 0,
             updateVersion = p[Keys.updateVersion],
             updateUrl = p[Keys.updateUrl],
+            updateApk = p[Keys.updateApk],
             updateDismissed = p[Keys.updateDismissed],
             appearance = Appearance.of(p[Keys.appearance]).name,
         )
@@ -296,12 +299,17 @@ class SettingsStore(private val context: Context) {
     suspend fun setPdfCapMb(mb: Int) = context.dataStore.edit { it[Keys.pdfCapMb] = mb }
     suspend fun setUpdateCheck(on: Boolean) = context.dataStore.edit { it[Keys.updateCheck] = on }
 
-    /** A check of the latest release: its time always; the release only when one was read. */
+    /**
+     * A check of the latest release: its time always; the release only when one was read. Its APK
+     * goes with it: a release without a valid one removes the address of the previous release.
+     */
     suspend fun recordUpdateCheck(at: Long, found: LatestRelease?) = context.dataStore.edit {
         it[Keys.updateCheckedAt] = at
         if (found != null) {
             it[Keys.updateVersion] = found.version
             it[Keys.updateUrl] = found.url
+            val apk = found.apk
+            if (apk != null) it[Keys.updateApk] = apk else it.remove(Keys.updateApk)
         }
     }
 

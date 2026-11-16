@@ -95,6 +95,18 @@ class SettingsStoreTest {
         assertNull(check.notice(store.current()))
         assertEquals(3, requests)
 
+        // The APK of the release (16/11): none from answers without assets, as for a value stored by
+        // 0.6.x; kept with its release, kept after a failure, removed by a release without one.
+        assertNull(store.current().updateApk)
+        val apk = "https://github.com/13w13/relief-reader/releases/download/v0.5.4/rel-0.5.4.apk"
+        store.recordUpdateCheck(now, LatestRelease("0.5.4", "https://github.com/13w13/relief-reader/releases/tag/v0.5.4", apk))
+        assertEquals(apk, store.current().updateApk)
+        store.recordUpdateCheck(now + 1, null)
+        assertEquals(apk, store.current().updateApk)
+        store.recordUpdateCheck(now + 2, LatestRelease("0.5.5", "https://github.com/13w13/relief-reader/releases/tag/v0.5.5"))
+        assertEquals("0.5.5", store.current().updateVersion)
+        assertNull(store.current().updateApk)
+
         // Appearance (v0.6): System by default, then each choice comes back.
         assertEquals(Appearance.SYSTEM.name, store.current().appearance)
         store.setAppearance(Appearance.DARK)

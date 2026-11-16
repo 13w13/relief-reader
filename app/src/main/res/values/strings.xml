@@ -544,6 +544,15 @@
     <string name="update_not_now">Not now</string>
     <string name="settings_update_check">Check for new versions</string>
     <string name="settings_update_check_help">Once a day, Re.L asks GitHub (api.github.com) for the number of its latest version. It sends nothing about you.</string>
+    <!-- "Check now" in Settings > About (founder, 16/11): results under the button, never a dialog. -->
+    <string name="update_check_now">Check now</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">Re.L %1$s is up to date.</string>
+    <string name="update_found">Re.L %1$s is available.</string>
+    <string name="update_check_failed">Couldn\'t check (%1$s)</string>
+    <string name="update_download_apk">Download the APK</string>
+    <string name="update_download">Download</string>
+    <string name="update_check_now_help">Check now asks GitHub right away, even with the daily check off. A new version downloads in your browser; Re.L itself never downloads or installs anything.</string>
     <string name="today_headlines_only">Headlines only. Add an appname in Settings to read full reports, country pages and search.</string>
     <!-- T19, open source (GPL-3.0-or-later) -->
     <string name="licences_title">Open source licences</string>
@@ -650,4 +659,6 @@
     <string name="whats_new_07_text_1">The app file is now 6.5 MB instead of 19.7 MB.</string>
     <string name="whats_new_07_lead_2">Clearer download errors.</string>
     <string name="whats_new_07_text_2">If a PDF can\'t be saved on your phone, Re.L says so.</string>
+    <string name="whats_new_07_lead_3">Check for a new version.</string>
+    <string name="whats_new_07_text_3">Settings &gt; About: Check now, with a link to the APK.</string>
 </resources>

@@ -137,11 +137,22 @@ class ScreenshotTest {
         shoot("today-dark", dark = true) { TodayPile(headlines, readIds = setOf(headlines[0].id), page = 1) }
     }
 
-    /** "Re.L 0.5.2 is available" at the top of Today (founder, 15/11). */
+    /**
+     * "Re.L 0.5.2 is available" at the top of Today (founder, 15/11), with "Download" since the
+     * release has a valid APK (founder, 16/11).
+     */
     @Composable
     private fun TodayWithUpdate(headlines: List<ReportEntity>) {
         Column {
-            UpdateLine(LatestRelease("0.5.2", "https://github.com/13w13/relief-reader/releases/tag/v0.5.2"), onNotNow = {}, onOpen = {})
+            UpdateLine(
+                LatestRelease(
+                    "0.5.2",
+                    "https://github.com/13w13/relief-reader/releases/tag/v0.5.2",
+                    "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk",
+                ),
+                onNotNow = {},
+                onOpen = {},
+            )
             TodayPile(headlines, readIds = setOf(headlines[0].id), page = 1)
         }
     }
@@ -168,6 +179,31 @@ class ScreenshotTest {
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) { TodayWithUpdate(headlines) }
         }
     }
+
+    /** Settings > About with the result of "Check now" under its button (founder, 16/11). */
+    private fun aboutChecked(name: String, state: io.relais.app.data.ManualCheck) = shoot(name) {
+        Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            io.relais.app.ui.AboutSection(onLicences = {}, onWhatsNew = {}, updateCheck = true, checkNow = state, onOpen = {})
+        }
+    }
+
+    @Test
+    fun aboutCheckUpToDate() = aboutChecked("about-check-up-to-date", io.relais.app.data.ManualCheck.UpToDate("0.7.0"))
+
+    @Test
+    fun aboutCheckAvailable() = aboutChecked(
+        "about-check-available",
+        io.relais.app.data.ManualCheck.Available(
+            LatestRelease(
+                "0.7.1",
+                "https://github.com/13w13/relief-reader/releases/tag/v0.7.1",
+                "https://github.com/13w13/relief-reader/releases/download/v0.7.1/rel-0.7.1.apk",
+            ),
+        ),
+    )
+
+    @Test
+    fun aboutCheckFailed() = aboutChecked("about-check-failed", io.relais.app.data.ManualCheck.Failed("no connection"))
 
     /** Display at Smallest (v0.6): smaller titles, tighter rows and margins. */
     @Test

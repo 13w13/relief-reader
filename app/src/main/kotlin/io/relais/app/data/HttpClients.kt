@@ -72,15 +72,20 @@ object HttpClients {
         expectSuccess = false
     }
 
-    /** The answer of GitHub's latest release, for the check for new versions; null unless 200. */
-    suspend fun latestRelease(client: OkHttpClient): String? = withContext(Dispatchers.IO) {
+    /**
+     * The answer of GitHub's latest release, for the check for new versions. Another status throws
+     * [HttpStatusException], so that "Check now" can say it ("HTTP 403"); the daily check stays
+     * silent.
+     */
+    suspend fun latestRelease(client: OkHttpClient): String = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(UpdateCheck.LATEST_URL)
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .build()
         client.newCall(request).execute().use { response ->
-            if (response.code == 200) response.peekBody(UpdateCheck.MAX_BYTES).string() else null
+            if (response.code != 200) throw HttpStatusException(response.code)
+            response.peekBody(UpdateCheck.MAX_BYTES).string()
         }
     }
 }

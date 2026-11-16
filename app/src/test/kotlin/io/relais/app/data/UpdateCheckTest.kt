@@ -3,7 +3,10 @@
 package io.relais.app.data
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -48,7 +51,21 @@ class UpdateCheckTest {
         url: String = "\"https://github.com/13w13/relief-reader/releases/tag/v0.5.2\"",
         draft: Boolean = false,
         prerelease: Boolean = false,
-    ) = """{"id": 1, "tag_name": $tag, "html_url": $url, "draft": $draft, "prerelease": $prerelease, "name": "Re.L 0.5.2", "assets": []}"""
+        assets: String = "[]",
+    ) = """{"id": 1, "tag_name": $tag, "html_url": $url, "draft": $draft, "prerelease": $prerelease, "name": "Re.L 0.5.2", "assets": $assets}"""
+
+    /** An asset as GitHub lists it: its name, its download address, and a few other fields. */
+    private fun asset(name: String, link: String) =
+        """{"url": "https://api.github.com/repos/13w13/relief-reader/releases/assets/1", "name": "$name", "content_type": "application/octet-stream", "state": "uploaded", "size": 6526328, "browser_download_url": "$link"}"""
+
+    private val apk052 = "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk"
+
+    /** The three files of a release (release.yml): the APK, its checksum and R8's mapping. */
+    private val releaseAssets = "[" + listOf(
+        asset("rel-0.5.2.apk", apk052),
+        asset("rel-0.5.2.apk.sha256", "$apk052.sha256"),
+        asset("rel-0.5.2-mapping.txt", "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2-mapping.txt"),
+    ).joinToString() + "]"
 
     @Test
     fun aPublishedReleaseIsRead() {
@@ -56,6 +73,76 @@ class UpdateCheckTest {
             LatestRelease("0.5.2", "https://github.com/13w13/relief-reader/releases/tag/v0.5.2"),
             UpdateCheck.parse(answer()),
         )
+    }
+
+    // --- The APK among the assets (founder, 16/11) -------------------------------------------------
+
+    @Test
+    fun theOnlyValidApkIsTakenNeverTheMappingOrTheChecksum() {
+        assertEquals(apk052, UpdateCheck.parse(answer(assets = releaseAssets))?.apk)
+        // The checksum and the mapping alone: no APK.
+        val withoutApk = "[" + asset("rel-0.5.2.apk.sha256", "$apk052.sha256") + ", " +
+            asset("rel-0.5.2-mapping.txt", "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2-mapping.txt") + "]"
+        val release = UpdateCheck.parse(answer(assets = withoutApk))
+        assertEquals("0.5.2", release?.version)
+        assertNull(release?.apk)
+    }
+
+    @Test
+    fun noApkTwoApksOrOddAssetsGiveNoDownload() {
+        listOf(
+            "[]",
+            "null",
+            "{}",
+            "\"rel-0.5.2.apk\"",
+            "[\"$apk052\"]",
+            // Two APKs, even if one is valid.
+            "[" + asset("rel-0.5.2.apk", apk052) + ", " + asset("rel-0.5.2-debug.apk", "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2-debug.apk") + "]",
+            // An APK named otherwise, or at an address that ends otherwise: still counted as an APK.
+            "[" + asset("rel-0.5.2.apk", apk052) + ", " + asset("other.bin", "https://github.com/13w13/relief-reader/releases/download/v0.5.2/other.apk") + "]",
+            // A name without an address.
+            """[{"name": "rel-0.5.2.apk"}]""",
+        ).forEach { assets ->
+            val release = UpdateCheck.parse(answer(assets = assets))
+            assertEquals(assets, "0.5.2", release?.version)
+            assertNull(assets, release?.apk)
+        }
+    }
+
+    @Test
+    fun onlyTheApkOfThisRepositoryAndThisVersionOpens() {
+        listOf(
+            // Another repository, another owner, another host.
+            "https://github.com/someone/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk",
+            "https://github.com/13w13/other/releases/download/v0.5.2/rel-0.5.2.apk",
+            "https://objects.githubusercontent.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk",
+            "https://github.com.example.org/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk",
+            // Another version than the tag, in the folder or in the name.
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.1/rel-0.5.1.apk",
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.1.apk",
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.1/rel-0.5.2.apk",
+            "https://github.com/13w13/relief-reader/releases/download/0.5.2/rel-0.5.2.apk",
+            // http, a port, user info.
+            "http://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk",
+            "https://github.com:443/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk",
+            "https://x@github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk",
+            // Encoded characters, a query, a fragment, a path that leaves the folder.
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel%2D0.5.2.apk",
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.2/%2e%2e/rel-0.5.2.apk",
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk?x=1",
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk#x",
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.2/../v0.5.2/rel-0.5.2.apk",
+            "https://GITHUB.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk",
+            "javascript:alert(1)",
+            "not a url",
+        ).forEach { link ->
+            assertNull(link, UpdateCheck.apkLink(link, "0.5.2"))
+            assertNull(link, UpdateCheck.parse(answer(assets = "[" + asset("rel-0.5.2.apk", link) + "]"))?.apk)
+        }
+        assertEquals(apk052, UpdateCheck.apkLink(" $apk052 ", "0.5.2")?.trim())
+        // An unreadable version never gives an address.
+        listOf("v0.5.2", "0.5.2-beta", "", "0.5.2/../x").forEach { assertNull(it, UpdateCheck.apkLink(apk052, it)) }
+        assertNull(UpdateCheck.apkLink(null, "0.5.2"))
     }
 
     @Test
@@ -127,23 +214,30 @@ class UpdateCheckTest {
     ) {
         var requests = 0
 
-        val check get() = UpdateCheck(
-            enabled = enabled,
-            installed = "0.5.1",
-            settings = { settings },
-            record = { at, found ->
-                settings = settings.copy(
-                    updateCheckedAt = at,
-                    updateVersion = found?.version ?: settings.updateVersion,
-                    updateUrl = found?.url ?: settings.updateUrl,
-                )
-            },
-            online = { online },
-            fetch = { requests++; reply() },
-            now = { now },
-        )
+        /** One instance, as in the app: "Check now" keeps its last result in memory. */
+        val check by lazy {
+            UpdateCheck(
+                enabled = enabled,
+                installed = "0.5.1",
+                settings = { settings },
+                // As Settings.recordUpdateCheck: the APK goes with the release found.
+                record = { at, found ->
+                    settings = settings.copy(
+                        updateCheckedAt = at,
+                        updateVersion = found?.version ?: settings.updateVersion,
+                        updateUrl = found?.url ?: settings.updateUrl,
+                        updateApk = if (found != null) found.apk else settings.updateApk,
+                    )
+                },
+                online = { online },
+                fetch = { requests++; reply() },
+                now = { now },
+            )
+        }
 
         fun open() = runBlocking { check.checkIfDue() }
+
+        fun tap() = runBlocking { check.checkNow() }
 
         val notice get() = check.notice(settings)
     }
@@ -293,5 +387,152 @@ class UpdateCheckTest {
         assertNull(phone.notice)
         phone.settings = Settings(updateVersion = "0.6.0", updateUrl = "https://github.com/13w13/relief-reader/%2e%2e/other")
         assertNull(phone.notice)
+    }
+
+    // --- Check now (founder, 16/11) ---------------------------------------------------------------
+
+    @Test
+    fun checkNowAsksAtOnceEvenWithTheSwitchOff() {
+        val phone = Phone(reply = { answer(assets = releaseAssets) })
+        phone.settings = phone.settings.copy(updateCheck = false, updateCheckedAt = phone.now - 60_000)
+        // The daily check would not ask (switch off, checked a minute ago); a tap does.
+        assertFalse(phone.open())
+        assertEquals(0, phone.requests)
+        val result = phone.tap()
+        assertEquals(1, phone.requests)
+        assertEquals(ManualCheck.Available(LatestRelease("0.5.2", "https://github.com/13w13/relief-reader/releases/tag/v0.5.2", apk052)), result)
+        assertEquals(result, phone.check.manual.value)
+        // The time and the release are noted; Today's notice waits for the switch.
+        assertEquals(phone.now, phone.settings.updateCheckedAt)
+        assertEquals(apk052, phone.settings.updateApk)
+        assertNull(phone.notice)
+        phone.settings = phone.settings.copy(updateCheck = true)
+        assertEquals(apk052, phone.notice?.apk)
+    }
+
+    @Test
+    fun theBuildFlagOffMeansNoCheckNow() {
+        val phone = Phone(enabled = false, reply = { release })
+        assertEquals(ManualCheck.Idle, phone.tap())
+        assertEquals(0, phone.requests)
+    }
+
+    @Test
+    fun atMostOneRequestEvery30SecondsHoweverOftenItIsTapped() {
+        val phone = Phone(reply = { release })
+        val first = phone.tap()
+        repeat(29) { phone.now += 1_000; assertEquals(first, phone.tap()) }
+        phone.now += 999
+        phone.tap()
+        assertEquals(1, phone.requests)
+        phone.now += 1
+        phone.tap()
+        assertEquals(2, phone.requests)
+        // The daily check counts too: a tap just after it sends nothing more.
+        val daily = Phone(reply = { release })
+        assertTrue(daily.open())
+        daily.now += 5_000
+        assertEquals(ManualCheck.Available(LatestRelease("0.5.2", "https://github.com/13w13/relief-reader/releases/tag/v0.5.2")), daily.tap())
+        assertEquals(1, daily.requests)
+    }
+
+    @Test
+    fun aSecondTapDuringACheckSendsNoSecondRequest() = runBlocking {
+        val gate = CompletableDeferred<String?>()
+        var requests = 0
+        val check = UpdateCheck(
+            enabled = true, installed = "0.5.1", settings = { Settings() }, record = { _, _ -> },
+            online = { true }, fetch = { requests++; gate.await() }, now = { 1_794_700_000_000L },
+        )
+        val first = async { check.checkNow() }
+        yield()
+        assertEquals(ManualCheck.Checking, check.manual.value)
+        val second = async { check.checkNow() }
+        yield()
+        gate.complete(answer())
+        assertEquals(first.await(), second.await())
+        assertEquals(1, requests)
+        assertTrue(check.manual.value is ManualCheck.Available)
+    }
+
+    @Test
+    fun eachResultSaysWhatHappened() {
+        assertEquals(ManualCheck.UpToDate("0.5.1"), Phone(reply = { answer(tag = "\"v0.5.1\"", url = "\"https://github.com/13w13/relief-reader/releases/tag/v0.5.1\"") }).tap())
+        assertEquals(ManualCheck.UpToDate("0.5.1"), Phone(reply = { answer(tag = "\"v0.5.0\"") }).tap())
+        assertEquals("0.5.2", (Phone(reply = { release }).tap() as ManualCheck.Available).release.version)
+        listOf<Pair<() -> String?, String>>(
+            { throw HttpStatusException(403) } to "HTTP 403",
+            { throw HttpStatusException(500) } to "HTTP 500",
+            { throw java.io.IOException("reset") } to "no connection",
+            { throw java.net.UnknownHostException("api.github.com") } to "address not found",
+            { throw java.net.SocketTimeoutException() } to "timed out",
+            { throw javax.net.ssl.SSLHandshakeException("bad") } to "secure connection failed",
+            { """{"message": "API rate limit exceeded"}""" } to "unreadable answer",
+            { "<html></html>" } to "unreadable answer",
+            { null } to "unreadable answer",
+            { throw IllegalStateException("odd") } to "unexpected error",
+        ).forEach { (reply, reason) ->
+            val phone = Phone(reply = reply)
+            assertEquals(reason, ManualCheck.Failed(reason), phone.tap())
+            // A failure notes the time, as the daily check does.
+            assertEquals(reason, phone.now, phone.settings.updateCheckedAt)
+        }
+        // Offline: said at once, without a request, and the next tap may ask.
+        val offline = Phone(online = false, reply = { release })
+        assertEquals(ManualCheck.Failed("no connection"), offline.tap())
+        assertEquals(0, offline.requests)
+        offline.online = true
+        assertTrue(offline.tap() is ManualCheck.Available)
+        assertEquals(1, offline.requests)
+    }
+
+    @Test
+    fun aCancelledCheckNowGoesBackToIdle() {
+        val phone = Phone(reply = { throw CancellationException("app closed") })
+        try {
+            phone.tap()
+            fail("the cancellation should be thrown")
+        } catch (e: CancellationException) {
+            assertEquals(ManualCheck.Idle, phone.check.manual.value)
+        }
+    }
+
+    // --- The stored APK ---------------------------------------------------------------------------
+
+    @Test
+    fun aValueStoredBy06WithoutApkShowsTheNoticeWithoutDownload() {
+        val phone = Phone()
+        phone.settings = Settings(updateVersion = "0.5.2", updateUrl = "https://github.com/13w13/relief-reader/releases/tag/v0.5.2")
+        assertEquals(LatestRelease("0.5.2", "https://github.com/13w13/relief-reader/releases/tag/v0.5.2", apk = null), phone.notice)
+    }
+
+    @Test
+    fun theStoredApkIsCheckedAgainOnReading() {
+        val phone = Phone()
+        val page = "https://github.com/13w13/relief-reader/releases/tag/v0.5.2"
+        phone.settings = Settings(updateVersion = "0.5.2", updateUrl = page, updateApk = apk052)
+        assertEquals(apk052, phone.notice?.apk)
+        listOf(
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.1/rel-0.5.1.apk",
+            "https://example.org/rel-0.5.2.apk",
+            "https://github.com/13w13/relief-reader/releases/download/v0.5.2/rel-0.5.2.apk?x",
+        ).forEach { stored ->
+            phone.settings = Settings(updateVersion = "0.5.2", updateUrl = page, updateApk = stored)
+            assertEquals(stored, "0.5.2", phone.notice?.version)
+            assertNull(stored, phone.notice?.apk)
+        }
+    }
+
+    @Test
+    fun aNewReleaseWithoutApkForgetsThePreviousOne() {
+        val phone = Phone(reply = { answer(assets = releaseAssets) })
+        phone.tap()
+        assertEquals(apk052, phone.settings.updateApk)
+        phone.reply = { answer(tag = "\"v0.5.3\"", url = "\"https://github.com/13w13/relief-reader/releases/tag/v0.5.3\"") }
+        phone.now += UpdateCheck.MIN_GAP
+        phone.tap()
+        assertEquals("0.5.3", phone.settings.updateVersion)
+        assertNull(phone.settings.updateApk)
+        assertNull(phone.notice?.apk)
     }
 }
