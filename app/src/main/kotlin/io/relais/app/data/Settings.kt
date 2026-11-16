@@ -98,6 +98,9 @@ data class Settings(
     val appearance: String = Appearance.SYSTEM.name,
 )
 
+/** The first launch setup shows until it is done: never again for a reader who updates. */
+val Settings.needsOnboarding: Boolean get() = !onboardingDone
+
 /** The tour comes after the first launch setup, once, and never uninvited after an update. */
 val Settings.showsTour: Boolean get() = onboardingDone && tourPending
 
@@ -366,6 +369,12 @@ class SettingsStore(private val context: Context) {
     }
 
     suspend fun holdUpdateCheck(until: Long) = context.dataStore.edit { it[Keys.updateHeldUntil] = until }
+
+    /** A Check now found a newer version: "Not now" no longer hides it (review of PR 44). */
+    suspend fun clearUpdateDismissed() = context.dataStore.edit {
+        it.remove(Keys.updateDismissed)
+        it.remove(Keys.updateDismissedAt)
+    }
 
     /** Keeps the 50 latest hidden pins: older ones have long left the 30-day window. */
     suspend fun hidePin(reportId: Long) = context.dataStore.edit { p ->
