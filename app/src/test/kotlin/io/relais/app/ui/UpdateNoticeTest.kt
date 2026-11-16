@@ -220,7 +220,8 @@ class UpdateNoticeTest {
         about(ManualCheck.Checking, onCheckNow = { taps++ })
         compose.onNodeWithTag("check_now_button").performScrollTo().assertIsNotEnabled().performClick()
         assertEquals(0, taps)
-        compose.onNodeWithText("Checking…").assertIsDisplayed()
+        // Under the button, past the edge of the test's small screen: scrolled to first.
+        compose.onNodeWithText("Checking…").performScrollTo().assertIsDisplayed()
     }
 
     @Test
