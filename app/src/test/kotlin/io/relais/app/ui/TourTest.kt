@@ -24,7 +24,14 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.combinedClickable
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.relais.app.data.Settings
 import io.relais.app.data.showsTour
@@ -187,4 +194,99 @@ class TourTest {
         // A reader updating from 0.6.x: setup done long ago, no tour flag.
         assertFalse(Settings(onboardingDone = true).showsTour)
     }
+
+    // --- Review of PR 45 ---------------------------------------------------------------------------
+
+    @Test
+    fun aSecondTapEndsTheTourOnlyOnce() {
+        tour()
+        compose.onNodeWithTag("tour_skip").performClick()
+        compose.onNodeWithTag("tour_skip").performClick()
+        back()
+        assertEquals(1, done)
+    }
+
+    @Test
+    fun startReadingTwiceEndsItOnce() {
+        compose.setContent { RelaisTheme(darkTheme = false) { TourScreen(onDone = { done++ }, initialPage = 4) } }
+        compose.onNodeWithText("Start reading").performClick()
+        compose.onNodeWithText("Start reading").performClick()
+        assertEquals(1, done)
+    }
+
+    /**
+     * From Settings and back, through the app's own Nav and TourRoute, as MainScreen declares
+     * them: a double tap on Skip during the transition comes back to Settings, never further.
+     */
+    @Test
+    fun fromSettingsADoubleSkipComesBackToSettings() {
+        compose.setContent {
+            val controller = androidx.navigation.compose.rememberNavController()
+            val nav = androidx.compose.runtime.remember(controller) { Nav(controller) }
+            RelaisTheme(darkTheme = false) {
+                androidx.navigation.compose.NavHost(controller, startDestination = TourTestToday) {
+                    androidx.navigation.compose.composable<TourTestToday> {
+                        androidx.compose.material3.TextButton(onClick = { controller.navigate(TourTestSettings) }) { androidx.compose.material3.Text("Open the settings") }
+                    }
+                    androidx.navigation.compose.composable<TourTestSettings> {
+                        androidx.compose.material3.TextButton(onClick = nav::tour) { androidx.compose.material3.Text("Show the tour again") }
+                    }
+                    androidx.navigation.compose.composable<TourRoute> { TourScreen(onDone = { nav.back() }) }
+                }
+            }
+        }
+        compose.onNodeWithText("Open the settings").performClick()
+        compose.onNodeWithText("Show the tour again").performClick()
+        compose.waitForIdle()
+        assertPage(0)
+        // Two taps before the transition moves on.
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("tour_skip").performClick()
+        compose.onNodeWithTag("tour_skip").performClick()
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        compose.onNodeWithText("Show the tour again").assertIsDisplayed()
+        compose.onNodeWithText("Open the settings").assertDoesNotExist()
+    }
+
+    /** The transparent surface over the illustrations: taps and long presses stop there, swipes go on. */
+    @Test
+    @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+    fun theIllustrationTakesTapsButNotSwipes() {
+        var clicks = 0
+        var longClicks = 0
+        compose.setContent {
+            RelaisTheme(darkTheme = false) {
+                val pager = androidx.compose.foundation.pager.rememberPagerState { 2 }
+                androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.testTag("pager")) { page ->
+                    Inert(Modifier.fillMaxSize()) {
+                        androidx.compose.foundation.layout.Box(
+                            Modifier.fillMaxSize().combinedClickable(onClick = { clicks++ }, onLongClick = { longClicks++ }),
+                        ) { androidx.compose.material3.Text("page $page") }
+                    }
+                }
+            }
+        }
+        compose.onNodeWithTag("inert").performTouchInput { click() }
+        compose.onNodeWithTag("inert").performTouchInput { longClick() }
+        assertEquals(0, clicks)
+        assertEquals(0, longClicks)
+        compose.onNodeWithTag("pager").performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+        compose.onNodeWithText("page 1").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun atLargeTextThePageTextIsOnScreenWithoutScrolling() {
+        tour(fontScale = 2f)
+        compose.onNodeWithTag("tour_text").assertIsDisplayed()
+        compose.onNodeWithTag("tour_title").assertIsDisplayed()
+    }
 }
+
+@kotlinx.serialization.Serializable
+internal object TourTestToday
+
+@kotlinx.serialization.Serializable
+internal object TourTestSettings

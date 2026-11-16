@@ -15,6 +15,7 @@ import io.relais.app.ui.TextStep
 import io.relais.app.ui.WelcomeStep
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -168,10 +169,17 @@ class SettingsStoreTest {
         val appearance = store.flow.map { Appearance.of(it.appearance) }
             .stateIn(flowScope, SharingStarted.Eagerly, Appearance.of(store.current().appearance))
         val restoration = StateRestorationTester(compose)
+        // One composition per test: the welcome screen, then the tour (below).
+        var screen by androidx.compose.runtime.mutableStateOf("welcome")
         restoration.setContent {
             val shown by appearance.collectAsState()
             RelaisTheme(darkTheme = shown == Appearance.DARK) {
-                WelcomeStep(appearance = shown, onAppearance = { runBlocking { store.setAppearance(it) } }, onContinue = {})
+                if (screen == "welcome") {
+                    WelcomeStep(appearance = shown, onAppearance = { runBlocking { store.setAppearance(it) } }, onContinue = {})
+                } else {
+                    // As MainActivity: the end of the tour notes it seen in the store.
+                    io.relais.app.ui.TourScreen(onDone = { runBlocking { store.setTourSeen() } })
+                }
             }
         }
         compose.onNodeWithTag("appearance_light").performScrollTo().assertIsSelected()
@@ -181,6 +189,13 @@ class SettingsStoreTest {
         compose.onNodeWithTag("appearance_dark").assertIsSelected()
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithTag("appearance_dark").performScrollTo().assertIsSelected()
+
+        // The tour after a first launch setup, ended with Skip: seen, in the real store (review of PR 45).
+        store.setOnboardingDone()
+        assertTrue(store.current().showsTour)
+        screen = "tour"
+        compose.onNodeWithTag("tour_skip").performClick()
+        assertFalse(store.current().showsTour)
         flowScope.cancel()
         store.setAppearance(Appearance.LIGHT)
 

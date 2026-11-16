@@ -1,0 +1,106 @@
+# Journey 11, the first launch tour (issue 37), direct mode: after the setup, the five pages
+# with Next, then Start reading lands on Today; Back on a page goes to the one before. Then
+# Settings > About Re.L > Show the tour again opens it, and Skip comes back to Settings.
+appId: org.relreader.app
+name: p11-tour
+tags:
+  - journey
+  - direct
+onFlowStart:
+  - setAirplaneMode: disabled
+---
+- launchApp:
+    appId: org.relreader.app
+    clearState: true
+- startRecording: p11-tour
+- runFlow:
+    file: common/onboarding.yaml
+    env:
+      PREFIX: p11
+      DIGEST: skip
+      TOUR: walk
+
+# The tour comes before Today, on its first page.
+- extendedWaitUntil:
+    visible:
+      id: "tour"
+    timeout: 30000
+- assertVisible:
+    id: "tour_page_today"
+- assertNotVisible:
+    id: "tab_today"
+- takeScreenshot: p11-06-tour-today
+- tapOn:
+    id: "tour_next"
+- extendedWaitUntil:
+    visible:
+      id: "tour_page_following"
+    timeout: 10000
+- takeScreenshot: p11-07-tour-following
+# Back goes to the page before, not out of the tour.
+- back
+- extendedWaitUntil:
+    visible:
+      id: "tour_page_today"
+    timeout: 10000
+- tapOn:
+    id: "tour_next"
+- extendedWaitUntil:
+    visible:
+      id: "tour_page_following"
+    timeout: 10000
+- tapOn:
+    id: "tour_next"
+- extendedWaitUntil:
+    visible:
+      id: "tour_page_report"
+    timeout: 10000
+- takeScreenshot: p11-08-tour-report
+- tapOn:
+    id: "tour_next"
+- extendedWaitUntil:
+    visible:
+      id: "tour_page_highlight"
+    timeout: 10000
+- tapOn:
+    id: "tour_next"
+- extendedWaitUntil:
+    visible:
+      id: "tour_page_offline"
+    timeout: 10000
+- assertVisible: "Start reading"
+- takeScreenshot: p11-09-tour-offline
+- tapOn: "Start reading"
+
+# Today, and the tour does not come back.
+- extendedWaitUntil:
+    visible:
+      id: "tab_today"
+    timeout: 30000
+- assertNotVisible:
+    id: "tour"
+- takeScreenshot: p11-10-today
+
+# Settings > About Re.L > Show the tour again, then Skip: back to Settings.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "settings_tour"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings_tour"
+- extendedWaitUntil:
+    visible:
+      id: "tour_page_today"
+    timeout: 10000
+- takeScreenshot: p11-11-tour-again
+- tapOn:
+    id: "tour_skip"
+- extendedWaitUntil:
+    visible:
+      id: "settings_tour"
+    timeout: 10000
+- assertNotVisible:
+    id: "tour"
+- stopRecording

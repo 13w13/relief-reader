@@ -221,6 +221,12 @@ class ScreenshotTest {
     @Test
     fun tourTodayDark() = tour("tour-1-today-dark", 0, dark = true)
 
+    /** Offline, the sample rows are drawn as online ones (review of PR 45). */
+    @Test
+    fun tourTodayOffline() = shoot("tour-1-today-offline") {
+        CompositionLocalProvider(io.relais.app.ui.LocalOffline provides true) { io.relais.app.ui.TourScreen(onDone = {}, initialPage = 0) }
+    }
+
     @Test
     fun tourReportDark() = tour("tour-3-report-dark", 2, dark = true)
 
