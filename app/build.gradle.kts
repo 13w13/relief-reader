@@ -33,9 +33,10 @@ fun buildLink(name: String, default: String = ""): String = providers.environmen
 fun String.asJavaString(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 // "A new version is available" (founder, 15/11): once a day the app asks GitHub for the latest
-// release. On by default. An F-Droid build turns it off with the Gradle property
-// updateCheck=false (gradleprops in the recipe) or the REL_UPDATE_CHECK=false environment
-// variable: then no request, no notice and no switch in Settings.
+// release. On by default. The Gradle property updateCheck=false or the REL_UPDATE_CHECK=false
+// environment variable removes it: then no request, no notice and no switch in Settings. The
+// F-Droid recipe does not use it (16/11): F-Droid checks that its build matches the signed
+// GitHub APK byte for byte, so both must be built the same way.
 val updateCheck: Boolean = (providers.gradleProperty("updateCheck").orNull
     ?: providers.environmentVariable("REL_UPDATE_CHECK").orNull
     ?: "true").trim().lowercase() != "false"
@@ -86,13 +87,31 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 removes the code and resources the app never uses: the APK was 19 MB without it
+            // (F-Droid code quality report, 16/11). The rules for the libraries that need them
+            // are in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Since v0.3.1 no release APK carries an appname, whatever the environment: each
             // reader enters their own. Only debug builds (the journeys) read RELIEFWEB_APPNAME.
             buildConfigField("String", "RELIEFWEB_APPNAME", "\"\"")
             // Without the release key, an unsigned APK: F-Droid builds Re.L and signs it with its
             // own key. release.yml requires the key, so no published APK is ever unsigned.
             if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
+        }
+        // The release build, R8 included, signed with the shared debug key and installed beside
+        // Re.L (org.relreader.app.minified): a code R8 removed by mistake crashes only in the
+        // release APK, which the tests do not run. CI builds it on every run to try on a phone.
+        create("minified") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".minified"
+            versionNameSuffix = "-minified"
+            matchingFallbacks += listOf("release")
+            // A test build: no daily request to GitHub for its "-minified" version. Its appname is
+            // empty, as in release (initWith); CI checks both in the generated BuildConfig.
+            buildConfigField("boolean", "UPDATE_CHECK", "false")
         }
     }
 

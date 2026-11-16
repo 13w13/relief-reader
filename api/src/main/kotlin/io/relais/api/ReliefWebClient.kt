@@ -233,9 +233,10 @@ class ReliefWebClient(
     companion object {
         /**
          * The largest answer read: a page of 200 reports with their full text is a few MB; more
-         * is not an answer of the API (security audit of 15/11).
+         * is not an answer of the API (security audit of 15/11). 16 MB since the review of PR 26:
+         * the body, its text and the parsed objects held about 100 MB at the worst with 32.
          */
-        const val MAX_ANSWER_BYTES = 32L * 1024 * 1024
+        const val MAX_ANSWER_BYTES = 16L * 1024 * 1024
 
         /** [text] with every occurrence of [appname] replaced by "[appname]", whatever its case. */
         fun redact(text: String, appname: String?): String {

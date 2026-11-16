@@ -122,3 +122,86 @@ jobs:
           name: test-reports
           path: '**/build/reports/tests/'
           retention-days: 7
+
+      # The release build with R8, signed with the debug key (build type "minified"), after the
+      # debug uploads above: a failure of R8 does not cost the screenshots and the debug APK.
+      # A code R8 removed by mistake shows here, or on a phone with the APK uploaded below.
+      - name: Build the release with R8
+        if: hashFiles('app/build.gradle.kts') != ''
+        run: |
+          ./gradlew --no-daemon :app:assembleMinified
+          ls -l app/build/outputs/apk/minified/*.apk app/build/outputs/mapping/minified/mapping.txt
+
+      # Its mapping.txt turns a stack trace of this APK back into readable names (retrace).
+      - name: Upload the minified APK and its mapping
+        if: always() && hashFiles('app/build/outputs/apk/minified/*.apk') != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rel-minified-apk
+          path: |
+            app/build/outputs/apk/minified/*.apk
+            app/build/outputs/mapping/minified/mapping.txt
+          retention-days: 3
+
+      # WorkManager finds scheduled work by the worker's class name: a worker renamed by R8 would
+      # not run after an update from 0.6.x, built without R8. The minified build cannot try that
+      # update (another application id and key): this check on the mapping covers it.
+      - name: Check that R8 kept the names of the workers and exceptions
+        if: hashFiles('app/build.gradle.kts') != ''
+        run: |
+          set -eu
+          MAPPING=app/build/outputs/mapping/minified/mapping.txt
+          for c in io.relais.app.work.SyncWorker io.relais.app.work.DigestWorker io.relais.app.work.PreloadWorker 'io.relais.api.ApiException$Network'; do
+            if ! grep -qF "$c -> $c:" "$MAPPING"; then
+              echo "::error::R8 renamed $c (or removed it): $(grep -F "$c ->" "$MAPPING" || echo 'not in the mapping')"
+              exit 1
+            fi
+            echo "kept: $c"
+          done
+
+      # The minified build is a test build: no appname, and no daily request to GitHub.
+      - name: Check the minified build's settings
+        if: hashFiles('app/build.gradle.kts') != ''
+        run: |
+          set -eu
+          CONFIG=app/build/generated/source/buildConfig/minified/io/relais/app/BuildConfig.java
+          grep -n 'RELIEFWEB_APPNAME\|UPDATE_CHECK' "$CONFIG"
+          grep -q 'String RELIEFWEB_APPNAME = "";' "$CONFIG" || { echo "::error::The minified build carries an appname."; exit 1; }
+          grep -q 'boolean UPDATE_CHECK = false;' "$CONFIG" || { echo "::error::The minified build checks for new versions."; exit 1; }
+
+      # pdfbox-android logs through android.util.Log; were commons-logging on the classpath, R8
+      # would need a rule for it (proguard-rules.pro).
+      - name: Check that commons-logging is not in the release
+        if: hashFiles('app/build.gradle.kts') != ''
+        run: |
+          if ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath | grep -i 'commons-logging'; then
+            echo "::error::commons-logging is in the release classpath: add a keep rule for org.apache.commons.logging."
+            exit 1
+          fi
+          echo "commons-logging: not in the release classpath."
+
+      # The permissions of the APK, as Android reads them, must be the ones the README lists (its
+      # comment "permissions:" under "Android permissions, all of them").
+      - name: Check the APK's permissions against the README
+        if: hashFiles('app/build.gradle.kts') != ''
+        run: |
+          set -eu
+          APK=$(ls app/build/outputs/apk/minified/*.apk | head -n 1)
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          TOOLS=$( (ls -d "$SDK"/build-tools/* 2>/dev/null || true) | sort -V | tail -n 1)
+          DUMP=$("$TOOLS/aapt2" dump permissions "$APK")
+          echo "$DUMP"
+          PACKAGE=$(echo "$DUMP" | sed -n "s/^package: *//p" | head -n 1)
+          ACTUAL=$(echo "$DUMP" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" | sort -u)
+          EXPECTED=$(sed -n 's/^<!-- permissions: \(.*\) -->$/\1/p' README.md | tr ' ' '\n' | sed "s/\${applicationId}/$PACKAGE/" | sed '/^$/d' | sort -u)
+          if [ -z "$EXPECTED" ]; then
+            echo "::error::No '<!-- permissions: ... -->' line in README.md."
+            exit 1
+          fi
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::The APK's permissions differ from the README's list."
+            diff <(echo "$EXPECTED") <(echo "$ACTUAL") || true
+            exit 1
+          fi
+          echo "The APK asks for exactly the permissions the README lists."
