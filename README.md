@@ -92,7 +92,7 @@ What it connects to, and when:
 - **Photos and images.** The photo of the next headline loads ahead of time, so the pile turns without waiting. When a report includes an image hosted on another site, the app loads it from there, and that site sees your IP address. Settings > Reading > **Load images** limits images to Wi-Fi, or turns them off.
 - **`api.github.com`, once a day**, for the number of the latest release. It carries no appname, no account and nothing about you, though GitHub sees your IP address, as any site does. Settings > About Re.L > **Check for new versions** turns it off.
 
-Every request carries the same User-Agent, `Re.L (Android)`, with no version number. Only https is used.
+Every request carries the same User-Agent, `Re.L/Android`, with no version number. Only https is used.
 
 ## Whose content this is
 

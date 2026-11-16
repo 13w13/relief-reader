@@ -77,6 +77,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -398,7 +399,7 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
         if (state.downloaded.containsKey(url)) {
             pendingOpen = null
             openFile(file)
-        } else if (state.downloads[url] == DownloadState.Failed || state.downloads[url] == DownloadState.Refused || state.downloads[url] is DownloadState.TooLarge) {
+        } else if (state.downloads[url] is DownloadState.Failed || state.downloads[url] == DownloadState.Refused || state.downloads[url] is DownloadState.TooLarge) {
             pendingOpen = null
         }
     }
@@ -912,9 +913,7 @@ internal fun FilesSection(
                                 )
                             }
                         }
-                        if (downloads[file.url] == DownloadState.Failed) {
-                            Text(stringResource(R.string.report_download_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        }
+                        (downloads[file.url] as? DownloadState.Failed)?.let { failed -> DownloadFailed(failed, file) }
                         if (downloads[file.url] == DownloadState.Refused) {
                             Text(stringResource(R.string.report_download_refused), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -932,6 +931,27 @@ internal fun FilesSection(
             }
         }
     }
+}
+
+/**
+ * A download that failed (issue 36): its reason in brackets, "Download failed (HTTP 404).", and
+ * "Open in browser", as for a refused file: the browser may get the file when the app could not.
+ * "Try again" stays on the file's button.
+ */
+@Composable
+private fun DownloadFailed(failed: DownloadState.Failed, file: FileLite) {
+    val uriHandler = LocalUriHandler.current
+    Text(
+        stringResource(R.string.report_download_failed, failed.reason),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.testTag("file_failed"),
+    )
+    TextButton(
+        onClick = { safeOpen(uriHandler, file.url) },
+        contentPadding = PaddingValues(horizontal = 0.dp),
+        modifier = Modifier.testTag("file_failed_open_browser"),
+    ) { Text(stringResource(R.string.action_open_browser)) }
 }
 
 /** "Read", its progress and "Cancel", or ReliefWeb's page for a file over 100 MB. */
@@ -968,7 +988,7 @@ private fun FileAction(
             TextButton(onClick = { onCancel(file) }) { Text(stringResource(R.string.report_cancel)) }
         }
         else -> {
-            val label = stringResource(if (download == DownloadState.Failed) R.string.action_try_again else R.string.report_read)
+            val label = stringResource(if (download is DownloadState.Failed) R.string.action_try_again else R.string.report_read)
             if (filled) Button(onClick = { onRead(file) }, shape = CircleShape) { Text(label) } else TextButton(onClick = { onRead(file) }) { Text(label) }
         }
     }
@@ -1015,9 +1035,7 @@ internal fun FileLines(
                             )
                         }
                     }
-                    if (downloads[file.url] == DownloadState.Failed) {
-                        Text(stringResource(R.string.report_download_failed), style = MaterialTheme.typography.bodySmall, color = cs.error)
-                    }
+                    (downloads[file.url] as? DownloadState.Failed)?.let { failed -> DownloadFailed(failed, file) }
                     if (downloads[file.url] == DownloadState.Refused) {
                         Text(stringResource(R.string.report_download_refused), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     }
