@@ -62,6 +62,9 @@ object ImageHops : okhttp3.Interceptor {
  * not reached, whatever its name says. Judged on the address's bytes, IPv4 inside IPv6 included.
  */
 object PublicDns : okhttp3.Dns {
+    /** The name resolved, but only to addresses that are not public: told apart from a name not found. */
+    class NoPublicAddress : java.net.UnknownHostException("No public address for this host")
+
     fun isPublic(address: java.net.InetAddress): Boolean {
         val b = address.address.map { it.toInt() and 0xff }
         return when (b.size) {
@@ -109,7 +112,7 @@ object PublicDns : okhttp3.Dns {
 
     override fun lookup(hostname: String): List<java.net.InetAddress> {
         val public = okhttp3.Dns.SYSTEM.lookup(hostname).filter { isPublic(it) }
-        if (public.isEmpty()) throw java.net.UnknownHostException("No public address for this host")
+        if (public.isEmpty()) throw NoPublicAddress()
         return public
     }
 }

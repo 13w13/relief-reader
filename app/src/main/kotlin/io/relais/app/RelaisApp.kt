@@ -6,10 +6,6 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.UserAgent
 import io.relais.api.ApiResponse
 import io.relais.api.CountryFields
 import io.relais.api.RelaisJson
@@ -33,7 +29,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
 
 class RelaisApp : Application(), coil3.SingletonImageLoader.Factory {
     lateinit var container: AppContainer
@@ -81,44 +76,17 @@ val Context.container: AppContainer get() = (applicationContext as RelaisApp).co
 class AppContainer(private val context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /**
-     * The same User-Agent for every request: the API, the feed, PDFs, images, the Most read file
-     * and the check for new versions. No version number: nothing that tells readers apart
-     * (security audit of 15/11).
-     */
-    val userAgent = io.relais.app.data.UpdateCheck.USER_AGENT
+    /** One User-Agent for every request (issue 36): see [io.relais.app.data.HttpClients]. */
+    val userAgent = io.relais.app.data.HttpClients.USER_AGENT
 
-    /** No redirect from https to http, whatever the server says (security audit of 15/11). */
-    val okHttp: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .followSslRedirects(false)
-        .build()
+    /** The base client: the User-Agent stamped on every request, no redirect from https to http. */
+    val okHttp: OkHttpClient = io.relais.app.data.HttpClients.base()
 
-    /**
-     * For Coil (security review of PR 26): the app's client with the User-Agent on every image
-     * request; redirects followed by [io.relais.app.data.ImageHops], which checks each address
-     * before connecting; names resolved to public addresses only; and no proxy, so that the
-     * address check holds (a system proxy would resolve names itself).
-     */
-    val imageHttp: OkHttpClient = okHttp.newBuilder()
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .proxy(java.net.Proxy.NO_PROXY)
-        .dns(io.relais.app.data.PublicDns)
-        .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build()) }
-        .addInterceptor(io.relais.app.data.ImageHops)
-        .build()
+    /** For Coil: redirects and addresses checked, public addresses only, no proxy. */
+    val imageHttp: OkHttpClient = io.relais.app.data.HttpClients.images(okHttp)
 
-    private val http = HttpClient(OkHttp) {
-        engine { preconfigured = okHttp }
-        install(HttpTimeout) {
-            connectTimeoutMillis = 10_000
-            requestTimeoutMillis = 20_000
-        }
-        install(UserAgent) { agent = userAgent }
-        expectSuccess = false
-    }
+    /** The API and the RSS feed. */
+    private val http = io.relais.app.data.HttpClients.ktor(okHttp)
 
     private val database = RelaisDatabase.create(context)
     val dao = database.dao()
@@ -194,20 +162,8 @@ class AppContainer(private val context: Context) {
         settings = { settings.current() },
         record = { at, found -> settings.recordUpdateCheck(at, found) },
         online = { network.isOnline() },
-        fetch = ::fetchLatestRelease,
+        fetch = { io.relais.app.data.HttpClients.latestRelease(okHttp) },
     )
-
-    private suspend fun fetchLatestRelease(): String? = kotlinx.coroutines.withContext(Dispatchers.IO) {
-        val request = okhttp3.Request.Builder()
-            .url(io.relais.app.data.UpdateCheck.LATEST_URL)
-            .header("User-Agent", io.relais.app.data.UpdateCheck.USER_AGENT)
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .build()
-        okHttp.newCall(request).execute().use { response ->
-            if (response.code == 200) response.peekBody(io.relais.app.data.UpdateCheck.MAX_BYTES).string() else null
-        }
-    }
 
     /** A Library view to open, by its index (Today's "See all" opens History). */
     val libraryRequest = kotlinx.coroutines.flow.MutableStateFlow<Int?>(null)

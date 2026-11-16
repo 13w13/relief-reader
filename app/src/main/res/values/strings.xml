@@ -99,7 +99,7 @@
     <string name="report_cancel">Cancel</string>
     <string name="report_confirm_mobile">This file is %1$s. Download it on mobile data?</string>
     <string name="report_not_now">Not now</string>
-    <string name="report_download_failed">Download failed.</string>
+    <string name="report_download_failed">Download failed (%1$s).</string>
     <string name="report_download_refused">Re.L downloads files from reliefweb.int only.</string>
     <string name="action_open_browser">Open in browser</string>
     <string name="report_too_large">Over %1$s: too large to open in Re.L. ReliefWeb\'s page lets your browser download it.</string>
@@ -643,4 +643,6 @@
     <string name="whats_new_06_text_2">Display has a Smallest level, and Aa a smaller report text.</string>
     <string name="whats_new_06_lead_3">New versions on Today.</string>
     <string name="whats_new_06_text_3">Re.L checks GitHub once a day. Turn it off in Settings &gt; About.</string>
+    <string name="whats_new_062_lead_1">PDFs download again.</string>
+    <string name="whats_new_062_text_1">Re.L 0.6.1 could not download them; this version fixes it.</string>
 </resources>

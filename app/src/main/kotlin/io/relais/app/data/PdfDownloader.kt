@@ -33,7 +33,12 @@ import java.util.concurrent.ConcurrentHashMap
 
 sealed interface DownloadState {
     data class Running(val progress: Float) : DownloadState
-    data object Failed : DownloadState
+
+    /**
+     * Not downloaded, and why, shown in brackets (issue 36: "HTTP 404", "no connection"…), so
+     * that a screenshot tells a server's answer from a network or address problem.
+     */
+    data class Failed(val reason: String) : DownloadState
 
     /** Over [PdfDownloader.MAX_BYTES]: not downloaded; the report offers ReliefWeb instead. */
     data class TooLarge(val bytes: Long) : DownloadState
@@ -67,6 +72,31 @@ private class TooLargeException(val bytes: Long) : IOException("Over the size li
 
 /** An address the app does not download from ([TrustedUrls.isFileUrl]), first or after a redirect. */
 private class RefusedHostException : IOException("Not a ReliefWeb file")
+
+/** The server answered with an error status. */
+internal class HttpStatusException(val code: Int) : IOException("HTTP $code")
+
+/** What came back is not a PDF (a web page, an error message). */
+internal class NotPdfException : IOException("Not a PDF")
+
+/** More redirects than [PdfDownloader.MAX_REDIRECTS]. */
+internal class TooManyRedirectsException : IOException("Too many redirects")
+
+/**
+ * Why a download failed, in a few words for the screen (issue 36): the server's status, a name
+ * that resolved to no public address, a name not found, the network, or what came back.
+ */
+internal fun failureReason(e: Throwable): String = when (e) {
+    is HttpStatusException -> "HTTP ${e.code}"
+    is PublicDns.NoPublicAddress -> "no public address"
+    is java.net.UnknownHostException -> "address not found"
+    is NotPdfException -> "not a PDF"
+    is TooManyRedirectsException -> "too many redirects"
+    is javax.net.ssl.SSLException -> "secure connection failed"
+    is java.net.SocketTimeoutException -> "timed out"
+    is IOException -> "no connection"
+    else -> e::class.simpleName ?: "error"
+}
 
 /**
  * Downloads PDFs on request. A PDF goes to the app cache, which Android may clear;
@@ -133,7 +163,7 @@ class PdfDownloader(
             } catch (e: RefusedHostException) {
                 _states.update { it + (url to DownloadState.Refused) }
             } catch (e: Exception) {
-                _states.update { it + (url to DownloadState.Failed) }
+                _states.update { it + (url to DownloadState.Failed(failureReason(e))) }
             } finally {
                 jobs.remove(url, coroutineContext.job)
             }
@@ -197,7 +227,7 @@ class PdfDownloader(
         val part = File(dir, "$name.part")
         try {
             open(url).use { response ->
-                if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                if (!response.isSuccessful) throw HttpStatusException(response.code)
                 val body = response.body ?: throw IOException("Empty body")
                 val total = body.contentLength()
                 if (total > maxBytes) throw TooLargeException(total)
@@ -225,7 +255,7 @@ class PdfDownloader(
                 }
             }
             // A web page served in place of the file (a block page, an error) is not kept.
-            if (!looksLikePdf(part)) throw IOException("Not a PDF")
+            if (!looksLikePdf(part)) throw NotPdfException()
             val target = File(dir, name)
             if (target.exists()) target.delete()
             if (!part.renameTo(target)) throw IOException("Could not save the file")
@@ -250,7 +280,7 @@ class PdfDownloader(
             response.close()
             target = next?.takeIf(trusted) ?: throw RefusedHostException()
         }
-        throw IOException("Too many redirects")
+        throw TooManyRedirectsException()
     }
 
     /**

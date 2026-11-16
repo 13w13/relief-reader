@@ -1,0 +1,1 @@
+Re.L 0.6.1 could not download PDFs; this version fixes it. When a download fails, Re.L now says why (for example "HTTP 404" or "no connection") and offers to open the file in your browser. PDFs the background download gave up on are tried again.
