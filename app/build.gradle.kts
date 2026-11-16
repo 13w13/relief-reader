@@ -55,8 +55,8 @@ android {
         applicationId = "org.relreader.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 16
-        versionName = "0.6.2"
+        versionCode = 17
+        versionName = "0.7.0"
         buildConfigField("String", "RELIEFWEB_APPNAME", reliefwebAppname.trim().asJavaString())
         buildConfigField("String", "SOURCE_URL", buildLink("REL_SOURCE_URL", "https://github.com/13w13/relief-reader").trim().asJavaString())
         buildConfigField("String", "FEEDBACK_URL", buildLink("REL_FEEDBACK_URL").trim().asJavaString())
