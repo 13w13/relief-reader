@@ -200,6 +200,47 @@ class ScreenshotTest {
     @Config(qualifiers = "w360dp-h640dp-xxhdpi")
     fun welcomeLargeText() = welcome("welcome-font-200", dark = false, io.relais.app.data.Appearance.SYSTEM, fontScale = 2f)
 
+    /** The first launch tour (issue 37): each page in light, two in dark, one at 200 % text. */
+    private fun tour(name: String, page: Int, dark: Boolean = false) = shoot(name, dark = dark) { io.relais.app.ui.TourScreen(onDone = {}, initialPage = page) }
+
+    @Test
+    fun tourToday() = tour("tour-1-today", 0)
+
+    @Test
+    fun tourFollowing() = tour("tour-2-following", 1)
+
+    @Test
+    fun tourReport() = tour("tour-3-report", 2)
+
+    @Test
+    fun tourHighlight() = tour("tour-4-highlight", 3)
+
+    @Test
+    fun tourOffline() = tour("tour-5-offline", 4)
+
+    @Test
+    fun tourTodayDark() = tour("tour-1-today-dark", 0, dark = true)
+
+    @Test
+    fun tourReportDark() = tour("tour-3-report-dark", 2, dark = true)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xxhdpi")
+    fun tourLargeText() = shoot("tour-4-highlight-font-200") {
+        val density = LocalDensity.current
+        CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+            io.relais.app.ui.TourScreen(onDone = {}, initialPage = 3)
+        }
+    }
+
+    /** Settings > About with "Show the tour again" (issue 37). */
+    @Test
+    fun aboutWithTheTour() = shoot("about-tour") {
+        Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            io.relais.app.ui.AboutSection(onLicences = {}, onWhatsNew = {}, onTour = {})
+        }
+    }
+
     /** Settings > About with the result of "Check now" under its button (founder, 16/11). */
     private fun aboutChecked(name: String, state: io.relais.app.data.ManualCheck) = shoot(name) {
         Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {

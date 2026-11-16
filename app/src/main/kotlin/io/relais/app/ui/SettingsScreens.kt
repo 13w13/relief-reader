@@ -494,6 +494,7 @@ fun SettingsScreen(nav: Nav) {
                 onUpdateCheck = vm::setUpdateCheck,
                 checkNow = manualCheck.takeIf { BuildConfig.UPDATE_CHECK },
                 onCheckNow = vm::checkNow,
+                onTour = nav::tour,
             )
         }
     }
@@ -567,6 +568,7 @@ fun AboutSection(
     checkNow: io.relais.app.data.ManualCheck? = null,
     onCheckNow: () -> Unit = {},
     onOpen: (String) -> Unit = rememberReleaseOpener(),
+    onTour: (() -> Unit)? = null,
 ) {
     val uriHandler = LocalUriHandler.current
     SectionHeader(stringResource(R.string.settings_about))
@@ -581,6 +583,12 @@ fun AboutSection(
         }
     }
     SettingText(stringResource(R.string.settings_about_text))
+    // The first launch tour again (issue 37); back to Settings at its end.
+    if (onTour != null) {
+        TextButton(onClick = onTour, modifier = Modifier.padding(horizontal = 8.dp).testTag("settings_tour")) {
+            Text(stringResource(R.string.settings_show_tour))
+        }
+    }
     // T19: the licences always; the source code and feedback once their link exists.
     TextButton(onClick = onLicences, modifier = Modifier.padding(horizontal = 8.dp).testTag("settings_licences")) {
         Text(stringResource(R.string.licences_title))

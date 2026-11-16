@@ -544,6 +544,26 @@
     <string name="update_not_now">Not now</string>
     <string name="settings_update_check">Check for new versions</string>
     <string name="settings_update_check_help">When you open Re.L, at most once an hour, it asks GitHub (api.github.com) for the number of its latest version. It sends nothing about you.</string>
+    <!-- The first launch tour (issue 37): one idea per page, two sentences at most. -->
+    <string name="tour_today_title">Today</string>
+    <string name="tour_today_text">The day\'s headlines, chosen by ReliefWeb editors, in a pile you swipe through. The page has an end, so you know when you\'re up to date.</string>
+    <string name="tour_following_title">Following</string>
+    <string name="tour_following_text">The countries, crises, organizations and topics you follow, with what is new in each. To follow one more, tap Manage in Following.</string>
+    <string name="tour_report_title">A report</string>
+    <string name="tour_report_text">A report\'s PDF opens as text you can read on your phone, and PDF shows the original in one tap. Its pages and size show before you open it.</string>
+    <string name="tour_highlight_title">Highlight and Library</string>
+    <string name="tour_highlight_text">Select a sentence to highlight it, or copy it with its citation. Library keeps your saved reports, highlights and history; back it up in Settings.</string>
+    <string name="tour_offline_title">Offline</string>
+    <string name="tour_offline_text">What you save stays on this phone, and recent PDFs download on Wi-Fi. Appearance and text size are in Settings &gt; Reading.</string>
+    <string name="tour_skip">Skip</string>
+    <string name="tour_next">Next</string>
+    <string name="tour_start">Start reading</string>
+    <string name="tour_page_of">Page %1$d of %2$d</string>
+    <!-- Made-up sample text for the tour's illustrations, never real ReliefWeb content. -->
+    <string name="tour_sample_sentence_1">Floods displaced about 8,000 people in two districts.</string>
+    <string name="tour_sample_sentence_2">Most families are staying with relatives.</string>
+    <string name="tour_sample_citation">Example Relief Network, Situation Report</string>
+    <string name="settings_show_tour">Show the tour again</string>
     <!-- "Check now" in Settings > About (founder, 16/11): results under the button, never a dialog. -->
     <string name="update_check_now">Check now</string>
     <string name="update_checking">Checking…</string>
@@ -663,4 +683,6 @@
     <string name="whats_new_07_text_3">Settings &gt; About: Check now, with a link to the APK.</string>
     <string name="whats_new_07_lead_4">Light or dark from the start.</string>
     <string name="whats_new_07_text_4">A new install chooses it on the welcome screen.</string>
+    <string name="whats_new_07_lead_5">A short tour of the app.</string>
+    <string name="whats_new_07_text_5">Settings &gt; About: Show the tour again.</string>
 </resources>

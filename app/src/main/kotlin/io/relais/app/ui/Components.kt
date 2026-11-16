@@ -760,7 +760,7 @@ private val SEGMENT_INSET = 34.dp
 
 /** Two list rows at the chosen display level, under "Display" in Settings. */
 @Composable
-private fun DisplayPreview() {
+internal fun DisplayPreview() {
     val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().background(cs.surfaceVariant, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) {
         listOf(R.string.display_preview_1, R.string.display_preview_2).forEachIndexed { i, title ->

@@ -48,12 +48,22 @@ class SettingsStoreTest {
             it[intPreferencesKey("reading_size")] = 3
             // "Not now" as 0.6.x stored it: a version, no date.
             it[androidx.datastore.preferences.core.stringPreferencesKey("update_dismissed")] = "0.6.1"
+            // A reader who finished the first launch long ago.
+            it[androidx.datastore.preferences.core.booleanPreferencesKey("onboarding_done")] = true
         }
         writer.coroutineContext.job.cancelAndJoin()
 
         // The real store runs the migrations it is built with (review of PR 24): the same 19 sp.
         val before = System.currentTimeMillis()
         val store = SettingsStore(context)
+        // A reader updating from 0.6.x never gets the tour uninvited (issue 37).
+        assertTrue(store.current().onboardingDone)
+        assertFalse(store.current().showsTour)
+        // A first launch setup that ends: the tour once, then never again after Skip or Start reading.
+        store.setOnboardingDone()
+        assertTrue(store.current().showsTour)
+        store.setTourSeen()
+        assertFalse(store.current().showsTour)
         // The 0.6.x "Not now" is dated at the update: its notice comes back 3 days later.
         assertEquals("0.6.1", store.current().updateDismissed)
         assertTrue(store.current().updateDismissedAt in before..System.currentTimeMillis())

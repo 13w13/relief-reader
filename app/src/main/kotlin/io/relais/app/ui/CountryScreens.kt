@@ -334,25 +334,7 @@ fun ManageFollowingScreen(nav: Nav) {
                         }
                     }
                     items(list, key = { it.countryId }) { row ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { nav.country(row.countryId, row.name) }.padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    stringResource(R.string.following_kind_country).uppercase(),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Text(row.name, style = MaterialTheme.typography.titleMedium)
-                                val status = if (row.status in HUMANITARIAN_STATUSES) stringResource(R.string.following_humanitarian) else null
-                                val last = row.lastReportAt?.let { stringResource(R.string.following_last_report, Display.day(it)) }
-                                Text(
-                                    newCountLine(status, row) + androidx.compose.ui.text.AnnotatedString(last?.let { " · $it" }.orEmpty()),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                        FollowedCountryRow(row, onClick = { nav.country(row.countryId, row.name) }) {
                             OverflowMenu { close ->
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.following_stop)) },
@@ -646,6 +628,35 @@ private fun LazyListScope.headlinesOnly(headlines: List<ReportEntity>?, nav: Nav
 
 /** A name on the line of what is followed, and the page it opens. */
 internal data class FollowedName(val label: String, val tag: String, val open: () -> Unit)
+
+/**
+ * A followed country in Following: its kind, its name, what is new and the last report, then
+ * [trailing] (the menu with "Stop following"). Also drawn by the tour (issue 37), with made-up rows.
+ */
+@Composable
+internal fun FollowedCountryRow(row: io.relais.app.data.FollowedRow, onClick: () -> Unit, trailing: @Composable () -> Unit = {}) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                stringResource(R.string.following_kind_country).uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(row.name, style = MaterialTheme.typography.titleMedium)
+            val status = if (row.status in HUMANITARIAN_STATUSES) stringResource(R.string.following_humanitarian) else null
+            val last = row.lastReportAt?.let { stringResource(R.string.following_last_report, Display.day(it)) }
+            Text(
+                newCountLine(status, row) + androidx.compose.ui.text.AnnotatedString(last?.let { " · $it" }.orEmpty()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        trailing()
+    }
+}
 
 /**
  * What is followed, on one line: the names that fit, each opening its page (revue-ux-v0.3.md,

@@ -26,6 +26,11 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
 
 data class Settings(
     val onboardingDone: Boolean = false,
+    /**
+     * The tour (issue 37) waits to be shown: set when the first launch setup ends, cleared by Skip
+     * or Start reading. Absent from a 0.6.x file, so a reader who updates never gets it uninvited.
+     */
+    val tourPending: Boolean = false,
     /** Appname entered on the phone. Never displayed again, never logged. */
     val userAppname: String? = null,
     val digestEnabled: Boolean = false,
@@ -92,6 +97,9 @@ data class Settings(
     /** "Appearance": the name of an [Appearance], System when unset (v0.6). */
     val appearance: String = Appearance.SYSTEM.name,
 )
+
+/** The tour comes after the first launch setup, once, and never uninvited after an update. */
+val Settings.showsTour: Boolean get() = onboardingDone && tourPending
 
 /**
  * After the onboarding, "Connect to ReliefWeb" shows once more only for a phone with no appname
@@ -169,6 +177,7 @@ data class CountryPrefs(val tab: String? = null, val filter: CountryFilter = Cou
 class SettingsStore(private val context: Context) {
     private object Keys {
         val onboardingDone = booleanPreferencesKey("onboarding_done")
+        val tourPending = booleanPreferencesKey("tour_pending")
         val userAppname = stringPreferencesKey("user_appname")
         val digestEnabled = booleanPreferencesKey("digest_enabled")
         val digestHour = intPreferencesKey("digest_hour")
@@ -215,6 +224,7 @@ class SettingsStore(private val context: Context) {
     val flow: Flow<Settings> = context.dataStore.data.map { p ->
         Settings(
             onboardingDone = p[Keys.onboardingDone] ?: false,
+            tourPending = p[Keys.tourPending] ?: false,
             userAppname = p[Keys.userAppname]?.takeIf { it.isNotBlank() },
             digestEnabled = p[Keys.digestEnabled] ?: false,
             digestHour = p[Keys.digestHour] ?: 8,
@@ -269,10 +279,15 @@ class SettingsStore(private val context: Context) {
 
     suspend fun current(): Settings = flow.first()
 
+    /** The end of the first launch setup: the tour comes next, once (issue 37). */
     suspend fun setOnboardingDone() = context.dataStore.edit {
         it[Keys.onboardingDone] = true
         it[Keys.connectAsked] = true
+        it[Keys.tourPending] = true
     }
+
+    /** "Skip" or "Start reading": the tour is seen, and only Settings opens it again. */
+    suspend fun setTourSeen() = context.dataStore.edit { it[Keys.tourPending] = false }
 
     suspend fun setConnectAsked() = context.dataStore.edit { it[Keys.connectAsked] = true }
 

@@ -79,6 +79,8 @@ import kotlin.reflect.KClass
 @Serializable object PickCountriesRoute
 /** The headlines of ReliefWeb's feed on the phone, for a reader without an appname (v0.4). */
 @Serializable object OlderHeadlinesRoute
+/** The first launch tour again, from Settings > About (issue 37). */
+@Serializable object TourRoute
 
 /** [tag] is the test tag of the bottom bar item, read by the Maestro flows in .maestro/. */
 private data class Tab(val route: Any, val routeClass: KClass<*>, val label: Int, val icon: ImageVector, val tag: String)
@@ -138,6 +140,7 @@ class Nav(private val controller: NavHostController) {
     fun topic(id: Long, title: String) = controller.navigate(TopicRoute(id, title))
     fun pickSources() = controller.navigate(PickSourcesRoute) { launchSingleTop = true }
     fun licences() = controller.navigate(LicencesRoute) { launchSingleTop = true }
+    fun tour() = controller.navigate(TourRoute) { launchSingleTop = true }
     fun overview(id: Long, name: String, since: Long) = controller.navigate(OverviewRoute(id, name, since))
     fun mostRead() = controller.navigate(MostReadRoute) { launchSingleTop = true }
     fun manageFollowing() = controller.navigate(ManageFollowingRoute) { launchSingleTop = true }
@@ -178,7 +181,9 @@ fun MainScreen() {
     }
 
     // The bottom bar is hidden while reading a report or a PDF (theme-compose.md, 5.6).
-    val reading = destination?.hasRoute(ReportRoute::class) == true || destination?.hasRoute(PdfRoute::class) == true
+    // The tour also hides the bottom bar: it fills the screen, as after the first launch.
+    val reading = destination?.hasRoute(ReportRoute::class) == true || destination?.hasRoute(PdfRoute::class) == true ||
+        destination?.hasRoute(TourRoute::class) == true
     // First lines of the PDFs read on the phone, for the rows of reports without text (pdf/).
     val pdfPreviews by LocalContext.current.container.pdfText.previews.collectAsStateWithLifecycle(emptyMap())
 
@@ -254,6 +259,8 @@ fun MainScreen() {
                     TopicScreen(route.id, route.title, nav)
                 }
                 composable<LicencesRoute> { LicencesScreen(nav) }
+                // Back to Settings at the end, by Skip, Start reading or Back on the first page.
+                composable<TourRoute> { TourScreen(onDone = { nav.back() }) }
                 composable<ManageFollowingRoute> { ManageFollowingScreen(nav) }
                 composable<CrisisRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<CrisisRoute>(basePath = "relais://crisis")) else emptyList()) {
                     val route = it.toRoute<CrisisRoute>()
