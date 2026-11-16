@@ -46,15 +46,22 @@ class PdfHostsTest {
     private val redirects = mutableMapOf<String, String>()
     private val codes = mutableMapOf<String, Int>()
 
+    /** Addresses the made-up server answers 404 for, as ReliefWeb's nginx does for a missing file. */
+    private val missing = mutableSetOf<String>()
+
+    /** Every request as it left the app (before OkHttp adds its own headers). */
+    private val requests: MutableList<okhttp3.Request> = Collections.synchronizedList(ArrayList())
+
     private val okHttp = OkHttpClient.Builder().addInterceptor { chain ->
         val url = chain.request().url.toString()
         asked += url
+        requests += chain.request()
         val builder = Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
         val next = redirects[url]
-        if (next != null) {
-            builder.code(codes[url] ?: 302).message("Redirect").header("Location", next).body("".toResponseBody()).build()
-        } else {
-            builder.code(200).message("OK").body(("%PDF-1.7\n" + "x".repeat(40)).toResponseBody("application/pdf".toMediaType())).build()
+        when {
+            next != null -> builder.code(codes[url] ?: 302).message("Redirect").header("Location", next).body("".toResponseBody()).build()
+            url in missing -> builder.code(404).message("Not Found").body("404 Not Found".toResponseBody("text/plain".toMediaType())).build()
+            else -> builder.code(200).message("OK").body(("%PDF-1.7\n" + "x".repeat(40)).toResponseBody("application/pdf".toMediaType())).build()
         }
     }.build()
 
@@ -77,6 +84,79 @@ class PdfHostsTest {
         val result = downloader().download("https://reliefweb.int/attachments/a1/sitrep.pdf", 1, 1_000_000)
         assertTrue(result.toString(), result is Preloaded.Saved)
         assertEquals(listOf("https://reliefweb.int/attachments/a1/sitrep.pdf"), asked)
+    }
+
+    /**
+     * Issue 36: the address of the API is asked exactly as given, path and encoding included, in one
+     * request with the app's User-Agent. ReliefWeb's nginx serves /attachments/ by UUID and
+     * extension only, but the address must not change on the way.
+     */
+    @Test
+    fun theAddressOfTheApiIsAskedExactly() = runBlocking {
+        val issue = "https://reliefweb.int/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/" +
+            "2026%20Rowca%20regional%20funding%20status%20new%2016%2011%202026.pdf"
+        assertTrue(downloader().download(issue, 40, 1_000_000) is Preloaded.Saved)
+        assertEquals(listOf(issue), asked)
+        val request = requests.single()
+        assertEquals("/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/2026%20Rowca%20regional%20funding%20status%20new%2016%2011%202026.pdf", request.url.encodedPath)
+        assertEquals("GET", request.method)
+        assertEquals("Re.L (Android)", request.header("User-Agent"))
+        // Nothing else from the app: no Range, no Referer, no Accept.
+        assertEquals(listOf("User-Agent"), request.headers.names().toList())
+
+        // Other spellings an answer could carry: a raw space is sent as %20, a non-ASCII letter in
+        // UTF-8, an encoded % stays encoded, capitals stay.
+        listOf(
+            "https://reliefweb.int/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/Sitrep No 4.PDF" to
+                "/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/Sitrep%20No%204.PDF",
+            "https://reliefweb.int/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/Évaluation rapide.pdf" to
+                "/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/%C3%89valuation%20rapide.pdf",
+            "https://reliefweb.int/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/a%2520b.pdf" to
+                "/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/a%2520b.pdf",
+        ).forEach { (url, path) ->
+            requests.clear()
+            assertTrue(url, downloader().download(url, 41, 1_000_000) is Preloaded.Saved)
+            assertEquals(url, path, requests.single().url.encodedPath)
+        }
+    }
+
+    /** Issue 36: a 404 shows as such, not as a bare "Download failed". */
+    @Test
+    fun aServerErrorShowsItsStatus() = runBlocking {
+        val url = "https://reliefweb.int/attachments/b12721de-8c40-4acd-b050-9ce186eed02c/missing.pdf"
+        missing += url
+        val pdfs = downloader()
+        pdfs.start(url, 42)
+        val state = withTimeout(5_000) { pdfs.states.first { it[url] is DownloadState.Failed } }
+        assertEquals(DownloadState.Failed("HTTP 404"), state[url])
+        assertEquals(Preloaded.Failed, downloader().download(url, 43, 1_000_000))
+    }
+
+    @Test
+    fun eachFailureHasItsOwnWords() {
+        assertEquals("HTTP 404", failureReason(HttpStatusException(404)))
+        assertEquals("HTTP 503", failureReason(HttpStatusException(503)))
+        assertEquals("no public address", failureReason(PublicDns.NoPublicAddress()))
+        assertEquals("address not found", failureReason(java.net.UnknownHostException("reliefweb.int")))
+        assertEquals("timed out", failureReason(java.net.SocketTimeoutException()))
+        assertEquals("no connection", failureReason(java.net.ConnectException()))
+        assertEquals("secure connection failed", failureReason(javax.net.ssl.SSLHandshakeException("handshake")))
+        assertEquals("not a PDF", failureReason(NotPdfException()))
+        assertEquals("too many redirects", failureReason(TooManyRedirectsException()))
+    }
+
+    /** Issue 36: after an update, the files the preload gave up on are tried again. */
+    @Test
+    fun anUpdateForgetsThePreloadFailures() {
+        val dir = File(context.filesDir, "preload-test").apply { deleteRecursively(); mkdirs() }
+        File(dir, "preload_failures.tsv").writeText("2\t1\thttps://reliefweb.int/attachments/x.pdf\n")
+        File(dir, "preload_failures-15.tsv").writeText("2\t1\thttps://reliefweb.int/attachments/y.pdf\n")
+        val current = PreloadFailures.file(dir, versionCode = 16)
+        assertEquals("preload_failures-16.tsv", current.name)
+        assertEquals(emptyList<String>(), dir.listFiles().orEmpty().map { it.name })
+        current.writeText("2\t1\thttps://reliefweb.int/attachments/z.pdf\n")
+        assertEquals(current, PreloadFailures.file(dir, versionCode = 16))
+        assertTrue(current.exists())
     }
 
     @Test

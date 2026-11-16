@@ -33,6 +33,17 @@ class PreloadFailures(private val file: File) {
         /** The periodic pass and the one after a sync may run at once: one writer at a time. */
         private val lock = Mutex()
 
-        fun of(context: Context) = PreloadFailures(File(context.filesDir, "preload_failures.tsv"))
+        fun of(context: Context) = PreloadFailures(file(context.filesDir, io.relais.app.BuildConfig.VERSION_CODE))
+
+        /**
+         * One file per version of the app (issue 36): after an update, the files the preload gave
+         * up on (a 404, an address refused) are tried again, since the update may have fixed what
+         * failed. The files of earlier versions are deleted.
+         */
+        internal fun file(dir: File, versionCode: Int): File {
+            val current = "preload_failures-$versionCode.tsv"
+            dir.listFiles { f -> f.name.startsWith("preload_failures") && f.name != current }?.forEach { it.delete() }
+            return File(dir, current)
+        }
     }
 }
