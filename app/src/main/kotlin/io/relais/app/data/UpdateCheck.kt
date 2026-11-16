@@ -106,6 +106,8 @@ sealed interface ManualCheck {
  * @param releaseDate the day this version was published (BuildConfig.RELEASE_DATE), for [Aging].
  * @param forgetNotNow clears "Not now": a Check now that finds a newer version shows it on Today
  *   too (review of PR 44), since the reader just asked.
+ * @param restAged rests the reminder that this version is old for 14 days: a Check now, from
+ *   Today or Settings, that finds the app up to date (review of PR 46).
  */
 class UpdateCheck(
     private val enabled: Boolean,
@@ -118,6 +120,7 @@ class UpdateCheck(
     private val hold: suspend (until: Long) -> Unit = {},
     private val releaseDate: String = "",
     private val forgetNotNow: suspend () -> Unit = {},
+    private val restAged: suspend () -> Unit = {},
 ) {
     /** One request at a time, the daily one and "Check now" together. */
     private val mutex = Mutex()
@@ -194,7 +197,11 @@ class UpdateCheck(
                     !online() -> ManualCheck.Failed(NO_CONNECTION)
                     else -> request(at)
                 }
-            }.also { if (it is ManualCheck.Available) forgetNotNow() }
+            }.also {
+                // Written before the result shows, so the reminder never flashes back in between.
+                if (it is ManualCheck.Available) forgetNotNow()
+                if (it is ManualCheck.UpToDate) restAged()
+            }
         } catch (e: CancellationException) {
             _manual.value = ManualCheck.Idle
             throw e
@@ -410,6 +417,10 @@ class UpdateCheck(
                 if (release.asksUpdateFrom(installed)) return VersionNotice.PleaseUpdate(release)
                 if (!dismissed(s, release.version, now)) return VersionNotice.Available(release)
             }
+            // A newer version is known, even closed with "Not now": the reminder does not take its
+            // place, or its Check now would find that version again and undo "Not now" (review of
+            // PR 46). With the switch off, nothing is known, and the reminder still shows.
+            if (found(enabled, s, installed) != null || manual is ManualCheck.Available) return null
             val months = Aging.months(releaseDate, now, s.agedDismissedAt) ?: return null
             return VersionNotice.Aged(months, checking = manual == ManualCheck.Checking, failure = (manual as? ManualCheck.Failed)?.reason)
         }

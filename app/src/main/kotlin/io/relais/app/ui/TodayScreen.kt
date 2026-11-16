@@ -149,13 +149,10 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
 
     /**
      * "Check now" on the reminder: the same check as in Settings, in the app's scope. Up to date,
-     * the reminder rests 14 days, as with "Not now"; a newer version takes its place.
+     * UpdateCheck rests the reminder 14 days, as with "Not now"; a newer version takes its place.
      */
     fun checkNow() {
-        c.scope.launch {
-            val result = runCatching { c.updateCheck.checkNow() }.getOrNull()
-            if (result is io.relais.app.data.ManualCheck.UpToDate) runCatching { c.settings.dismissAged() }
-        }
+        c.scope.launch { runCatching { c.updateCheck.checkNow() } }
     }
 
     /** Today comes on screen: a new visit after 30 minutes away (P14). */

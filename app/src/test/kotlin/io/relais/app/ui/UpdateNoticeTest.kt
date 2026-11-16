@@ -344,4 +344,22 @@ class UpdateNoticeTest {
         compose.setContent { RelaisTheme(darkTheme = false) { CheckNow(ManualCheck.Available(asking, pleaseUpdate = true), onCheckNow = {}, onOpen = {}) } }
         compose.onNodeWithText("Please update Re.L to 0.7.1.").assertIsDisplayed()
     }
+
+    @Test
+    fun aStoredPleaseUpdateStaysAfterAFailedTap() {
+        var state by androidx.compose.runtime.mutableStateOf<ManualCheck>(ManualCheck.Failed("no connection"))
+        compose.setContent { RelaisTheme(darkTheme = false) { CheckNow(state, onCheckNow = {}, onOpen = {}, standing = asking) } }
+        // The request stays, the failure is said under it (review of PR 46).
+        compose.onNodeWithText("Please update Re.L to 0.7.1.").assertIsDisplayed()
+        compose.onNodeWithText("Couldn't check (no connection)").assertIsDisplayed()
+        compose.onNodeWithTag("check_now_download").assertIsDisplayed()
+        // While a check runs: "Checking…" only.
+        state = ManualCheck.Checking
+        compose.onNodeWithText("Please update Re.L to 0.7.1.").assertDoesNotExist()
+        compose.onNodeWithText("Checking…").assertIsDisplayed()
+        // Up to date or another version found: the result replaces it.
+        state = ManualCheck.Available(asking.copy(version = "0.7.2", url = "https://github.com/13w13/relief-reader/releases/tag/v0.7.2", apk = null))
+        compose.onNodeWithText("Re.L 0.7.2 is available.").assertIsDisplayed()
+        compose.onNodeWithText("Please update Re.L to 0.7.1.").assertDoesNotExist()
+    }
 }

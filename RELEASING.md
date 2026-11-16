@@ -26,4 +26,5 @@ Every installed version **below** 0.7.0 then shows "Please update Re.L to X.Y.Z.
 - Only the latest release counts. Write the line again in each later release that should keep asking; a release without it asks nothing.
 - The version must be written without "v", and be lower than or equal to the release's own version. Otherwise the app ignores the line, as it does with two such lines.
 - It is an HTML comment: GitHub does not show it in the Release text.
+- **Never quote the line in release notes**, not even as an example or inside a code block: the app trims spaces and reads it there too, and it would ask readers to update.
 - Readers with "Check for new versions" turned off, and builds without the check (F-Droid), never see it.

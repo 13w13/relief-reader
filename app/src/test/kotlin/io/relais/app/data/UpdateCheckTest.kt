@@ -235,6 +235,7 @@ class UpdateCheckTest {
                 now = { now },
                 hold = { until -> settings = settings.copy(updateHeldUntil = until) },
                 forgetNotNow = { settings = settings.copy(updateDismissed = null, updateDismissedAt = 0) },
+                restAged = { settings = settings.copy(agedDismissedAt = now) },
             )
         }
 
@@ -696,7 +697,10 @@ class UpdateCheckTest {
     private val day = UpdateCheck.DAY
     private val t0 = 1_794_700_000_000L
 
-    private fun banner(s: Settings, installed: String = "0.6.2", manual: ManualCheck = ManualCheck.Idle, now: Long = t0, releaseDate: String = "2026-11-17", enabled: Boolean = true) =
+    /** Ten days after the release: a young version, past the "clock before the release" branch. */
+    private val young get() = released + 10 * day
+
+    private fun banner(s: Settings, installed: String = "0.6.2", manual: ManualCheck = ManualCheck.Idle, now: Long = young, releaseDate: String = "2026-11-17", enabled: Boolean = true) =
         UpdateCheck.banner(enabled, s, installed, now, manual, releaseDate)
 
     @Test
@@ -704,10 +708,10 @@ class UpdateCheckTest {
         val s = stored("0.7.0")
         assertEquals(VersionNotice.PleaseUpdate(release071), banner(s))
         // "Not now" on this version does not hide it.
-        assertEquals(VersionNotice.PleaseUpdate(release071), banner(s.copy(updateDismissed = "0.7.1", updateDismissedAt = t0)))
+        assertEquals(VersionNotice.PleaseUpdate(release071), banner(s.copy(updateDismissed = "0.7.1", updateDismissedAt = young)))
         // Installed at the minimum: the ordinary notice, which "Not now" hides.
         assertEquals(VersionNotice.Available(release071), banner(s, installed = "0.7.0"))
-        assertNull(banner(s.copy(updateDismissed = "0.7.1", updateDismissedAt = t0), installed = "0.7.0"))
+        assertNull(banner(s.copy(updateDismissed = "0.7.1", updateDismissedAt = young), installed = "0.7.0"))
         // Up to date: nothing.
         assertNull(banner(s, installed = "0.7.1"))
     }
@@ -724,8 +728,8 @@ class UpdateCheckTest {
     fun theSwitchOffOrTheFlagOffMeansNoPleaseUpdate() {
         assertNull(UpdateCheck.notice(true, stored("0.7.0").copy(updateCheck = false), "0.6.2", t0))
         assertNull(banner(stored("0.7.0"), enabled = false))
-        // Switch off, a young version: no line at all.
-        assertNull(banner(stored("0.7.0").copy(updateCheck = false), now = t0))
+        // Switch off, a young version (10 days): no line at all.
+        assertNull(banner(stored("0.7.0").copy(updateCheck = false), now = young))
     }
 
     @Test
@@ -788,8 +792,14 @@ class UpdateCheckTest {
         assertTrue(banner(stored("0.7.0"), now = old) is VersionNotice.PleaseUpdate)
         assertTrue(banner(stored(null), now = old) is VersionNotice.Available)
         assertTrue(banner(Settings(), now = old) is VersionNotice.Aged)
-        // An available version closed with "Not now": the reminder may show instead.
-        assertTrue(banner(stored(null).copy(updateDismissed = "0.7.1", updateDismissedAt = old), now = old) is VersionNotice.Aged)
+        // An available version closed with "Not now": nothing for 3 days, not the reminder, whose
+        // Check now would find that version again and undo "Not now" (review of PR 46).
+        assertNull(banner(stored(null).copy(updateDismissed = "0.7.1", updateDismissedAt = old), now = old))
+        assertTrue(banner(stored(null).copy(updateDismissed = "0.7.1", updateDismissedAt = old), now = old + UpdateCheck.NOT_NOW_FOR) is VersionNotice.Available)
+        // A version a Check now found, closed with "Not now": nothing either.
+        assertNull(banner(Settings(updateDismissed = "0.7.1", updateDismissedAt = old), now = old, manual = ManualCheck.Available(release071.copy(minimum = null))))
+        // With the switch off nothing is known: the reminder still shows.
+        assertTrue(banner(stored(null).copy(updateCheck = false), now = old) is VersionNotice.Aged)
         // The reminder says when its check runs and when it fails.
         assertEquals(VersionNotice.Aged(3, checking = true), banner(Settings(), now = old, manual = ManualCheck.Checking))
         assertEquals(VersionNotice.Aged(3, failure = "no connection"), banner(Settings(), now = old, manual = ManualCheck.Failed("no connection")))
@@ -855,5 +865,34 @@ class UpdateCheckTest {
         phone.settings = phone.settings.copy(updateDismissed = "0.5.0", updateDismissedAt = phone.now)
         phone.tap()
         assertEquals("0.5.0", phone.settings.updateDismissed)
+    }
+
+    // --- Review of PR 46 ---------------------------------------------------------------------------
+
+    @Test
+    fun checkNowUpToDateRestsTheReminderBeforeItShows() {
+        var restedBefore = false
+        lateinit var check: UpdateCheck
+        var aged = 0L
+        check = UpdateCheck(
+            enabled = true, installed = "0.5.1", settings = { Settings() }, record = { _, _ -> },
+            online = { true }, fetch = { answer(tag = "\"v0.5.1\"", url = "\"https://github.com/13w13/relief-reader/releases/tag/v0.5.1\"") },
+            now = { phone0 },
+            restAged = { aged = phone0; restedBefore = check.manual.value == ManualCheck.Checking },
+        )
+        assertEquals(ManualCheck.UpToDate("0.5.1"), runBlocking { check.checkNow() })
+        assertEquals(phone0, aged)
+        // Written while the state was still Checking: no frame of the reminder after "up to date".
+        assertTrue(restedBefore)
+    }
+
+    @Test
+    fun checkNowFindingAVersionDoesNotRestTheReminder() {
+        val phone = Phone(reply = { release })
+        phone.tap()
+        assertEquals(0L, phone.settings.agedDismissedAt)
+        val failed = Phone(reply = { throw java.io.IOException() })
+        failed.tap()
+        assertEquals(0L, failed.settings.agedDismissedAt)
     }
 }

@@ -52,7 +52,7 @@ fun UpdateLine(release: LatestRelease, onNotNow: () -> Unit, onOpen: (String) ->
                 stringResource(R.string.update_available, release.version),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 6.dp).testTag("update_text"),
+                modifier = Modifier.padding(vertical = 6.dp).politeLive().testTag("update_text"),
             )
         },
         actions = {
@@ -100,7 +100,7 @@ fun PleaseUpdateLine(release: LatestRelease, onOpen: (String) -> Unit = remember
                 stringResource(R.string.update_please, release.version),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurface,
-                modifier = Modifier.padding(vertical = 6.dp).testTag("please_update_text"),
+                modifier = Modifier.padding(vertical = 6.dp).politeLive().testTag("please_update_text"),
             )
         },
         actions = {
@@ -148,7 +148,7 @@ fun AgedLine(notice: VersionNotice.Aged, onCheckNow: () -> Unit, onNotNow: () ->
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 6.dp).testTag("aged_text"),
+                modifier = Modifier.padding(vertical = 6.dp).politeLive().testTag("aged_text"),
             )
         },
         actions = {
@@ -178,7 +178,6 @@ fun AgedLine(notice: VersionNotice.Aged, onCheckNow: () -> Unit, onNotNow: () ->
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CheckNow(state: ManualCheck, onCheckNow: () -> Unit, onOpen: (String) -> Unit, standing: LatestRelease? = null) {
-    val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().testTag("check_now")) {
         TextButton(
             onClick = onCheckNow,
@@ -187,29 +186,29 @@ internal fun CheckNow(state: ManualCheck, onCheckNow: () -> Unit, onOpen: (Strin
         ) {
             Text(stringResource(R.string.update_check_now))
         }
-        // Before any tap, a stored "Please update" ([standing]) shows as if just found.
-        val shown = if (state == ManualCheck.Idle && standing != null) ManualCheck.Available(standing, pleaseUpdate = true) else state
-        val message = when (shown) {
-            ManualCheck.Idle -> null
-            ManualCheck.Checking -> stringResource(R.string.update_checking)
-            is ManualCheck.UpToDate -> stringResource(R.string.update_up_to_date, shown.installed)
-            is ManualCheck.Available ->
-                stringResource(if (shown.pleaseUpdate) R.string.update_please else R.string.update_found, shown.release.version)
-            is ManualCheck.Failed -> stringResource(R.string.update_check_failed, shown.reason)
+        // The release to offer: the one a tap just found, else a stored "Please update"
+        // ([standing]), which stays except while a check runs (review of PR 46): a failed tap
+        // adds its message under it instead of hiding it.
+        val offered: ManualCheck.Available? = when {
+            state is ManualCheck.Available -> state
+            standing != null && state != ManualCheck.Checking -> ManualCheck.Available(standing, pleaseUpdate = true)
+            else -> null
         }
-        if (message != null) {
-            Text(
-                message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurface,
-                // Read out by TalkBack when it changes: the reader tapped and waits (review of PR 44).
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    .semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }
-                    .testTag("check_now_result"),
+        if (offered != null) {
+            CheckNowLine(
+                stringResource(if (offered.pleaseUpdate) R.string.update_please else R.string.update_found, offered.release.version),
+                tag = "check_now_found",
             )
         }
-        if (shown is ManualCheck.Available) {
-            val release = shown.release
+        val message = when (state) {
+            ManualCheck.Idle, is ManualCheck.Available -> null
+            ManualCheck.Checking -> stringResource(R.string.update_checking)
+            is ManualCheck.UpToDate -> stringResource(R.string.update_up_to_date, state.installed)
+            is ManualCheck.Failed -> stringResource(R.string.update_check_failed, state.reason)
+        }
+        if (message != null) CheckNowLine(message, tag = "check_now_result")
+        if (offered != null) {
+            val release = offered.release
             FlowRow(Modifier.padding(horizontal = 8.dp)) {
                 if (UpdateCheck.apkLink(release.apk, release.version) != null) {
                     TextButton(
@@ -229,6 +228,20 @@ internal fun CheckNow(state: ManualCheck, onCheckNow: () -> Unit, onOpen: (Strin
         }
     }
 }
+
+/** A line of Check now's result, read out by TalkBack when it changes (review of PR 44). */
+@Composable
+private fun CheckNowLine(text: String, tag: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).politeLive().testTag(tag),
+    )
+}
+
+/** A text TalkBack reads out when it changes, without interrupting (reviews of PR 44 and 46). */
+private fun Modifier.politeLive(): Modifier = semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }
 
 /**
  * The message, then the actions at the end of the same line when the message fits there on one
