@@ -241,6 +241,9 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     /** "Check now" (founder, 16/11) and its result, kept by the app while it runs. */
     val manualCheck = c.updateCheck.manual
 
+    /** A result of Check now older than a few minutes goes (review of PR 44). */
+    fun forgetOldCheck() = c.updateCheck.forgetOldResult()
+
     /** In the app's scope: leaving Settings does not cancel the check, its result waits there. */
     fun checkNow() {
         c.scope.launch { runCatching { c.updateCheck.checkNow() } }
@@ -305,6 +308,8 @@ fun SettingsScreen(nav: Nav) {
     var showWhatsNew by remember { mutableStateOf<WhatsNew.Release?>(null) }
     var confirmPdfs by remember { mutableStateOf(false) }
     val manualCheck by vm.manualCheck.collectAsStateWithLifecycle()
+    // Each time Settings comes on screen, a stale result of Check now goes; a rotation keeps it.
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { vm.forgetOldCheck() }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) vm.setDigest(context, true, s.digestHour, s.digestMinute)
     }
@@ -743,13 +748,15 @@ fun OnboardingFlow() {
         step = Step.DIGEST
     }
 
-    // The appearance in the settings store: what the welcome screen shows is what is saved, so a
-    // rotation or a stop of the app in the middle keeps it, and Settings shows it afterwards.
-    val stored by c.settings.flow.collectAsStateWithLifecycle(initialValue = null)
+    // The appearance the app is drawn with (AppContainer.appearance, read from the settings store
+    // at launch): what the welcome screen shows is what is saved, so a rotation or a stop of the
+    // app in the middle keeps it, without a frame of System first (review of PR 44), and Settings
+    // shows it afterwards.
+    val appearance by c.appearance.collectAsStateWithLifecycle()
 
     when (step) {
         Step.WELCOME -> WelcomeStep(
-            appearance = io.relais.app.data.Appearance.of(stored?.appearance),
+            appearance = appearance,
             onAppearance = { scope.launch { c.setAppearance(it) } },
             onContinue = ::afterWelcome,
         )

@@ -26,6 +26,7 @@ import io.relais.app.ui.MainScreen
 import io.relais.app.ui.OnboardingFlow
 import io.relais.app.ui.ConnectScreen
 import io.relais.app.data.needsConnect
+import io.relais.app.data.needsOnboarding
 import io.relais.app.ui.RelaisTheme
 import io.relais.app.ui.DisplaySize
 import io.relais.app.ui.isDark
@@ -103,7 +104,7 @@ class MainActivity : ComponentActivity() {
                     val current = settings
                     when {
                         current == null -> Box(Modifier.fillMaxSize())
-                        !current.onboardingDone -> OnboardingFlow()
+                        current.needsOnboarding -> OnboardingFlow()
                         needsConnect(current, BuildConfig.RELIEFWEB_APPNAME) -> ConnectScreen()
                         else -> MainScreen()
                     }

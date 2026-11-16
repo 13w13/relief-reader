@@ -10,7 +10,21 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
+import io.relais.app.ui.RelaisTheme
 import io.relais.app.ui.TextStep
+import io.relais.app.ui.WelcomeStep
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,19 +35,24 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
  * The real SettingsStore (DataStore): first a v0.5 settings file migrated on opening, then the
- * new-version check, not a copy of its writes (review of PR 23), then Appearance and the text
- * sizes of v0.6. One test only: the store's DataStore is one per process, and the v0.5 file must
- * be written before it opens.
+ * new-version check, not a copy of its writes (review of PR 23), then Appearance (the welcome
+ * screen included) and the text sizes of v0.6. One test only: the store's DataStore is one per
+ * process, and the v0.5 file must be written before it opens; so the welcome screen's test on the
+ * real store is here too.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35], application = Application::class)
 class SettingsStoreTest {
+    @get:Rule
+    val compose = createComposeRule()
+
     private fun answer(version: String) =
         """{"tag_name": "v$version", "html_url": "https://github.com/13w13/relief-reader/releases/tag/v$version", "draft": false, "prerelease": false}"""
 
@@ -48,12 +67,17 @@ class SettingsStoreTest {
             it[intPreferencesKey("reading_size")] = 3
             // "Not now" as 0.6.x stored it: a version, no date.
             it[androidx.datastore.preferences.core.stringPreferencesKey("update_dismissed")] = "0.6.1"
+            // A reader who finished the first launch long ago.
+            it[androidx.datastore.preferences.core.booleanPreferencesKey("onboarding_done")] = true
         }
         writer.coroutineContext.job.cancelAndJoin()
 
         // The real store runs the migrations it is built with (review of PR 24): the same 19 sp.
         val before = System.currentTimeMillis()
         val store = SettingsStore(context)
+        // A reader who updates never sees the first launch setup again (review of PR 44).
+        assertTrue(store.current().onboardingDone)
+        assertFalse(store.current().needsOnboarding)
         // The 0.6.x "Not now" is dated at the update: its notice comes back 3 days later.
         assertEquals("0.6.1", store.current().updateDismissed)
         assertTrue(store.current().updateDismissedAt in before..System.currentTimeMillis())
@@ -115,15 +139,43 @@ class SettingsStoreTest {
         assertEquals("0.5.5", store.current().updateVersion)
         assertNull(store.current().updateApk)
 
-        // Appearance (v0.6): System by default, then each choice comes back. Chosen on the welcome
-        // screen (16/11), before the first launch is done: saved at once, read by Settings later.
+        // A quota refusal's time, and a "Not now" cleared by a Check now, are kept (review of PR 44).
+        store.holdUpdateCheck(now + UpdateCheck.HOUR)
+        assertEquals(now + UpdateCheck.HOUR, store.current().updateHeldUntil)
+        store.dismissUpdate("0.5.5", now)
+        store.clearUpdateDismissed()
+        assertNull(store.current().updateDismissed)
+        assertEquals(0L, store.current().updateDismissedAt)
+
+        // Appearance (v0.6): System by default, then each choice comes back.
         assertEquals(Appearance.SYSTEM.name, store.current().appearance)
-        assertFalse(store.current().onboardingDone)
         store.setAppearance(Appearance.DARK)
         assertEquals(Appearance.DARK.name, store.current().appearance)
-        assertFalse(store.current().onboardingDone)
         store.setAppearance(Appearance.LIGHT)
         assertEquals(Appearance.LIGHT.name, store.current().appearance)
+
+        // The welcome screen on this real store (16/11, review of PR 44), wired as OnboardingFlow:
+        // it shows the store's appearance through a StateFlow (as AppContainer.appearance) and a
+        // tap saves at once. Kept across a rotation, with no frame of another choice first.
+        val flowScope = CoroutineScope(Dispatchers.IO + Job())
+        val appearance = store.flow.map { Appearance.of(it.appearance) }
+            .stateIn(flowScope, SharingStarted.Eagerly, Appearance.of(store.current().appearance))
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            val shown by appearance.collectAsState()
+            RelaisTheme(darkTheme = shown == Appearance.DARK) {
+                WelcomeStep(appearance = shown, onAppearance = { runBlocking { store.setAppearance(it) } }, onContinue = {})
+            }
+        }
+        compose.onNodeWithTag("appearance_light").performScrollTo().assertIsSelected()
+        compose.onNodeWithTag("appearance_dark").performScrollTo().performClick()
+        assertEquals(Appearance.DARK.name, store.current().appearance)
+        compose.waitUntil(5_000) { appearance.value == Appearance.DARK }
+        compose.onNodeWithTag("appearance_dark").assertIsSelected()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("appearance_dark").performScrollTo().assertIsSelected()
+        flowScope.cancel()
+        store.setAppearance(Appearance.LIGHT)
 
         // Text sizes (v0.6): the step is kept by its name.
         store.setReadingSize(0)

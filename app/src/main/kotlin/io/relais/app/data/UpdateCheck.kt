@@ -87,6 +87,8 @@ sealed interface ManualCheck {
  * @param fetch the body of a 200 answer of [LATEST_URL], or null; may throw, for another status
  *   with [HttpStatusException], for a quota refusal with [RateLimitedException].
  * @param hold notes the time before which no automatic request goes (a quota refusal).
+ * @param forgetNotNow clears "Not now": a Check now that finds a newer version shows it on Today
+ *   too (review of PR 44), since the reader just asked.
  */
 class UpdateCheck(
     private val enabled: Boolean,
@@ -97,6 +99,7 @@ class UpdateCheck(
     private val fetch: suspend () -> String?,
     private val now: () -> Long = System::currentTimeMillis,
     private val hold: suspend (until: Long) -> Unit = {},
+    private val forgetNotNow: suspend () -> Unit = {},
 ) {
     /** One request at a time, the daily one and "Check now" together. */
     private val mutex = Mutex()
@@ -106,8 +109,28 @@ class UpdateCheck(
 
     private val _manual = MutableStateFlow<ManualCheck>(ManualCheck.Idle)
 
+    /** When the result of "Check now" was given, for [forgetOldResult]. */
+    private var resultAt = 0L
+
     /** The state of "Check now", for Settings > About. */
     val manual: StateFlow<ManualCheck> = _manual.asStateFlow()
+
+    /**
+     * A result older than [RESULT_FOR] goes back to Idle (review of PR 44): Settings opened hours
+     * later does not show "is available" from the morning. Called when Settings comes on screen;
+     * a rotation, a few seconds later, keeps it. A check under way is left alone.
+     */
+    fun forgetOldResult() {
+        val state = _manual.value
+        if (state != ManualCheck.Idle && state != ManualCheck.Checking && now() - resultAt !in 0L until RESULT_FOR) {
+            _manual.value = ManualCheck.Idle
+        }
+    }
+
+    private fun show(result: ManualCheck) {
+        resultAt = now()
+        _manual.value = result
+    }
 
     /**
      * Sends the request if it is due: the build and the switch allow it, the last check is
@@ -126,7 +149,8 @@ class UpdateCheck(
         val at = now()
         val since = at - s.updateCheckedAt
         if (since in 0L until INTERVAL) return false
-        // A quota refusal: not before the time GitHub gave (capped at a day, for a clock change).
+        // A quota refusal: not before the time GitHub gave; a time more than a day away (a clock
+        // change, an odd header) is ignored.
         if (at < s.updateHeldUntil && s.updateHeldUntil - at <= DAY) return false
         if (!online()) return false
         request(at)
@@ -143,8 +167,8 @@ class UpdateCheck(
     suspend fun checkNow(): ManualCheck {
         if (!enabled) return ManualCheck.Idle
         _manual.value = ManualCheck.Checking
-        try {
-            val result = mutex.withLock {
+        val result = try {
+            mutex.withLock {
                 val at = now()
                 val previous = last
                 when {
@@ -152,13 +176,18 @@ class UpdateCheck(
                     !online() -> ManualCheck.Failed(NO_CONNECTION)
                     else -> request(at)
                 }
-            }
-            _manual.value = result
-            return result
+            }.also { if (it is ManualCheck.Available) forgetNotNow() }
         } catch (e: CancellationException) {
             _manual.value = ManualCheck.Idle
             throw e
+        } catch (e: Exception) {
+            // Network failures are answered inside request(): what comes here is the settings
+            // store that could not be written (a full disk). Said, never "Checking…" for good
+            // (review of PR 44), and never as "no connection".
+            ManualCheck.Failed(NOT_SAVED)
         }
+        show(result)
+        return result
     }
 
     /**
@@ -205,7 +234,11 @@ class UpdateCheck(
         /** "Check now": at most one request in this time, however often the button is tapped. */
         const val MIN_GAP = 30_000L
 
+        /** How long the result of "Check now" stays under the button (see forgetOldResult). */
+        const val RESULT_FOR = 5 * 60 * 1000L
+
         const val NO_CONNECTION = "no connection"
+        const val NOT_SAVED = "could not save the result"
         const val UNREADABLE = "unreadable answer"
         const val LATEST_URL = "https://api.github.com/repos/13w13/relief-reader/releases/latest"
 
@@ -311,17 +344,22 @@ class UpdateCheck(
 internal class RateLimitedException(code: Int, val until: Long?) : HttpStatusException(code)
 
 internal object RateLimit {
+    /** Longer than any wait GitHub gives; a larger number is not read (no overflow). */
+    private const val MAX_SECONDS = 400L * 24 * 60 * 60
+
     /**
-     * The time GitHub asks to wait for, from its headers: retry-after (seconds, or an HTTP date),
-     * else x-ratelimit-reset (epoch seconds), when it is later than [now]. Null without a readable
-     * one.
+     * The time GitHub asks to wait for, from its headers: retry-after (seconds, or an HTTP date)
+     * and x-ratelimit-reset (epoch seconds), the later of the two readable ones, when it is later
+     * than [now]. Null without one. Numbers are bounded before being turned into milliseconds.
      */
     fun until(retryAfter: String?, rateLimitReset: String?, now: Long): Long? {
         val after = retryAfter?.trim()?.let { text ->
-            text.toLongOrNull()?.takeIf { it >= 0 }?.let { now + it * 1000 }
+            text.toLongOrNull()?.takeIf { it in 0..MAX_SECONDS }?.let { now + it * 1000 }
                 ?: runCatching { java.time.ZonedDateTime.parse(text, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli() }.getOrNull()
         }
-        val reset = rateLimitReset?.trim()?.toLongOrNull()?.takeIf { it > 0 }?.let { it * 1000 }
-        return (after ?: reset)?.takeIf { it > now }
+        val reset = rateLimitReset?.trim()?.toLongOrNull()?.let { seconds ->
+            runCatching { Math.multiplyExact(seconds, 1000L) }.getOrNull()?.takeIf { seconds > 0 }
+        }
+        return listOfNotNull(after, reset).filter { it > now }.maxOrNull()
     }
 }
