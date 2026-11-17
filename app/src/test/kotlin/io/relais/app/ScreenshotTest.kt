@@ -279,6 +279,75 @@ class ScreenshotTest {
         TodayWith({ io.relais.app.ui.AgedLine(io.relais.app.data.VersionNotice.Aged(2), onCheckNow = {}, onNotNow = {}) }, reports("headlines.json").take(6))
     }
 
+    // --- Folders of the Library (17/11) -----------------------------------------------------------
+
+    private val sampleFolders = listOf(
+        io.relais.app.data.FolderRow(1, "Chad 2027", 0, 3, reports = 12, highlights = 34),
+        io.relais.app.data.FolderRow(2, "ECHO proposal", 0, 2, reports = 5, highlights = 0),
+        io.relais.app.data.FolderRow(3, "Sudan: cholera and measles in Darfur, for the health brief", 0, 1, reports = 1, highlights = 1),
+    )
+
+    private fun folderItems(): List<io.relais.app.ui.LibraryItem> = reports("sudan-reports.json").take(4).mapIndexed { i, r ->
+        io.relais.app.ui.LibraryItem(
+            io.relais.app.data.ReadingWithReport(io.relais.app.data.ReadingEntity(r.id, savedAt = r.dateCreated), r),
+            r,
+            pdfOnPhone = i == 0,
+        )
+    }
+
+    private fun foldersTab(name: String, dark: Boolean = false, display: DisplaySize = DisplaySize.Compact) = shoot(name, dark, display) {
+        Column {
+            SectionHeader("Library")
+            io.relais.app.ui.FoldersPage(sampleFolders, androidx.compose.foundation.lazy.rememberLazyListState(), onOpen = {})
+        }
+    }
+
+    @Test
+    fun libraryFolders() = foldersTab("library-folders")
+
+    @Test
+    fun libraryFoldersDark() = foldersTab("library-folders-dark", dark = true)
+
+    @Test
+    fun libraryFoldersSmallest() = foldersTab("library-folders-smallest", display = DisplaySize.Smallest)
+
+    private fun folderOpen(name: String, dark: Boolean = false, display: DisplaySize = DisplaySize.Compact) = shoot(name, dark, display) {
+        io.relais.app.ui.ScreenScaffold(title = "Chad 2027", onBack = {}, actions = { io.relais.app.ui.OverflowMenu { } }) { padding ->
+            io.relais.app.ui.FolderList(folderItems(), Modifier.padding(padding), onOpen = {}, onRemove = {}, onAddReports = {})
+        }
+    }
+
+    @Test
+    fun folderOpen() = folderOpen("folder-open")
+
+    @Test
+    fun folderOpenDark() = folderOpen("folder-open-dark", dark = true)
+
+    @Test
+    fun folderOpenSmallest() = folderOpen("folder-open-smallest", display = DisplaySize.Smallest)
+
+    private fun folderSheet(name: String, dark: Boolean = false, display: DisplaySize = DisplaySize.Compact) = shoot(name, dark, display) {
+        Column(Modifier.fillMaxSize(), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            ) {
+                Column(Modifier.padding(top = 24.dp)) {
+                    io.relais.app.ui.FolderSheetContent(sampleFolders, checked = setOf(1L), onToggle = { _, _ -> }, onNew = {})
+                }
+            }
+        }
+    }
+
+    @Test
+    fun folderSheet() = folderSheet("folder-sheet")
+
+    @Test
+    fun folderSheetDark() = folderSheet("folder-sheet-dark", dark = true)
+
+    @Test
+    fun folderSheetSmallest() = folderSheet("folder-sheet-smallest", display = DisplaySize.Smallest)
+
     /** A ReliefWeb link shared to Re.L without an appname (17/11). */
     private fun linkNeedsAppname(name: String, dark: Boolean) = shoot(name, dark = dark) {
         io.relais.app.ui.ScreenScaffold(title = "ReliefWeb link", onBack = {}) { padding ->

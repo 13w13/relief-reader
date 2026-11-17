@@ -936,7 +936,12 @@ class Repository(
 
     // --- Reading state ----------------------------------------------------------------
 
-    suspend fun opened(reportId: Long) {
+    /**
+     * The reading row is read, then written whole: [opened], [savePosition], [setRead] and
+     * [setSaved] each do it in a transaction, so two at once (a report from a link saved at the
+     * reader's first action: the visit and the save) never undo each other (merge of PR 47 and 48).
+     */
+    suspend fun opened(reportId: Long) = transaction {
         val now = System.currentTimeMillis()
         val current = dao.reading(reportId) ?: ReadingEntity(reportId)
         dao.upsertReading(
@@ -950,7 +955,7 @@ class Repository(
         )
     }
 
-    suspend fun savePosition(reportId: Long, index: Int, offset: Int, percent: Int, finished: Boolean) {
+    suspend fun savePosition(reportId: Long, index: Int, offset: Int, percent: Int, finished: Boolean) = transaction {
         val current = dao.reading(reportId) ?: ReadingEntity(reportId)
         dao.upsertReading(
             current.copy(
@@ -962,12 +967,24 @@ class Repository(
         )
     }
 
-    suspend fun setSaved(reportId: Long, saved: Boolean) {
-        val current = dao.reading(reportId) ?: ReadingEntity(reportId)
-        dao.upsertReading(current.copy(savedAt = if (saved) System.currentTimeMillis() else null))
+    /**
+     * Saves a report, or removes it from Saved: then also from its folders (rule 3 of the folders,
+     * review of PR 48), in one transaction, whoever asks (Today, a report, the Library).
+     */
+    suspend fun setSaved(reportId: Long, saved: Boolean) = transaction {
+        Folders.setSavedRows(dao, reportId, saved, System.currentTimeMillis())
     }
 
-    suspend fun setRead(reportId: Long, read: Boolean) {
+    /** Out of Saved and of its folders; what was taken, for Undo ([undoUnsave]). */
+    suspend fun unsave(reportId: Long): Folders.Unsaved {
+        var removed = Folders.Unsaved(reportId, null, emptyList())
+        transaction { removed = Folders.unsaveRows(dao, reportId) }
+        return removed
+    }
+
+    suspend fun undoUnsave(removed: Folders.Unsaved) = transaction { Folders.undoRows(dao, removed, System.currentTimeMillis()) }
+
+    suspend fun setRead(reportId: Long, read: Boolean) = transaction {
         val current = dao.reading(reportId) ?: ReadingEntity(reportId)
         dao.upsertReading(current.copy(readAt = if (read) System.currentTimeMillis() else null))
     }

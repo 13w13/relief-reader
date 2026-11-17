@@ -159,6 +159,13 @@ class AppContainer(private val context: Context) {
         },
     )
 
+    /** The Library's folders (17/11): a report put in one is saved, its PDFs kept as by Save. */
+    val folders = io.relais.app.data.Folders(
+        dao,
+        transaction = { block -> database.withTransaction { block() } },
+        relocate = { id, keep -> pdfs.relocate(id, keep) },
+    )
+
     val popular = Popular(context, okHttp, userAgent, repository, dao, config = { remoteConfig.current })
 
     /**

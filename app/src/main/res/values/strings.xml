@@ -650,6 +650,36 @@
     <string name="settings_restore">Restore from a file</string>
     <string name="restore_title">Restore from this file?</string>
     <string name="restore_text">%1$d saved, %2$d in history, %3$d highlights and %4$d followed. Nothing on this phone is deleted.</string>
+    <plurals name="restore_text_folders">
+        <item quantity="one">%1$d saved, %2$d in history, %3$d highlights, %4$d followed and %5$d folder. Nothing on this phone is deleted.</item>
+        <item quantity="other">%1$d saved, %2$d in history, %3$d highlights, %4$d followed and %5$d folders. Nothing on this phone is deleted.</item>
+    </plurals>
+    <!-- Folders of the Library (17/11, equipe/produit/fiche-dossiers-library.md). -->
+    <string name="library_folders">Folders</string>
+    <string name="folder_add">Add to folder</string>
+    <string name="folder_new">New folder</string>
+    <string name="folder_name">Folder name</string>
+    <string name="folder_create">Create</string>
+    <string name="folder_save">Save</string>
+    <string name="folder_name_empty">Give the folder a name.</string>
+    <string name="folder_name_taken">You already have a folder with this name.</string>
+    <string name="folder_counts">%1$s · %2$s</string>
+    <string name="folder_add_reports">Add reports</string>
+    <string name="folder_add_selected">Add (%1$d)</string>
+    <string name="folder_already_in">In this folder</string>
+    <string name="folder_remove_report">Remove from this folder</string>
+    <string name="folder_rename">Rename</string>
+    <string name="folder_delete">Delete folder</string>
+    <string name="folder_delete_confirm">Delete \"%1$s\"? Its reports stay in Saved.</string>
+    <string name="folder_export">Export folder</string>
+    <string name="folder_empty">No reports in this folder yet. Tap Add reports, or open a report\'s menu and tap Add to folder.</string>
+    <string name="folder_saved_and_added">Saved and added to %1$s.</string>
+    <string name="folder_added">Added to %1$s.</string>
+    <string name="folder_no_saved">Nothing saved yet. Save reports first, then add them here.</string>
+    <plurals name="library_remove_saved_folders">
+        <item quantity="one">Removed from Saved and from %d folder.</item>
+        <item quantity="other">Removed from Saved and from %d folders.</item>
+    </plurals>
     <string name="restore_action">Restore</string>
     <string name="restore_done">Library restored. Saved reports load their text when you open them.</string>
     <string name="restore_not_backup">This file isn\'t a Re.L backup.</string>
@@ -708,4 +738,10 @@
     <string name="whats_new_07_text_4">Checked when you open Re.L; Today says when to update.</string>
     <string name="whats_new_07_lead_5">A tour, and light or dark.</string>
     <string name="whats_new_07_text_5">New installs get both; the tour is in Settings &gt; About.</string>
+    <string name="whats_new_08_lead_1">ReliefWeb links.</string>
+    <string name="whats_new_08_text_1">Share a reliefweb.int report link to Re.L and it opens here.</string>
+    <string name="whats_new_08_lead_2">Folders.</string>
+    <string name="whats_new_08_text_2">Sort saved reports by project; export a folder with its highlights.</string>
+    <string name="whats_new_08_lead_3">Safer with other apps.</string>
+    <string name="whats_new_08_text_3">They can no longer add a report to your History.</string>
 </resources>

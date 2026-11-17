@@ -110,7 +110,24 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class LibraryView { SAVED, HISTORY, HIGHLIGHTS }
+/** The Library's views; FOLDERS shows only once the reader has a folder (17/11). */
+enum class LibraryView { SAVED, FOLDERS, HISTORY, HIGHLIGHTS }
+
+/** The tabs shown: Folders after Saved, from the first folder on. */
+fun libraryViews(hasFolders: Boolean): List<LibraryView> =
+    if (hasFolders) LibraryView.entries else LibraryView.entries - LibraryView.FOLDERS
+
+/**
+ * The view to show and its page, once the folders are known: [wanted] if it is among [views];
+ * else the view of the page on screen, or Saved (review of PR 48: the last folder deleted while
+ * on Folders, or a restart that brings back a page index from before the folders loaded).
+ */
+fun libraryPage(views: List<LibraryView>, wanted: LibraryView, currentPage: Int): Pair<LibraryView, Int> {
+    val at = views.indexOf(wanted)
+    if (at >= 0) return wanted to at
+    val view = views.getOrNull(currentPage) ?: LibraryView.SAVED
+    return view to views.indexOf(view).coerceAtLeast(0)
+}
 enum class LibraryFacet { COUNTRY, CRISIS, PERIOD, FORMAT, THEME, ORGANIZATION }
 
 /** Facets of each view: crisis and period for highlights (passe-v0.2.md 5.1), theme for reports. */
@@ -147,8 +164,14 @@ data class LibraryState(
     val loaded: Boolean = false,
     /** Reports whose PDF text holds the search, with where (pdf/, T9). */
     val pdfHits: Map<Long, io.relais.app.pdf.PdfHit> = emptyMap(),
+    /** The folders, the last changed first (17/11). */
+    val folders: List<io.relais.app.data.FolderRow> = emptyList(),
 ) {
-    fun list(v: LibraryView): ReadingList = if (v == LibraryView.SAVED) saved else history
+    fun list(v: LibraryView): ReadingList = when (v) {
+        LibraryView.SAVED -> saved
+        LibraryView.HISTORY -> history
+        else -> ReadingList()
+    }
 }
 
 /** Values of a highlight for a facet, from the report metadata stored with it and its report. */
@@ -192,7 +215,9 @@ class LibraryViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    private val items = combine(itemsOf(c.dao.observeSaved()), itemsOf(c.dao.observeHistory())) { saved, history -> saved to history }
+    private val items = combine(itemsOf(c.dao.observeSaved()), itemsOf(c.dao.observeHistory()), c.dao.observeFolders()) { saved, history, folders ->
+        Triple(saved, history, folders)
+    }
 
     private val highlightReports = c.dao.observeHighlightReports().map { list -> list.associateBy { it.id } }
 
@@ -207,7 +232,7 @@ class LibraryViewModel(private val c: AppContainer) : ViewModel() {
         groupBy,
         items,
         highlightsFiltered,
-    ) { (search, hits), f, g, (saved, history), (allHighlights, highlights, reports) ->
+    ) { (search, hits), f, g, (saved, history, folders), (allHighlights, highlights, reports) ->
         val (v, q, ids) = search
         fun build(all: List<LibraryItem>, view: LibraryView): ReadingList {
             val searched = if (q.isBlank() || ids == null) all else all.filter { it.report.id in ids }
@@ -219,6 +244,7 @@ class LibraryViewModel(private val c: AppContainer) : ViewModel() {
         LibraryState(
             v, q, f, g, build(saved, LibraryView.SAVED), build(history, LibraryView.HISTORY),
             allHighlights, highlights, reports, loaded = true, pdfHits = if (q.isBlank()) emptyMap() else hits,
+            folders = folders,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryState())
 
@@ -279,8 +305,9 @@ class LibraryViewModel(private val c: AppContainer) : ViewModel() {
         groupBy.value = g
     }
 
-    fun removeSaved(id: Long) = viewModelScope.launch { c.repository.setSaved(id, false) }
-    fun restoreSaved(id: Long) = viewModelScope.launch { c.repository.setSaved(id, true) }
+    /** Removed from Saved and from its folders (17/11); what was taken comes back with [undoSaved]. */
+    suspend fun removeSaved(id: Long): io.relais.app.data.Folders.Unsaved = c.folders.unsave(id)
+    fun undoSaved(removed: io.relais.app.data.Folders.Unsaved) = viewModelScope.launch { c.folders.undo(removed) }
     fun removeHistory(id: Long) = viewModelScope.launch { c.repository.removeFromHistory(id) }
 }
 
@@ -295,6 +322,7 @@ private val FACET_LABELS = mapOf(
 
 private val VIEW_LABELS = mapOf(
     LibraryView.SAVED to R.string.library_saved,
+    LibraryView.FOLDERS to R.string.library_folders,
     LibraryView.HISTORY to R.string.library_history,
     LibraryView.HIGHLIGHTS to R.string.library_highlights,
 )
@@ -318,18 +346,37 @@ fun LibraryScreen(nav: Nav) {
     val scope = rememberCoroutineScope()
     var openFacet by remember { mutableStateOf<LibraryFacet?>(null) }
     var filterSheet by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    // The pager holds the current view: a swipe or a tap on a tab moves it.
-    val pager = rememberPagerState { LibraryView.entries.size }
-    OnPageSettled(pager) { vm.setView(LibraryView.entries[it]) }
-    // Today's "See all" asks for History.
+    // The pager holds the current view: a swipe or a tap on a tab moves it. Folders shows from
+    // the first folder (17/11), so pages are mapped to views, never taken by their index alone.
+    val views = libraryViews(state.folders.isNotEmpty())
+    val currentViews by androidx.compose.runtime.rememberUpdatedState(views)
+    // The view by its name, kept across a restart: a page index saved before the folders loaded
+    // would point at another tab (review of PR 48).
+    var shownView by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(LibraryView.SAVED) }
+    val pager = rememberPagerState { currentViews.size }
+    OnPageSettled(pager) { page ->
+        if (state.loaded) currentViews.getOrNull(page)?.let { shownView = it; vm.setView(it) }
+    }
+    // Once loaded, and when Folders appears or goes: the same view if it is still there, else the
+    // page's (libraryPage).
+    LaunchedEffect(views, state.loaded) {
+        if (!state.loaded) return@LaunchedEffect
+        val (view, page) = libraryPage(views, shownView, pager.currentPage)
+        shownView = view
+        vm.setView(view)
+        if (page != pager.currentPage) pager.scrollToPage(page)
+    }
+    // Today's "See all" asks for History (a view's ordinal).
     LaunchedEffect(Unit) {
-        container.libraryRequest.collect { page ->
-            if (page != null) {
-                pager.scrollToPage(page)
+        container.libraryRequest.collect { request ->
+            if (request != null) {
+                val page = LibraryView.entries.getOrNull(request)?.let { currentViews.indexOf(it) } ?: -1
+                if (page >= 0) pager.scrollToPage(page)
                 container.libraryRequest.value = null
             }
         }
     }
+    var folderSheetFor by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Long?>(null) }
     val removedMsg = stringResource(R.string.library_remove_saved)
     val undoLabel = stringResource(R.string.action_undo)
     val context = LocalContext.current
@@ -343,7 +390,7 @@ fun LibraryScreen(nav: Nav) {
             // Tabs in the style of 5.4: Inter, ink for the active one (revue-densite-v0.3.md, change 9).
             val cs = MaterialTheme.colorScheme
             PrimaryScrollableTabRow(selectedTabIndex = pager.currentPage, edgePadding = 8.dp, modifier = Modifier.testTag("library_tabs")) {
-                LibraryView.entries.forEachIndexed { index, v ->
+                views.forEachIndexed { index, v ->
                     val active = index == pager.currentPage
                     Tab(
                         selected = active,
@@ -368,8 +415,8 @@ fun LibraryScreen(nav: Nav) {
             val active = state.filters.values.count { it.isNotEmpty() } + if (state.groupBy != GroupBy.DATE && state.view != LibraryView.HIGHLIGHTS) 1 else 0
             val busy = queryText.isNotBlank() || active > 0
             val pdfs = state.view != LibraryView.HIGHLIGHTS && state.list(state.view).all.any { it.pdfOnPhone }
-            val showFilters = busy || count >= SEARCH_FROM
-            if (showFilters || pdfs) {
+            val showFilters = state.view != LibraryView.FOLDERS && (busy || count >= SEARCH_FROM)
+            if (state.view != LibraryView.FOLDERS && (showFilters || pdfs)) {
                 // The field keeps its own text: bound to the view model's state, which lags, fast
                 // typing lost or swapped letters ("measles" became "mealess" in an e2e run).
                 OutlinedTextField(
@@ -396,8 +443,10 @@ fun LibraryScreen(nav: Nav) {
             // The Library is on the phone: a pull only re-reads it, the spinner closes at once.
             Refreshable(loading = false, onRefresh = {}, modifier = Modifier.fillMaxSize()) {
             HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-                val v = LibraryView.entries[page]
-                if (v == LibraryView.HIGHLIGHTS) {
+                val v = views.getOrElse(page) { LibraryView.SAVED }
+                if (v == LibraryView.FOLDERS) {
+                    FoldersPage(state.folders, vm.listStates.getValue(LibraryView.FOLDERS), onOpen = nav::folder)
+                } else if (v == LibraryView.HIGHLIGHTS) {
                     HighlightsList(
                         vm.listStates.getValue(LibraryView.HIGHLIGHTS),
                         state,
@@ -426,12 +475,15 @@ fun LibraryScreen(nav: Nav) {
                     )
                 } else {
                     ReadingListPage(v, state, vm, nav, onRemoveSaved = { id ->
-                        vm.removeSaved(id)
                         scope.launch {
-                            val result = snackbar.showSnackbar(removedMsg, undoLabel)
-                            if (result == SnackbarResult.ActionPerformed) vm.restoreSaved(id)
+                            // From Saved and from its folders, said in the message (17/11).
+                            val removed = vm.removeSaved(id)
+                            val n = removed.folders.size
+                            val msg = if (n == 0) removedMsg else context.resources.getQuantityString(R.plurals.library_remove_saved_folders, n, n)
+                            val result = snackbar.showSnackbar(msg, undoLabel)
+                            if (result == SnackbarResult.ActionPerformed) vm.undoSaved(removed)
                         }
-                    })
+                    }, onAddToFolder = { folderSheetFor = it })
                 }
             }
             }
@@ -440,6 +492,10 @@ fun LibraryScreen(nav: Nav) {
 
     exportResult?.let { result ->
         ExportSheet(result, onDismiss = { exportResult = null })
+    }
+
+    folderSheetFor?.let { id ->
+        AddToFolderSheet(id, onDismiss = { folderSheetFor = null }, onMessage = { msg -> scope.launch { snackbar.showSnackbar(msg) } })
     }
 
     if (filterSheet) {
@@ -454,6 +510,14 @@ fun LibraryScreen(nav: Nav) {
     }
 
     openFacet?.let { facet ->
+        FacetDialog(state, facet, onApply = { vm.setFilter(facet, it); openFacet = null }, onDismiss = { openFacet = null })
+    }
+}
+
+/** The values of one facet in the current view, with their counts, to pick from (Library, Add reports). */
+@Composable
+internal fun FacetDialog(state: LibraryState, facet: LibraryFacet, onApply: (Set<String>) -> Unit, onDismiss: () -> Unit) {
+    run {
         val values = if (state.view == LibraryView.HIGHLIGHTS) {
             state.allHighlights.flatMap { facet.valuesOf(it, state.highlightReports[it.reportId]) }
         } else {
@@ -462,7 +526,7 @@ fun LibraryScreen(nav: Nav) {
         val counts = values.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }
         var selection by remember(facet) { mutableStateOf(state.filters[facet].orEmpty()) }
         AlertDialog(
-            onDismissRequest = { openFacet = null },
+            onDismissRequest = onDismiss,
             title = { Text(stringResource(FACET_LABELS.getValue(facet))) },
             text = {
                 Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
@@ -482,14 +546,15 @@ fun LibraryScreen(nav: Nav) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { vm.setFilter(facet, selection); openFacet = null }) { Text(stringResource(R.string.pick_done)) }
+                TextButton(onClick = { onApply(selection) }) { Text(stringResource(R.string.pick_done)) }
             },
             dismissButton = {
-                TextButton(onClick = { vm.setFilter(facet, emptySet()); openFacet = null }) { Text(stringResource(R.string.filter_clear_all)) }
+                TextButton(onClick = { onApply(emptySet()) }) { Text(stringResource(R.string.filter_clear_all)) }
             },
         )
     }
 }
+
 
 /** Search and filters show from this many items in a view. */
 private const val SEARCH_FROM = 10
@@ -543,9 +608,24 @@ internal fun LibraryFilterSheet(state: LibraryState, onFacet: (LibraryFacet) -> 
     }
 }
 
+/** The status of a saved report: "Saved 12 Nov · Available offline · PDF on phone". */
+@Composable
+internal fun savedStatus(item: LibraryItem): String = listOfNotNull(
+    item.reading.reading.savedAt?.let { stringResource(R.string.library_saved_on, Display.day(it)) },
+    if (item.report.bodyHtml != null) stringResource(R.string.library_offline) else null,
+    if (item.pdfOnPhone) stringResource(R.string.library_pdf_on_phone) else null,
+).joinToString(" · ")
+
 /** Saved or History, as one page of the Library pager. */
 @Composable
-private fun ReadingListPage(v: LibraryView, state: LibraryState, vm: LibraryViewModel, nav: Nav, onRemoveSaved: (Long) -> Unit) {
+private fun ReadingListPage(
+    v: LibraryView,
+    state: LibraryState,
+    vm: LibraryViewModel,
+    nav: Nav,
+    onRemoveSaved: (Long) -> Unit,
+    onAddToFolder: (Long) -> Unit,
+) {
     val list = state.list(v)
     val removedMsg = stringResource(R.string.library_remove_saved)
     LazyColumn(Modifier.fillMaxSize().testTag("page_" + v.name.lowercase()), state = vm.listStates.getValue(v)) {
@@ -567,11 +647,7 @@ private fun ReadingListPage(v: LibraryView, state: LibraryState, vm: LibraryView
             items(groupItems, key = { "$title-${it.report.id}" }) { item ->
                 val r = item.reading.reading
                 val status = if (v == LibraryView.SAVED) {
-                    listOfNotNull(
-                        r.savedAt?.let { stringResource(R.string.library_saved_on, Display.day(it)) },
-                        if (item.report.bodyHtml != null) stringResource(R.string.library_offline) else null,
-                        if (item.pdfOnPhone) stringResource(R.string.library_pdf_on_phone) else null,
-                    ).joinToString(" · ")
+                    savedStatus(item)
                 } else {
                     listOfNotNull(
                         when {
@@ -583,6 +659,14 @@ private fun ReadingListPage(v: LibraryView, state: LibraryState, vm: LibraryView
                     ).joinToString(" · ")
                 }
                 DocumentRow(item.report, onClick = { nav.report(item.report.id) }, status = status, pdfPreview = true) { close ->
+                    // A report of the feed cannot be saved, so it is not put in a folder either.
+                    if (!item.report.fromRss) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.folder_add)) },
+                            onClick = { close(); onAddToFolder(item.report.id) },
+                            modifier = Modifier.testTag("add_to_folder"),
+                        )
+                    }
                     if (v == LibraryView.SAVED) {
                         DropdownMenuItem(text = { Text(removedMsg) }, onClick = { close(); onRemoveSaved(item.report.id) })
                     } else {
@@ -712,16 +796,17 @@ private fun HighlightsList(
  * mail and messaging apps.
  */
 @Composable
-private fun ExportSheet(result: HighlightExport.Result, onDismiss: () -> Unit) {
+internal fun ExportSheet(result: HighlightExport.Result, onDismiss: () -> Unit, title: String = stringResource(R.string.export_title)) {
     val context = LocalContext.current
-    val title = stringResource(R.string.export_title)
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         // A dialog is a window of its own: it needs its own testTagsAsResourceId for Maestro.
         @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
         Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
         ScreenScaffold(title = title, onBack = onDismiss) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surface)) {
-                if (result.highlights == 0) {
+                // Nothing to export: no highlight left by the filters (a folder's export has its
+                // reports even without highlights, 17/11).
+                if (result.reports == 0) {
                     EmptyState(stringResource(R.string.export_none))
                     return@Column
                 }

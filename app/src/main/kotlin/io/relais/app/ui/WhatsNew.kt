@@ -108,6 +108,15 @@ object WhatsNew {
                 Line(R.string.whats_new_07_lead_5, R.string.whats_new_07_text_5),
             ),
         ),
+        Release(
+            versionCode = 18,
+            label = "0.8",
+            lines = listOf(
+                Line(R.string.whats_new_08_lead_1, R.string.whats_new_08_text_1),
+                Line(R.string.whats_new_08_lead_2, R.string.whats_new_08_text_2),
+                Line(R.string.whats_new_08_lead_3, R.string.whats_new_08_text_3),
+            ),
+        ),
     )
 
     /** The lines of exactly this version, for the sheet after an update; null: no sheet. */

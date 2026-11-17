@@ -55,13 +55,13 @@ android {
         applicationId = "org.relreader.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 17
-        versionName = "0.7.0"
+        versionCode = 18
+        versionName = "0.8.0"
         // The day this version is published, written by hand with versionName (yyyy-MM-dd; see
         // RELEASING.md). Never the build time: the build stays reproducible for F-Droid. 60 days
         // later, Today suggests checking for a newer one (UpdateCheck.Aging). ci.yml checks it is
         // a date; release.yml also checks it is within 7 days of the tag.
-        val releaseDate = "2026-11-17"
+        val releaseDate = "2026-11-18"
         buildConfigField("String", "RELEASE_DATE", "\"$releaseDate\"")
         buildConfigField("String", "RELIEFWEB_APPNAME", reliefwebAppname.trim().asJavaString())
         buildConfigField("String", "SOURCE_URL", buildLink("REL_SOURCE_URL", "https://github.com/13w13/relief-reader").trim().asJavaString())

@@ -82,6 +82,9 @@ import kotlin.reflect.KClass
 @Serializable object OlderHeadlinesRoute
 /** The first launch tour again, from Settings > About (issue 37). */
 @Serializable object TourRoute
+/** A folder of the Library, and "Add reports" to it (17/11). */
+@Serializable data class FolderRoute(val id: Long)
+@Serializable data class AddReportsRoute(val folderId: Long)
 /** A ReliefWeb link from another app, already checked (17/11): resolved, then replaced by its screen. */
 @Serializable data class LinkRoute(val url: String)
 
@@ -144,6 +147,8 @@ class Nav(private val controller: NavHostController) {
     fun pickSources() = controller.navigate(PickSourcesRoute) { launchSingleTop = true }
     fun licences() = controller.navigate(LicencesRoute) { launchSingleTop = true }
     fun tour() = controller.navigate(TourRoute) { launchSingleTop = true }
+    fun folder(id: Long) = controller.navigate(FolderRoute(id)) { launchSingleTop = true }
+    fun addReports(folderId: Long) = controller.navigate(AddReportsRoute(folderId)) { launchSingleTop = true }
 
     /**
      * A link from another app. The screen on top came from a link too (its screen or its report):
@@ -298,6 +303,8 @@ fun MainScreen() {
                 composable<LicencesRoute> { LicencesScreen(nav) }
                 // Back to Settings at the end, by Skip, Start reading or Back on the first page.
                 composable<TourRoute> { TourScreen(onDone = { nav.back() }) }
+                composable<FolderRoute> { FolderScreen(it.toRoute<FolderRoute>().id, nav) }
+                composable<AddReportsRoute> { AddReportsScreen(it.toRoute<AddReportsRoute>().folderId, nav) }
                 composable<LinkRoute> { LinkScreen(it.toRoute<LinkRoute>().url, nav) }
                 composable<ManageFollowingRoute> { ManageFollowingScreen(nav) }
                 composable<CrisisRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<CrisisRoute>(basePath = "relais://crisis")) else emptyList()) {

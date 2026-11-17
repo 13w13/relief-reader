@@ -21,7 +21,7 @@ Re.L is a preview, built in the open in my free time, to stay closer to the huma
 - **Reads like a news app.** A Today page that ends, then the countries, crises and organizations you follow.
 - **PDFs as text.** Most reports on ReliefWeb are PDFs. Once one is on your phone, Re.L shows it as readable text, with the original one tap away.
 - **Works offline.** Reports from what you follow are stored on your phone.
-- **Keeps what you read.** Save, highlight, copy with a citation, and export your highlights.
+- **Keeps what you read.** Save, highlight, copy with a citation, and export your highlights. Sort saved reports into folders of your own, and export a folder, its reports and their highlights, as one document.
 - **No AI in the app.** No generated summaries, no scores. You read what the organizations wrote.
 - **No ads, no account, no tracking.** Re.L collects no data.
 - **Opens ReliefWeb links.** Share a reliefweb.int report link to Re.L (from a mail or a chat) and the report opens in the app, its PDF read as text. Links can also open in Re.L directly once you allow it: Settings > Reading > **Open ReliefWeb links in Re.L**.

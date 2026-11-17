@@ -132,6 +132,21 @@ class LinkActivityTest {
     }
 
     @Test
+    fun anAlertOf070TappedAfterTheUpdateOpensTheAppWithoutItsReport() {
+        // The PendingIntent 0.7.0 put in its alerts: MainActivity, these flags, the id as a long.
+        // After the update it is read without a crash, and ignored (known effect, PR 48).
+        val old = Intent().setClassName("org.relreader.app", "io.relais.app.MainActivity")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra("io.relais.app.open", 990000300L)
+        inbox.take(old, restored = false)
+        assertNull(link.value)
+        // The grouped alert's -1, and the same intent brought back after a rotation.
+        inbox.take(Intent(old).putExtra("io.relais.app.open", -1L), restored = false)
+        inbox.take(old, restored = true)
+        assertNull(link.value)
+    }
+
+    @Test
     fun aReportIdSentStraightToMainActivityIsIgnored() {
         // Only Re.L's alerts open a report by its id, through AlertActivity (AlertActivityTest).
         inbox.take(Intent().putExtra(AlertActivity.EXTRA_OPEN, 42L), restored = false)
