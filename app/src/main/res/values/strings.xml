@@ -634,7 +634,10 @@
     <string name="settings_restore">Restore from a file</string>
     <string name="restore_title">Restore from this file?</string>
     <string name="restore_text">%1$d saved, %2$d in history, %3$d highlights and %4$d followed. Nothing on this phone is deleted.</string>
-    <string name="restore_text_folders">%1$d saved, %2$d in history, %3$d highlights, %4$d followed and %5$d folders. Nothing on this phone is deleted.</string>
+    <plurals name="restore_text_folders">
+        <item quantity="one">%1$d saved, %2$d in history, %3$d highlights, %4$d followed and %5$d folder. Nothing on this phone is deleted.</item>
+        <item quantity="other">%1$d saved, %2$d in history, %3$d highlights, %4$d followed and %5$d folders. Nothing on this phone is deleted.</item>
+    </plurals>
     <!-- Folders of the Library (17/11, equipe/produit/fiche-dossiers-library.md). -->
     <string name="library_folders">Folders</string>
     <string name="folder_add">Add to folder</string>

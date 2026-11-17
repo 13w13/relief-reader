@@ -116,6 +116,18 @@ enum class LibraryView { SAVED, FOLDERS, HISTORY, HIGHLIGHTS }
 /** The tabs shown: Folders after Saved, from the first folder on. */
 fun libraryViews(hasFolders: Boolean): List<LibraryView> =
     if (hasFolders) LibraryView.entries else LibraryView.entries - LibraryView.FOLDERS
+
+/**
+ * The view to show and its page, once the folders are known: [wanted] if it is among [views];
+ * else the view of the page on screen, or Saved (review of PR 48: the last folder deleted while
+ * on Folders, or a restart that brings back a page index from before the folders loaded).
+ */
+fun libraryPage(views: List<LibraryView>, wanted: LibraryView, currentPage: Int): Pair<LibraryView, Int> {
+    val at = views.indexOf(wanted)
+    if (at >= 0) return wanted to at
+    val view = views.getOrNull(currentPage) ?: LibraryView.SAVED
+    return view to views.indexOf(view).coerceAtLeast(0)
+}
 enum class LibraryFacet { COUNTRY, CRISIS, PERIOD, FORMAT, THEME, ORGANIZATION }
 
 /** Facets of each view: crisis and period for highlights (passe-v0.2.md 5.1), theme for reports. */
@@ -338,12 +350,21 @@ fun LibraryScreen(nav: Nav) {
     // the first folder (17/11), so pages are mapped to views, never taken by their index alone.
     val views = libraryViews(state.folders.isNotEmpty())
     val currentViews by androidx.compose.runtime.rememberUpdatedState(views)
+    // The view by its name, kept across a restart: a page index saved before the folders loaded
+    // would point at another tab (review of PR 48).
+    var shownView by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(LibraryView.SAVED) }
     val pager = rememberPagerState { currentViews.size }
-    OnPageSettled(pager) { page -> currentViews.getOrNull(page)?.let(vm::setView) }
-    // A folder made or the last one deleted: the view on screen stays the same.
-    LaunchedEffect(views) {
-        val page = views.indexOf(state.view)
-        if (page >= 0 && page != pager.currentPage) pager.scrollToPage(page)
+    OnPageSettled(pager) { page ->
+        if (state.loaded) currentViews.getOrNull(page)?.let { shownView = it; vm.setView(it) }
+    }
+    // Once loaded, and when Folders appears or goes: the same view if it is still there, else the
+    // page's (libraryPage).
+    LaunchedEffect(views, state.loaded) {
+        if (!state.loaded) return@LaunchedEffect
+        val (view, page) = libraryPage(views, shownView, pager.currentPage)
+        shownView = view
+        vm.setView(view)
+        if (page != pager.currentPage) pager.scrollToPage(page)
     }
     // Today's "See all" asks for History (a view's ordinal).
     LaunchedEffect(Unit) {

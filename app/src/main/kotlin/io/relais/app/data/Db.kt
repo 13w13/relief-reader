@@ -777,8 +777,10 @@ interface RelaisDao {
     // Folders (version 5, 17/11)
     @Query(
         "SELECT f.id, f.name, f.createdAt, f.updatedAt, " +
-            "(SELECT COUNT(*) FROM folder_report fr WHERE fr.folderId = f.id) AS reports, " +
-            "(SELECT COUNT(*) FROM highlight h WHERE h.reportId IN (SELECT fr2.reportId FROM folder_report fr2 WHERE fr2.folderId = f.id)) AS highlights " +
+            "(SELECT COUNT(*) FROM folder_report fr JOIN reading r ON r.reportId = fr.reportId " +
+            "WHERE fr.folderId = f.id AND r.savedAt IS NOT NULL) AS reports, " +
+            "(SELECT COUNT(*) FROM highlight h WHERE h.reportId IN (SELECT fr2.reportId FROM folder_report fr2 JOIN reading r2 " +
+            "ON r2.reportId = fr2.reportId WHERE fr2.folderId = f.id AND r2.savedAt IS NOT NULL)) AS highlights " +
             "FROM folder f ORDER BY f.updatedAt DESC, f.id DESC",
     )
     fun observeFolders(): Flow<List<FolderRow>>
@@ -827,14 +829,27 @@ interface RelaisDao {
 
     /** A folder's reports with their reading, the last added first. */
     @Transaction
-    @Query("SELECT reading.* FROM reading JOIN folder_report fr ON fr.reportId = reading.reportId WHERE fr.folderId = :folderId ORDER BY fr.addedAt DESC")
+    @Query(
+        "SELECT reading.* FROM reading JOIN folder_report fr ON fr.reportId = reading.reportId " +
+            "WHERE fr.folderId = :folderId AND reading.savedAt IS NOT NULL ORDER BY fr.addedAt DESC",
+    )
     fun observeFolderReadings(folderId: Long): Flow<List<ReadingWithReport>>
 
-    @Query("SELECT * FROM highlight WHERE reportId IN (SELECT reportId FROM folder_report WHERE folderId = :folderId)")
+    /** A folder's saved reports only, everywhere: a link left without its saved report never counts. */
+    @Query(
+        "SELECT * FROM highlight WHERE reportId IN (SELECT fr.reportId FROM folder_report fr JOIN reading r " +
+            "ON r.reportId = fr.reportId WHERE fr.folderId = :folderId AND r.savedAt IS NOT NULL)",
+    )
     suspend fun folderHighlights(folderId: Long): List<HighlightEntity>
 
-    @Query("SELECT * FROM report WHERE id IN (SELECT reportId FROM folder_report WHERE folderId = :folderId)")
+    @Query(
+        "SELECT * FROM report WHERE id IN (SELECT fr.reportId FROM folder_report fr JOIN reading r " +
+            "ON r.reportId = fr.reportId WHERE fr.folderId = :folderId AND r.savedAt IS NOT NULL)",
+    )
     suspend fun folderReports(folderId: Long): List<ReportEntity>
+
+    @Query("SELECT reportId FROM reading WHERE savedAt IS NOT NULL")
+    suspend fun savedReportIds(): List<Long>
 }
 
 /** JSON codecs for list columns. Kept outside [Converters] with explicit types, so that KSP can read them. */

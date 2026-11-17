@@ -134,7 +134,8 @@ class HighlightExportTest {
         val result = HighlightExport.buildFolder("# [ECHO](x) *2027* <b>", listOf(report), emptyList(), now = nov4, zone = ZoneOffset.UTC)
         assertTrue(result.markdown, result.markdown.startsWith("# \\# \\[ECHO\\]\\(x\\) \\*2027\\* \\<b\\>\n"))
         assertEquals("rel-folder-echo-x-2027-b-2026-11-04.md", result.fileName)
-        // On one line, whatever the reader typed.
+        // On one line, whatever the reader typed; an entity is not decoded (review of PR 48).
         assertEquals("A B", HighlightExport.markdownText(" A\n\nB "))
+        assertEquals("\\&lt;b\\&gt;", HighlightExport.markdownText("&lt;b&gt;"))
     }
 }

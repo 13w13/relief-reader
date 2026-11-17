@@ -133,10 +133,10 @@ object HighlightExport {
 
     /**
      * The reader's text on one line, its Markdown marks escaped: a folder named "# [ECHO] *2027*"
-     * reads as written, not as a heading, a link or emphasis.
+     * reads as written, not as a heading, a link or emphasis; "&lt;b&gt;" is not read as an entity.
      */
     fun markdownText(text: String): String =
-        text.replace(Regex("\\s+"), " ").trim().replace(Regex("""([\\`*_{}\[\]()#+!|<>~])""")) { "\\" + it.value }
+        text.replace(Regex("\\s+"), " ").trim().replace(Regex("""([\\`*_{}\[\]()#+!|<>~&])""")) { "\\" + it.value }
 
     private fun count(n: Int, word: String) = if (n == 1) "1 $word" else "$n ${word}s"
 }

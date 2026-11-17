@@ -518,7 +518,7 @@ fun SettingsScreen(nav: Nav) {
             text = {
                 Text(
                     if (n.folders > 0) {
-                        stringResource(R.string.restore_text_folders, n.saved, n.history, n.highlights, n.followed, n.folders)
+                        pluralStringResource(R.plurals.restore_text_folders, n.folders, n.saved, n.history, n.highlights, n.followed, n.folders)
                     } else {
                         stringResource(R.string.restore_text, n.saved, n.history, n.highlights, n.followed)
                     },

@@ -176,6 +176,12 @@ object LibraryBackupFormat {
     const val MAX_RIVERS = 50
 
     /**
+     * Most reports in folders a file may hold, all folders together (review of PR 48): far above a
+     * real library, low enough that a restore stays short. More is refused before it is read.
+     */
+    const val MAX_FOLDER_REPORTS = 50_000
+
+    /**
      * A Re.L backup of this version or an earlier one; a newer one is refused, with its own
      * message. Any other text, valid JSON or not, is "not a backup" and never throws (review of
      * PR 17: an object in place of "app" crashed the app).
@@ -190,6 +196,10 @@ object LibraryBackupFormat {
         if (MAX_ROWS.any { (name, max) -> ((obj[name] as? kotlinx.serialization.json.JsonArray)?.size ?: 0) > max }) {
             return@runCatching Parsed.TooLarge
         }
+        val inFolders = (obj["folders"] as? kotlinx.serialization.json.JsonArray).orEmpty().sumOf { folder ->
+            ((folder as? JsonObject)?.get("reportIds") as? kotlinx.serialization.json.JsonArray)?.size ?: 0
+        }
+        if (inFolders > MAX_FOLDER_REPORTS) return@runCatching Parsed.TooLarge
         Parsed.Ok(bounded(json.decodeFromJsonElement(LibraryBackup.serializer(), obj)))
     }.getOrElse { Parsed.NotBackup }
 
@@ -259,17 +269,21 @@ object LibraryBackupFormat {
     /**
      * The folders a restore keeps (17/11): a name cleaned and cut like one typed in the app, never
      * empty; two folders of the same name, ignoring capitals, made one; and in each only reports
-     * saved in this same file (rule 3: a report in a folder is saved), with valid ids, as many at
-     * most as the file has readings.
+     * saved in this same file (rule 3: a report in a folder is saved), with ids of ReliefWeb
+     * (1..MAX_ID: never a report of the RSS feed, whose ids are negative, as in Folders.add), as
+     * many at most as the file has readings, and [MAX_FOLDER_REPORTS] in all.
      */
     private fun folders(b: LibraryBackup): List<BackupFolder> {
-        fun Long.validReport() = this in 1..MAX_ID || (this < 0 && this != Long.MIN_VALUE)
+        fun Long.validReport() = this in 1..MAX_ID
         val saved = b.readings.filter { it.savedAt != null && it.reportId.validReport() }.map { it.reportId }.toSet()
         val byName = linkedMapOf<String, BackupFolder>()
+        var total = 0
         for (f in b.folders) {
             val name = Folders.clean(f.name)
             if (name.isEmpty()) continue
-            val ids = f.reportIds.asSequence().filter { it.validReport() && it in saved }.distinct().take(b.readings.size).toList()
+            val room = (MAX_FOLDER_REPORTS - total).coerceAtLeast(0)
+            val ids = f.reportIds.asSequence().filter { it.validReport() && it in saved }.distinct().take(minOf(b.readings.size, room)).toList()
+            total += ids.size
             val key = name.lowercase()
             val known = byName[key]
             byName[key] = if (known == null) {
@@ -302,7 +316,9 @@ class LibraryBackupStore(
             crises = dao.followedDisasters().map { BackupCrisis(it.disasterId, it.name, it.glide) },
             sources = dao.followedSources().map { BackupSource(it.sourceId, it.shortname, it.name, it.reportsOnly) },
             topics = dao.followedTopics().map { BackupTopic(it.topicId, it.title, it.urlAlias, it.rivers) },
-            folders = dao.allFolderReports().groupBy { it.folderId }.let { members ->
+            // Saved reports only: a folder holds nothing else (review of PR 48).
+            folders = dao.savedReportIds().toSet().let { saved ->
+                val members = dao.allFolderReports().filter { it.reportId in saved }.groupBy { it.folderId }
                 dao.allFolders().map { f -> BackupFolder(f.name, f.createdAt, members[f.id].orEmpty().map { it.reportId }) }
             },
         )
@@ -357,16 +373,23 @@ class LibraryBackupStore(
                 }
             }
             // Folders by name, ignoring capitals: the union of the reports for one the phone has,
-            // a new folder otherwise. Only reports saved on the phone once merged (rule 3); a
-            // report missing from it is left out.
-            val existing = dao.allFolders().associateBy { it.name.lowercase() }
-            backup.folders.forEach { f ->
-                val name = Folders.clean(f.name)
-                if (name.isEmpty()) return@forEach
-                val ids = f.reportIds.filter { dao.reading(it)?.savedAt != null }
-                val folderId = existing[name.lowercase()]?.id
-                    ?: dao.insertFolder(FolderEntity(name = name, createdAt = f.createdAt.takeIf { it > 0 } ?: now, updatedAt = now))
-                dao.insertFolderReports(ids.map { FolderReportEntity(folderId, it, now) })
+            // a new folder otherwise. Only reports saved on the phone once merged (rule 3) and
+            // allowed in a folder (Folders.canBeInAFolder); a report missing is left out. The phone
+            // is read once, not once per report (review of PR 48).
+            if (backup.folders.isNotEmpty()) {
+                val saved = dao.savedReportIds().toSet()
+                val wanted = backup.folders.flatMap { it.reportIds }.filter { it in saved }.distinct()
+                val allowed = wanted.chunked(500).flatMap { dao.reportsByIds(it) }.filter { Folders.canBeInAFolder(it) }.map { it.id }.toSet()
+                val existing = dao.allFolders().associateBy { it.name.lowercase() }.toMutableMap()
+                backup.folders.forEach { f ->
+                    val name = Folders.clean(f.name)
+                    if (name.isEmpty()) return@forEach
+                    val folderId = existing[name.lowercase()]?.id
+                        ?: dao.insertFolder(FolderEntity(name = name, createdAt = f.createdAt.takeIf { it > 0 } ?: now, updatedAt = now)).also { id ->
+                            existing[name.lowercase()] = FolderEntity(id, name, now, now)
+                        }
+                    dao.insertFolderReports(f.reportIds.filter { it in allowed }.map { FolderReportEntity(folderId, it, now) })
+                }
             }
         }
     }

@@ -189,6 +189,15 @@ internal fun FolderNameDialog(title: String, confirm: String, initial: String, o
     val scope = rememberCoroutineScope()
     var name by rememberSaveable { mutableStateOf(initial) }
     var error by remember { mutableStateOf<Int?>(null) }
+    fun send() {
+        scope.launch {
+            when (submit(name)) {
+                Folders.NameCheck.Empty -> error = R.string.folder_name_empty
+                is Folders.NameCheck.Taken -> error = R.string.folder_name_taken
+                else -> Unit
+            }
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -201,19 +210,13 @@ internal fun FolderNameDialog(title: String, confirm: String, initial: String, o
                 isError = error != null,
                 supportingText = error?.let { { Text(stringResource(it), modifier = Modifier.testTag("folder_name_error")) } },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                // Done on the keyboard does what the button does (review of PR 48).
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { send() }),
                 modifier = Modifier.fillMaxWidth().testTag("folder_name_field"),
             )
         },
         confirmButton = {
-            TextButton(onClick = {
-                scope.launch {
-                    when (submit(name)) {
-                        Folders.NameCheck.Empty -> error = R.string.folder_name_empty
-                        is Folders.NameCheck.Taken -> error = R.string.folder_name_taken
-                        else -> Unit
-                    }
-                }
-            }, modifier = Modifier.testTag("folder_name_confirm")) { Text(confirm) }
+            TextButton(onClick = ::send, modifier = Modifier.testTag("folder_name_confirm")) { Text(confirm) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.report_cancel)) } },
     )
@@ -289,10 +292,10 @@ fun FolderScreen(folderId: Long, nav: Nav) {
             confirmButton = {
                 TextButton(onClick = {
                     deleting = false
-                    scope.launch {
-                        vm.delete()
-                        nav.back()
-                    }
+                    // Back first, then the folder goes, in the app's scope: its screen never shows
+                    // empty for a moment (review of PR 48).
+                    nav.back()
+                    c.scope.launch { c.folders.delete(folderId) }
                 }, modifier = Modifier.testTag("folder_delete_confirm")) { Text(stringResource(R.string.folder_delete)) }
             },
             dismissButton = { TextButton(onClick = { deleting = false }) { Text(stringResource(R.string.report_cancel)) } },

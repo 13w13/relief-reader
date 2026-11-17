@@ -247,13 +247,41 @@ class LibraryBackupTest {
         ) as LibraryBackupFormat.Parsed.Ok
         // Cleaned and cut names, the empty one left out, two of the same name made one.
         assertEquals(listOf("Chad 2027", "y".repeat(Folders.MAX_NAME)), ok.backup.folders.map { it.name })
-        // Only reports saved in the file, valid ids (a report of the feed included), each once.
-        assertEquals(listOf(1L, -42L), ok.backup.folders.first().reportIds)
+        // Only reports saved in the file, valid ids, each once; never a report of the feed (negative
+        // id), as in the app (review of PR 48).
+        assertEquals(listOf(1L), ok.backup.folders.first().reportIds)
         // More than 500 folders: refused before it is read.
         val many = (1..501).joinToString(",") { """{"name":"f$it"}""" }
         assertEquals(
             LibraryBackupFormat.Parsed.TooLarge,
             LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":5,"folders":[$many]}"""),
         )
+    }
+
+    @Test
+    fun aFileWithTooManyReportsInFoldersIsRefusedAtOnce() {
+        // 500 folders of 200 reports: 100,000 in all, over the 50,000 allowed.
+        val readings = (1..200).joinToString(",") { """{"reportId":$it,"savedAt":5}""" }
+        val ids = (1..200).joinToString(",")
+        val folders = (1..500).joinToString(",") { """{"name":"f$it","reportIds":[$ids]}""" }
+        val file = """{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":5,"readings":[$readings],"folders":[$folders]}"""
+        val start = System.nanoTime()
+        assertEquals(LibraryBackupFormat.Parsed.TooLarge, LibraryBackupFormat.parse(file))
+        assertTrue("refused in ${(System.nanoTime() - start) / 1_000_000} ms", System.nanoTime() - start < 5_000_000_000L)
+    }
+
+    @Test
+    fun aLargeAllowedFileRestoresInOnePassOverThePhone() = runBlocking {
+        // 250 folders of 200 reports: 50,000, the most allowed; read once, not once per report.
+        val readings = (1..200).joinToString(",") { """{"reportId":$it,"savedAt":5,"card":{"title":"Report $it","dateCreated":5}}""" }
+        val ids = (1..200).joinToString(",")
+        val folders = (1..250).joinToString(",") { """{"name":"f$it","reportIds":[$ids]}""" }
+        val file = """{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":5,"readings":[$readings],"folders":[$folders]}"""
+        val backup = (LibraryBackupFormat.parse(file) as LibraryBackupFormat.Parsed.Ok).backup
+        assertEquals(50_000, backup.folders.sumOf { it.reportIds.size })
+        val start = System.nanoTime()
+        LibraryBackupStore(new.dao()).restore(backup, now)
+        assertTrue("restored in ${(System.nanoTime() - start) / 1_000_000} ms", System.nanoTime() - start < 60_000_000_000L)
+        assertEquals(50_000, new.dao().allFolderReports().size)
     }
 }

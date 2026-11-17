@@ -40,19 +40,31 @@ class Folders(
         return if (same != null) NameCheck.Taken(same.id) else NameCheck.Ok(clean)
     }
 
-    /** Creates a folder, or says why not. */
+    /**
+     * Creates a folder, or says why not. The check and the insert are one transaction: a double
+     * tap on Create makes one folder (review of PR 48).
+     */
     suspend fun create(name: String): NameCheck {
-        val check = check(name)
-        if (check !is NameCheck.Ok) return check
-        val at = now()
-        val id = dao.insertFolder(FolderEntity(name = check.name, createdAt = at, updatedAt = at))
-        return NameCheck.Created(id, check.name)
+        var result: NameCheck = NameCheck.Empty
+        transaction {
+            val check = check(name)
+            result = if (check !is NameCheck.Ok) {
+                check
+            } else {
+                val at = now()
+                NameCheck.Created(dao.insertFolder(FolderEntity(name = check.name, createdAt = at, updatedAt = at)), check.name)
+            }
+        }
+        return result
     }
 
     suspend fun rename(folderId: Long, name: String): NameCheck {
-        val check = check(name, except = folderId)
-        if (check is NameCheck.Ok) dao.renameFolder(folderId, check.name, now())
-        return check
+        var result: NameCheck = NameCheck.Empty
+        transaction {
+            result = check(name, except = folderId)
+            (result as? NameCheck.Ok)?.let { dao.renameFolder(folderId, it.name, now()) }
+        }
+        return result
     }
 
     /** Deletes the folder and its links to reports; the reports stay in Saved (rule 5). */
@@ -63,14 +75,14 @@ class Folders(
 
     /**
      * Puts reports in a folder, saving those not saved yet (rule 3). Returns how many were
-     * saved by this, for "Saved and added to …". Reports of the RSS feed are never put there:
-     * they cannot be saved.
+     * saved by this, for "Saved and added to …". Only reports on the phone; never a report of
+     * the RSS feed, which cannot be saved (the same rule as a restore, [canBeInAFolder]).
      */
     suspend fun add(folderId: Long, reportIds: List<Long>): Int {
         var newlySaved = emptyList<Long>()
         transaction {
             val at = now()
-            val ids = reportIds.distinct().filter { id -> dao.report(id)?.fromRss != true }
+            val ids = reportIds.distinct().filter { id -> canBeInAFolder(dao.report(id)) }
             newlySaved = ids.filter { dao.reading(it)?.savedAt == null }
             newlySaved.forEach { id ->
                 val current = dao.reading(id) ?: ReadingEntity(id)
@@ -95,25 +107,57 @@ class Folders(
     /** Removes a report from Saved and from its folders (rule 3), in one go. */
     suspend fun unsave(reportId: Long): Unsaved {
         var removed = Unsaved(reportId, null, emptyList())
-        transaction {
-            val reading = dao.reading(reportId)
-            removed = Unsaved(reportId, reading?.savedAt, dao.foldersOfReport(reportId))
-            if (reading != null) dao.upsertReading(reading.copy(savedAt = null))
-            dao.deleteReportFromFolders(reportId)
-        }
+        transaction { removed = unsaveRows(dao, reportId) }
         return removed
     }
 
     /** Undo of [unsave]: saved again, at its first time, and back in each folder. */
-    suspend fun undo(removed: Unsaved) = transaction {
-        val current = dao.reading(removed.reportId) ?: ReadingEntity(removed.reportId)
-        dao.upsertReading(current.copy(savedAt = removed.savedAt ?: now()))
-        dao.insertFolderReports(removed.folders)
-    }
+    suspend fun undo(removed: Unsaved) = transaction { undoRows(dao, removed, now()) }
 
     companion object {
         const val MAX_NAME = 60
 
-        fun clean(name: String): String = name.replace(Regex("\\s+"), " ").trim().take(MAX_NAME).trim()
+        /** Line breaks and other controls, and the marks that turn the direction of the text. */
+        private val HIDDEN = Regex("[\\p{Cc}\\u202A-\\u202E\\u2066-\\u2069]")
+
+        /**
+         * A folder name as kept, typed or restored: controls and direction marks out, spaces
+         * collapsed, 60 characters at most (review of PR 48).
+         */
+        fun clean(name: String): String =
+            name.replace(HIDDEN, " ").replace(Regex("\\s+"), " ").trim().take(MAX_NAME).trim()
+
+        /** A report that may be in a folder: on the phone, and not of the RSS feed (it cannot be saved). */
+        fun canBeInAFolder(report: ReportEntity?): Boolean = report != null && !report.fromRss
+
+        /**
+         * The one way out of Saved, from anywhere (Repository.setSaved, the Library, a report,
+         * Today): no longer saved, out of every folder. To run in a transaction.
+         */
+        suspend fun unsaveRows(dao: RelaisDao, reportId: Long): Unsaved {
+            val reading = dao.reading(reportId)
+            val removed = Unsaved(reportId, reading?.savedAt, dao.foldersOfReport(reportId))
+            if (reading != null) dao.upsertReading(reading.copy(savedAt = null))
+            dao.deleteReportFromFolders(reportId)
+            return removed
+        }
+
+        /**
+         * Save or Saved off, as Repository.setSaved runs it for Today, a report and its Undo:
+         * off goes through [unsaveRows], so out of the folders too. To run in a transaction.
+         */
+        suspend fun setSavedRows(dao: RelaisDao, reportId: Long, saved: Boolean, now: Long): Unsaved? {
+            if (!saved) return unsaveRows(dao, reportId)
+            val current = dao.reading(reportId) ?: ReadingEntity(reportId)
+            dao.upsertReading(current.copy(savedAt = now))
+            return null
+        }
+
+        /** Undo of [unsaveRows]: saved again, at its first time, and back in each folder. */
+        suspend fun undoRows(dao: RelaisDao, removed: Unsaved, now: Long) {
+            val current = dao.reading(removed.reportId) ?: ReadingEntity(removed.reportId)
+            dao.upsertReading(current.copy(savedAt = removed.savedAt ?: now))
+            dao.insertFolderReports(removed.folders)
+        }
     }
 }

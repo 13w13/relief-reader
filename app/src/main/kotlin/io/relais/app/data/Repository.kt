@@ -934,10 +934,22 @@ class Repository(
         )
     }
 
-    suspend fun setSaved(reportId: Long, saved: Boolean) {
-        val current = dao.reading(reportId) ?: ReadingEntity(reportId)
-        dao.upsertReading(current.copy(savedAt = if (saved) System.currentTimeMillis() else null))
+    /**
+     * Saves a report, or removes it from Saved: then also from its folders (rule 3 of the folders,
+     * review of PR 48), in one transaction, whoever asks (Today, a report, the Library).
+     */
+    suspend fun setSaved(reportId: Long, saved: Boolean) = transaction {
+        Folders.setSavedRows(dao, reportId, saved, System.currentTimeMillis())
     }
+
+    /** Out of Saved and of its folders; what was taken, for Undo ([undoUnsave]). */
+    suspend fun unsave(reportId: Long): Folders.Unsaved {
+        var removed = Folders.Unsaved(reportId, null, emptyList())
+        transaction { removed = Folders.unsaveRows(dao, reportId) }
+        return removed
+    }
+
+    suspend fun undoUnsave(removed: Folders.Unsaved) = transaction { Folders.undoRows(dao, removed, System.currentTimeMillis()) }
 
     suspend fun setRead(reportId: Long, read: Boolean) {
         val current = dao.reading(reportId) ?: ReadingEntity(reportId)

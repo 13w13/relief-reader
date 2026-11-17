@@ -8,6 +8,8 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -164,5 +166,63 @@ class FoldersTest {
         dao.deleteOldReports(cutoff = Long.MAX_VALUE)
         assertNotNull(dao.report(1))
         assertNull(dao.report(3))
+    }
+
+    // --- Review of PR 48 ----------------------------------------------------------------------------
+
+    @Test
+    fun savedOffFromTodayOrAReportLeavesTheFoldersToo() = runBlocking {
+        // What Repository.setSaved runs, for Today's menu and a report's "Undo" of Save.
+        val chad = create("Chad 2027")
+        folders.add(chad, listOf(1))
+        var removed: Folders.Unsaved? = null
+        db.withTransaction { removed = Folders.setSavedRows(dao, 1, saved = false, now = now) }
+        assertNull(dao.reading(1)?.savedAt)
+        assertTrue(dao.observeFolderIdsOfReport(1).first().isEmpty())
+        assertEquals(0, dao.observeFolders().first().single().reports)
+        // The same Undo as the Library's.
+        db.withTransaction { Folders.undoRows(dao, removed!!, now) }
+        assertEquals(100L, dao.reading(1)?.savedAt)
+        assertEquals(listOf(chad), dao.observeFolderIdsOfReport(1).first())
+        // Saved on: no folder touched.
+        db.withTransaction { assertNull(Folders.setSavedRows(dao, 3, saved = true, now = now)) }
+        assertEquals(now, dao.reading(3)?.savedAt)
+    }
+
+    @Test
+    fun aLinkLeftWithoutItsSavedReportNeverCounts() = runBlocking {
+        val chad = create("Chad 2027")
+        folders.add(chad, listOf(1, 2))
+        // As an older build could leave it: the report no longer saved, its link still there.
+        dao.upsertReading(dao.reading(2)!!.copy(savedAt = null))
+        assertEquals(1, dao.observeFolders().first().single().reports)
+        assertEquals(listOf(1L), dao.observeFolderReadings(chad).first().map { it.reading.reportId })
+        assertEquals(listOf(1L), dao.folderReports(chad).map { it.id })
+        assertEquals(listOf(listOf(1L)), LibraryBackupStore(dao).export(now).folders.map { it.reportIds })
+    }
+
+    @Test
+    fun aReportNotOnThePhoneIsNeverAdded() = runBlocking {
+        val chad = create("Chad 2027")
+        assertEquals(0, folders.add(chad, listOf(999)))
+        assertTrue(dao.allFolderReports().isEmpty())
+        assertNull(dao.reading(999))
+    }
+
+    @Test
+    fun aDoubleTapOnCreateMakesOneFolder() = runBlocking {
+        val results = listOf(
+            async(Dispatchers.IO) { folders.create("Chad 2027") },
+            async(Dispatchers.IO) { folders.create("Chad 2027") },
+        ).map { it.await() }
+        assertEquals(1, results.count { it is Folders.NameCheck.Created })
+        assertEquals(1, results.count { it is Folders.NameCheck.Taken })
+        assertEquals(1, dao.allFolders().size)
+    }
+
+    @Test
+    fun controlsAndDirectionMarksLeaveTheName() {
+        assertEquals("Chad 2027 ECHO", Folders.clean("Chad\u0000 2027\u202E ECHO\u2066\u0007"))
+        assertEquals("", Folders.clean("\u202A\u202B\u2069"))
     }
 }

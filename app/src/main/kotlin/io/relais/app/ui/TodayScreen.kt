@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -256,6 +257,10 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
 
     fun setRead(id: Long, read: Boolean) = viewModelScope.launch { c.repository.setRead(id, read) }
     fun setSaved(id: Long, saved: Boolean) = viewModelScope.launch { c.repository.setSaved(id, saved) }
+
+    /** Out of Saved and of its folders (review of PR 48); [undoUnsave] puts back both. */
+    suspend fun unsave(id: Long): io.relais.app.data.Folders.Unsaved = c.repository.unsave(id)
+    fun undoUnsave(removed: io.relais.app.data.Folders.Unsaved) = viewModelScope.launch { c.repository.undoUnsave(removed) }
     fun hideFromContinue(id: Long) = viewModelScope.launch { c.repository.hideFromContinue(id) }
 }
 
@@ -313,6 +318,7 @@ fun TodayScreen(nav: Nav) {
     val pileReady = pileInPlace(state, pager)
 
     val snackbar = remember { SnackbarHostState() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val pull = rememberPull(state.lastRefreshAt.takeIf { state.hasAccess }, snackbar) { vm.refresh(force = true) }
 
     ScreenScaffold(
@@ -479,7 +485,19 @@ private fun LazyListScope.todayPage(
                 onOpen = { nav.headline(it.id) },
                 onOlder = onOlder,
                 prefetchNext = prefetchNext,
-                menu = { report, close -> HeadlineMenu(report, state, vm, close) },
+                menu = { report, close ->
+                    HeadlineMenu(report, state, vm, close, onUnsave = { id ->
+                        // As in a report and the Library: said, with Undo, when it was in a folder.
+                        scope.launch {
+                            val removed = vm.unsave(id)
+                            val n = removed.folders.size
+                            if (n > 0) {
+                                val msg = context.resources.getQuantityString(R.plurals.library_remove_saved_folders, n, n)
+                                if (snackbar.showSnackbar(msg, context.getString(R.string.action_undo)) == SnackbarResult.ActionPerformed) vm.undoUnsave(removed)
+                            }
+                        }
+                    })
+                },
             )
         }
     }
@@ -626,13 +644,16 @@ private fun MostCoveredBlock(covered: MostCovered, nav: Nav) {
 }
 
 @Composable
-private fun HeadlineMenu(report: ReportEntity, state: TodayState, vm: TodayViewModel, close: () -> Unit) {
+private fun HeadlineMenu(report: ReportEntity, state: TodayState, vm: TodayViewModel, close: () -> Unit, onUnsave: (Long) -> Unit) {
     val isRead = report.id in state.readIds
     val isSaved = report.id in state.savedIds
     if (!report.fromRss) {
         DropdownMenuItem(
             text = { Text(stringResource(if (isSaved) R.string.action_saved else R.string.action_save)) },
-            onClick = { vm.setSaved(report.id, !isSaved); close() },
+            onClick = {
+                if (isSaved) onUnsave(report.id) else vm.setSaved(report.id, true)
+                close()
+            },
         )
     }
     DropdownMenuItem(
