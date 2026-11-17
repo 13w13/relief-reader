@@ -46,6 +46,35 @@
             </intent-filter>
         </activity>
 
+        <!-- A ReliefWeb link from another app (17/11): Share > Re.L with a text holding a link, or a
+             reliefweb.int report link opened with Re.L. LinkActivity shows nothing, keeps only a
+             checked page of reliefweb.int and hands it to MainActivity. No autoVerify: Re.L does
+             not own reliefweb.int, so Android offers these links only once the reader turns
+             them on in the app's settings (Settings > Reading > Open ReliefWeb links in Re.L). -->
+        <activity
+            android:name=".LinkActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="reliefweb.int" />
+                <data android:pathPrefix="/report/" />
+                <data android:pathPrefix="/map/" />
+                <data android:pathPrefix="/node/" />
+            </intent-filter>
+        </activity>
+
         <!-- Shares the Markdown export of highlights with the app the reader picks. -->
         <provider
             android:name="androidx.core.content.FileProvider"

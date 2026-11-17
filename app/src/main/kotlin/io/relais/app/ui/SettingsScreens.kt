@@ -447,6 +447,8 @@ fun SettingsScreen(nav: Nav) {
                     )
                 }
             }
+            // ReliefWeb links (17/11): Android opens them in Re.L only once the reader allows it.
+            OpenLinksSetting()
             HorizontalDivider(Modifier.padding(top = 8.dp))
 
             SectionHeader(stringResource(R.string.settings_library))
@@ -676,6 +678,32 @@ internal fun AppearanceChoice(
         modifier = Modifier.padding(horizontal = inset).testTag("appearance"),
         optionTag = { "appearance_" + it.name.lowercase() },
     )
+}
+
+/**
+ * "Open ReliefWeb links in Re.L" (17/11): Re.L does not own reliefweb.int, so Android opens its
+ * links in Re.L only when the reader turns them on in the app's "Open by default" settings
+ * (Android 12 and later); this opens that screen, or the app's settings before Android 12.
+ */
+@Composable
+internal fun OpenLinksSetting() {
+    val context = LocalContext.current
+    TextButton(
+        onClick = { openLinkSettings(context) },
+        modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp).testTag("settings_open_links"),
+    ) { Text(stringResource(R.string.settings_open_links)) }
+    SettingText(stringResource(R.string.settings_open_links_help), secondary = true)
+}
+
+private fun openLinkSettings(context: android.content.Context) {
+    val app = android.net.Uri.parse("package:" + context.packageName)
+    val byDefault = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, app)
+    } else {
+        android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, app)
+    }
+    val details = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, app)
+    runCatching { context.startActivity(byDefault) }.onFailure { runCatching { context.startActivity(details) } }
 }
 
 @Composable

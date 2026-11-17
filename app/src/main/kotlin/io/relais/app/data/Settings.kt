@@ -116,6 +116,21 @@ val Settings.showsTour: Boolean get() = onboardingDone && tourPending
 fun needsConnect(s: Settings, builtInAppname: String): Boolean =
     s.onboardingDone && !s.connectAsked && s.userAppname.isNullOrBlank() && builtInAppname.isBlank()
 
+/** What MainActivity shows, in this order: the first launch, the tour, Connect, then the app. */
+enum class AppScreen { LOADING, ONBOARDING, TOUR, CONNECT, MAIN }
+
+/**
+ * Only [AppScreen.MAIN] takes notifications' reports and ReliefWeb links (17/11): a link shared
+ * during the first launch waits for the setup, the tour and Connect to end.
+ */
+fun appScreen(s: Settings?, builtInAppname: String): AppScreen = when {
+    s == null -> AppScreen.LOADING
+    s.needsOnboarding -> AppScreen.ONBOARDING
+    s.showsTour -> AppScreen.TOUR
+    needsConnect(s, builtInAppname) -> AppScreen.CONNECT
+    else -> AppScreen.MAIN
+}
+
 /**
  * The report text steps by name, smallest first: the order of TextStep (Theme.kt), checked by a
  * test. The step is stored by its name since v0.6, so that a step added at either end moves no

@@ -428,6 +428,10 @@ interface RelaisDao {
     @Query("SELECT * FROM country WHERE id = :id")
     fun observeCountry(id: Long): Flow<CountryEntity?>
 
+    /** The country of a ReliefWeb link /country/<iso3> (17/11); ISO codes are stored in capitals. */
+    @Query("SELECT * FROM country WHERE LOWER(iso3) = LOWER(:iso3) LIMIT 1")
+    suspend fun countryByIso3(iso3: String): CountryEntity?
+
     @Upsert
     suspend fun upsertFollowed(country: FollowedCountryEntity)
 

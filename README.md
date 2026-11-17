@@ -24,6 +24,7 @@ Re.L is a preview, built in the open in my free time, to stay closer to the huma
 - **Keeps what you read.** Save, highlight, copy with a citation, and export your highlights.
 - **No AI in the app.** No generated summaries, no scores. You read what the organizations wrote.
 - **No ads, no account, no tracking.** Re.L collects no data.
+- **Opens ReliefWeb links.** Share a reliefweb.int report link to Re.L (from a mail or a chat) and the report opens in the app, its PDF read as text. Links can also open in Re.L directly once you allow it: Settings > Reading > **Open ReliefWeb links in Re.L**.
 
 After the first launch setup, a short tour shows each screen; Settings > About Re.L > **Show the tour again** opens it again.
 
@@ -75,6 +76,8 @@ Keep your appname to yourself. Don't publish it, don't paste it in an issue, and
 ## Privacy
 
 Re.L has no account, no ads, no analytics and no crash reporting. What you follow, what you read, your highlights and your appname stay on your phone: Android's cloud backup and its transfer to a new phone don't copy them (Settings > **Back up your library** makes a file for that). It asks for internet access and, if you want the daily summary or alerts, for notifications.
+
+What other apps can give Re.L: a shared text, from which it keeps only the first link to a page of reliefweb.int, and reliefweb.int report links opened with Re.L. Nothing else is read or kept; any other link is refused. Re.L then looks for that one report, on your phone first, and asks the ReliefWeb API for it only if it is not there.
 
 Android permissions, all of them:
 

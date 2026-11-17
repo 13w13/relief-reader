@@ -81,6 +81,8 @@ import kotlin.reflect.KClass
 @Serializable object OlderHeadlinesRoute
 /** The first launch tour again, from Settings > About (issue 37). */
 @Serializable object TourRoute
+/** A ReliefWeb link from another app, already checked (17/11): resolved, then replaced by its screen. */
+@Serializable data class LinkRoute(val url: String)
 
 /** [tag] is the test tag of the bottom bar item, read by the Maestro flows in .maestro/. */
 private data class Tab(val route: Any, val routeClass: KClass<*>, val label: Int, val icon: ImageVector, val tag: String)
@@ -141,6 +143,23 @@ class Nav(private val controller: NavHostController) {
     fun pickSources() = controller.navigate(PickSourcesRoute) { launchSingleTop = true }
     fun licences() = controller.navigate(LicencesRoute) { launchSingleTop = true }
     fun tour() = controller.navigate(TourRoute) { launchSingleTop = true }
+
+    /** A link from another app; a second one while the first is still resolving takes its place. */
+    fun link(url: String) = controller.navigate(LinkRoute(url)) { launchSingleTop = true }
+
+    /**
+     * The report or country of a link, in place of the link's screen, single top: the same link
+     * shared again does not stack a second copy of its report (17/11).
+     */
+    fun reportFromLink(id: Long) = controller.navigate(ReportRoute(id)) {
+        popUpTo<LinkRoute> { inclusive = true }
+        launchSingleTop = true
+    }
+
+    fun countryFromLink(id: Long, name: String) = controller.navigate(CountryRoute(id, name)) {
+        popUpTo<LinkRoute> { inclusive = true }
+        launchSingleTop = true
+    }
     fun overview(id: Long, name: String, since: Long) = controller.navigate(OverviewRoute(id, name, since))
     fun mostRead() = controller.navigate(MostReadRoute) { launchSingleTop = true }
     fun manageFollowing() = controller.navigate(ManageFollowingRoute) { launchSingleTop = true }
@@ -194,6 +213,15 @@ fun MainScreen() {
             if (open == null) return@collect
             if (open == io.relais.app.MainActivity.OPEN_FOLLOWING) nav.tab(FollowingRoute) else nav.report(open)
             container.openRequest.value = null
+        }
+    }
+    // A ReliefWeb link from another app (17/11). Collected here, on the main screen: a link shared
+    // during the first launch waits for the setup and the tour to end.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        container.linkRequest.collect { url ->
+            if (url == null) return@collect
+            nav.link(url)
+            container.linkRequest.value = null
         }
     }
 
@@ -261,6 +289,7 @@ fun MainScreen() {
                 composable<LicencesRoute> { LicencesScreen(nav) }
                 // Back to Settings at the end, by Skip, Start reading or Back on the first page.
                 composable<TourRoute> { TourScreen(onDone = { nav.back() }) }
+                composable<LinkRoute> { LinkScreen(it.toRoute<LinkRoute>().url, nav) }
                 composable<ManageFollowingRoute> { ManageFollowingScreen(nav) }
                 composable<CrisisRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<CrisisRoute>(basePath = "relais://crisis")) else emptyList()) {
                     val route = it.toRoute<CrisisRoute>()

@@ -717,6 +717,32 @@ class Repository(
         return found
     }
 
+    // --- A ReliefWeb link given by another app (17/11) ------------------------------------------
+
+    /**
+     * The report of a link already on the phone: saved, cached, or a headline of the feed, by its
+     * address; a /node/<id> link by its id too.
+     */
+    suspend fun reportOnPhone(link: ReliefWebLinks.Link): Long? {
+        if (link is ReliefWebLinks.Link.Node) dao.report(link.id)?.let { return it.id }
+        return dao.reportsByUrls(listOf(link.url)).firstOrNull()?.id
+    }
+
+    /**
+     * One API request for the report of a link, as the reader asked (not throttled like Most
+     * read): saved, its id returned; null when ReliefWeb has no report there.
+     */
+    suspend fun fetchReportForLink(link: ReliefWebLinks.Link): Long? {
+        val response = api { it.reports(Requests.byUrls(listOf(link.url))) }
+        saveReports(response.data)
+        val items = response.data
+        return when (link) {
+            is ReliefWebLinks.Link.Node -> items.firstOrNull { it.id == link.id }?.id
+            // The exact address, else the only answer (the search may differ in case).
+            else -> (items.firstOrNull { it.fields.urlAlias == link.url } ?: items.singleOrNull())?.id
+        }
+    }
+
     /** "Most reports this week": counts by country and by disaster over 7 days, one request. */
     suspend fun fetchMostCovered(): MostCovered {
         val now = System.currentTimeMillis()
