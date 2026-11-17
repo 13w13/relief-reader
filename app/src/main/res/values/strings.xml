@@ -738,4 +738,10 @@
     <string name="whats_new_07_text_4">Checked when you open Re.L; Today says when to update.</string>
     <string name="whats_new_07_lead_5">A tour, and light or dark.</string>
     <string name="whats_new_07_text_5">New installs get both; the tour is in Settings &gt; About.</string>
+    <string name="whats_new_08_lead_1">ReliefWeb links.</string>
+    <string name="whats_new_08_text_1">Share a reliefweb.int report link to Re.L and it opens here.</string>
+    <string name="whats_new_08_lead_2">Folders.</string>
+    <string name="whats_new_08_text_2">Sort saved reports by project; export a folder with its highlights.</string>
+    <string name="whats_new_08_lead_3">Safer with other apps.</string>
+    <string name="whats_new_08_text_3">They can no longer add a report to your History.</string>
 </resources>
