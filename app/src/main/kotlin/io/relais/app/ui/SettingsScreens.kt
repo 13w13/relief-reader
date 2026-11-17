@@ -447,6 +447,8 @@ fun SettingsScreen(nav: Nav) {
                     )
                 }
             }
+            // ReliefWeb links (17/11): Android opens them in Re.L only once the reader allows it.
+            OpenLinksSetting()
             HorizontalDivider(Modifier.padding(top = 8.dp))
 
             SectionHeader(stringResource(R.string.settings_library))
@@ -684,6 +686,35 @@ internal fun AppearanceChoice(
         modifier = Modifier.padding(horizontal = inset).testTag("appearance"),
         optionTag = { "appearance_" + it.name.lowercase() },
     )
+}
+
+/**
+ * "Open ReliefWeb links in Re.L" (17/11). Re.L does not own reliefweb.int. From Android 12, its
+ * links go to the browser until the reader adds reliefweb.int in Re.L's "Open by default"
+ * settings, which the button opens. Before Android 12, Android asks at the link which app opens
+ * it, with no setting to turn on: text only, no button (review of PR 47).
+ */
+@Composable
+internal fun OpenLinksSetting(sdk: Int = android.os.Build.VERSION.SDK_INT) {
+    val context = LocalContext.current
+    if (sdk >= android.os.Build.VERSION_CODES.S) {
+        TextButton(
+            onClick = { openLinkSettings(context) },
+            modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp).testTag("settings_open_links"),
+        ) { Text(stringResource(R.string.settings_open_links)) }
+        SettingText(stringResource(R.string.settings_open_links_help), secondary = true)
+    } else {
+        SettingText(stringResource(R.string.settings_open_links))
+        SettingText(stringResource(R.string.settings_open_links_help_before_12), secondary = true)
+    }
+}
+
+/** Android 12 and later: Re.L's "Open by default" screen, or its app info if that one is missing. */
+private fun openLinkSettings(context: android.content.Context) {
+    val app = android.net.Uri.parse("package:" + context.packageName)
+    val byDefault = android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, app)
+    val details = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, app)
+    runCatching { context.startActivity(byDefault) }.onFailure { runCatching { context.startActivity(details) } }
 }
 
 @Composable

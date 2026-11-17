@@ -46,6 +46,48 @@
             </intent-filter>
         </activity>
 
+        <!-- Where an alert's notification leads (review of PR 47). Not exported: only Re.L's own
+             notifications start it, and it alone reads the report to open. It shows nothing and
+             brings MainActivity forward. -->
+        <activity
+            android:name=".AlertActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
+
+        <!-- A ReliefWeb link from another app (17/11): Share > Re.L with a text holding a link, or a
+             reliefweb.int report link opened with Re.L. LinkActivity shows nothing, keeps only a
+             checked page of reliefweb.int and hands it to MainActivity. No autoVerify: Re.L does
+             not own reliefweb.int. From Android 12, these links reach Re.L only once the reader
+             adds reliefweb.int in the app's "Open by default" settings (Settings > Reading > Open
+             ReliefWeb links in Re.L); before 12, Android asks at the link which app opens it.
+             Re.L's own "Open in browser" never comes back here (BrowserLinks). -->
+        <activity
+            android:name=".LinkActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="reliefweb.int" />
+                <data android:pathPrefix="/report/" />
+                <data android:pathPrefix="/map/" />
+                <data android:pathPrefix="/node/" />
+            </intent-filter>
+        </activity>
+
         <!-- Shares the Markdown export of highlights with the app the reader picks. -->
         <provider
             android:name="androidx.core.content.FileProvider"
