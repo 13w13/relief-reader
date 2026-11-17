@@ -98,12 +98,13 @@ class AlertActivityTest {
 
     @Test
     fun theReportIdIsReadByAlertActivityAlone() {
-        // An app that sets the id on MainActivity reaches nothing: only AlertActivity reads it
-        // (Work.kt puts it in the notification), and the request the main screen opens is
-        // declared in the container, set by AlertActivity, read and cleared by the main screen.
+        // An app that sets the id on MainActivity reaches nothing: only AlertActivity's code
+        // reads it, and the request the main screen opens is declared in the container, set by
+        // AlertActivity, read and cleared by the main screen. Comments are left out.
         val main = File("src/main/kotlin")
-        fun filesWith(text: String) = main.walk().filter { it.isFile && it.readText().contains(text) }.map { it.name }.toSet()
-        assertEquals(setOf("AlertActivity.kt", "Work.kt"), filesWith("EXTRA_OPEN"))
+        fun code(file: File) = file.readLines().filterNot { it.trim().let { l -> l.startsWith("//") || l.startsWith("*") || l.startsWith("/*") } }
+        fun filesWith(text: String) = main.walk().filter { it.isFile && code(it).any { line -> text in line } }.map { it.name }.toSet()
+        assertEquals(setOf("AlertActivity.kt"), filesWith("EXTRA_OPEN"))
         assertEquals(setOf("AlertActivity.kt", "RelaisApp.kt", "Navigation.kt"), filesWith("openRequest"))
     }
 }
