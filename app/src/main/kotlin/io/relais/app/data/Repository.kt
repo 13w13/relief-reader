@@ -936,7 +936,12 @@ class Repository(
 
     // --- Reading state ----------------------------------------------------------------
 
-    suspend fun opened(reportId: Long) {
+    /**
+     * The reading row is read, then written whole: [opened], [savePosition], [setRead] and
+     * [setSaved] each do it in a transaction, so two at once (a report from a link saved at the
+     * reader's first action: the visit and the save) never undo each other (merge of PR 47 and 48).
+     */
+    suspend fun opened(reportId: Long) = transaction {
         val now = System.currentTimeMillis()
         val current = dao.reading(reportId) ?: ReadingEntity(reportId)
         dao.upsertReading(
@@ -950,7 +955,7 @@ class Repository(
         )
     }
 
-    suspend fun savePosition(reportId: Long, index: Int, offset: Int, percent: Int, finished: Boolean) {
+    suspend fun savePosition(reportId: Long, index: Int, offset: Int, percent: Int, finished: Boolean) = transaction {
         val current = dao.reading(reportId) ?: ReadingEntity(reportId)
         dao.upsertReading(
             current.copy(
@@ -979,7 +984,7 @@ class Repository(
 
     suspend fun undoUnsave(removed: Folders.Unsaved) = transaction { Folders.undoRows(dao, removed, System.currentTimeMillis()) }
 
-    suspend fun setRead(reportId: Long, read: Boolean) {
+    suspend fun setRead(reportId: Long, read: Boolean) = transaction {
         val current = dao.reading(reportId) ?: ReadingEntity(reportId)
         dao.upsertReading(current.copy(readAt = if (read) System.currentTimeMillis() else null))
     }

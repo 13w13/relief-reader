@@ -6,6 +6,7 @@ import android.app.Application
 import android.content.Context
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
+import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.ktor.client.HttpClient
@@ -20,13 +21,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -88,6 +93,8 @@ class RepositoryLinkTest {
             http = HttpClient(engine),
             builtInAppname = "test-app",
             bundledCountries = { emptyList() },
+            // As in the app: one database transaction (AppContainer).
+            transaction = { block -> db.withTransaction { block() } },
         )
     }
 
@@ -135,6 +142,27 @@ class RepositoryLinkTest {
         assertEquals(990000300L, repository.fetchReportForLink(link))
         // On the phone now, by its id whatever its address.
         assertEquals(990000300L, repository.reportOnPhone(link))
+    }
+
+    @Test
+    fun theVisitAndASaveAtOnceKeepEachOther() = runBlocking<Unit> {
+        // A report from a link saved at the reader's first action: the visit (History, read)
+        // and the save start together, and each reads then writes the reading row.
+        (1..20).forEach { n ->
+            val id = 990000400L + n
+            val alias = "$address-$n"
+            answer = listOf(id to alias)
+            assertEquals(id, repository.fetchReportForLink(ReliefWebLinks.fromUrl(alias) as Link.Report))
+            coroutineScope {
+                launch(Dispatchers.IO) { repository.opened(id) }
+                launch(Dispatchers.IO) { repository.setSaved(id, true) }
+                launch(Dispatchers.IO) { repository.savePosition(id, 3, 0, 100, finished = true) }
+            }
+            val reading = db.dao().reading(id)!!
+            assertTrue("$n: in History", reading.inHistory)
+            assertNotNull("$n: saved", reading.savedAt)
+            assertNotNull("$n: finished", reading.finishedAt)
+        }
     }
 
     @Test

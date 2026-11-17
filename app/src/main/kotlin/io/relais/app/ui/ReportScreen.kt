@@ -249,13 +249,16 @@ class ReportViewModel(private val c: AppContainer, private val id: Long, headlin
         }
     }
 
+    /** Saving, unsaving or filing a report is the reader acting: a report from a link counts from then. */
     fun setSaved(saved: Boolean) = viewModelScope.launch {
+        visit.interacted()
         c.repository.setSaved(id, saved)
         c.pdfs.relocate(id, keep = saved)
     }
 
     /** Removed from Saved and from its folders (17/11); [undoUnsave] puts back both. */
     suspend fun unsave(): io.relais.app.data.Folders.Unsaved {
+        visit.interacted()
         val removed = c.folders.unsave(id)
         c.pdfs.relocate(id, keep = false)
         return removed
@@ -543,7 +546,8 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.folder_add)) },
                             leadingIcon = { Icon(Icons.Rounded.CreateNewFolder, contentDescription = null) },
-                            onClick = { close(); folderSheet = true },
+                            // Filing is the reader acting (ReportVisit); only this tap opens the sheet.
+                            onClick = { close(); vm.interacted(); folderSheet = true },
                             modifier = Modifier.testTag("add_to_folder"),
                         )
                     }
