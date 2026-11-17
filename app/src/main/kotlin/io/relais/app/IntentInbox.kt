@@ -15,14 +15,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
  */
 class IntentInbox(
     private val openRequest: MutableStateFlow<Long?>,
-    private val linkRequest: MutableStateFlow<String?>,
+    private val linkRequest: MutableStateFlow<io.relais.app.data.PendingLink?>,
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
     fun take(intent: Intent?, restored: Boolean) {
         if (restored || intent == null) return
         runCatching {
             val open = intent.getLongExtra(MainActivity.EXTRA_OPEN, 0L)
             if (open != 0L) openRequest.value = open
-            ReliefWebLinks.fromUrl(intent.getStringExtra(MainActivity.EXTRA_LINK))?.let { linkRequest.value = it.url }
+            ReliefWebLinks.fromUrl(intent.getStringExtra(MainActivity.EXTRA_LINK))?.let { linkRequest.value = io.relais.app.data.PendingLink(it.url, now()) }
         }
     }
 }

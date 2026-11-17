@@ -20,12 +20,14 @@ class LinkOpenerTest {
         var answer: () -> Long? = { 990000300 },
     ) {
         var requests = 0
+        var clock = 1_794_614_400_000L
         val opener = LinkOpener(
             onPhone = { onPhone },
             countryByIso3 = { iso3 -> if (iso3 == "sdn") CountryEntity(-249, "Sudan", null, "SDN", "ongoing") else null },
             hasAccess = { access },
             online = { online },
             fetch = { requests++; answer() },
+            now = { clock },
         )
 
         fun open(link: Link) = runBlocking { opener.open(link) }
@@ -81,6 +83,52 @@ class LinkOpenerTest {
         assertEquals(LinkTarget.Failed("HTTP 500"), Phone(answer = { throw ApiException.Server(500, "x") }).open(report))
         assertEquals(LinkTarget.Failed("ReliefWeb did not answer"), Phone(answer = { throw ApiException.Blocked() }).open(report))
         assertEquals(LinkTarget.Failed("unexpected error"), Phone(answer = { throw IllegalStateException() }).open(report))
+    }
+
+    private fun reportNo(n: Int) = Link.Report("https://reliefweb.int/report/sudan/sudan-test-flash-update-no-$n")
+
+    @Test
+    fun fiveRequestsInTenMinutesThenTryLater() {
+        // Another app sending links on its own (review of PR 47): five requests, then none.
+        val phone = Phone()
+        (1..5).forEach { assertEquals(LinkTarget.Report(990000300), phone.open(reportNo(it))) }
+        assertEquals(5, phone.requests)
+        assertEquals(LinkTarget.TryLater, phone.open(reportNo(6)))
+        phone.clock += LinkOpener.WINDOW - 1
+        assertEquals(LinkTarget.TryLater, phone.open(reportNo(7)))
+        assertEquals(5, phone.requests)
+        // A report on the phone still opens meanwhile: it costs no request.
+        phone.onPhone = 42
+        assertEquals(LinkTarget.Report(42), phone.open(reportNo(8)))
+        phone.onPhone = null
+        // Ten minutes after the first ones, requests go again.
+        phone.clock += 1
+        assertEquals(LinkTarget.Report(990000300), phone.open(reportNo(9)))
+        assertEquals(6, phone.requests)
+    }
+
+    @Test
+    fun failedRequestsCountInTheBudgetToo() {
+        val phone = Phone(answer = { throw ApiException.Server(500, "x") })
+        (1..LinkOpener.BUDGET).forEach { assertEquals(LinkTarget.Failed("HTTP 500"), phone.open(reportNo(it))) }
+        assertEquals(LinkTarget.TryLater, phone.open(reportNo(99)))
+        assertEquals(LinkOpener.BUDGET, phone.requests)
+    }
+
+    @Test
+    fun anAddressWithoutAReportIsNotAskedAgainForTenMinutes() {
+        val phone = Phone(answer = { null })
+        assertEquals(LinkTarget.NotFound, phone.open(report))
+        assertEquals(LinkTarget.NotFound, phone.open(report))
+        phone.clock += LinkOpener.NOT_FOUND_FOR - 1
+        assertEquals(LinkTarget.NotFound, phone.open(report))
+        assertEquals(1, phone.requests)
+        // Another address is asked.
+        assertEquals(LinkTarget.NotFound, phone.open(node))
+        assertEquals(2, phone.requests)
+        phone.clock += 1
+        assertEquals(LinkTarget.NotFound, phone.open(report))
+        assertEquals(3, phone.requests)
     }
 
     @Test

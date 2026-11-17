@@ -50,7 +50,8 @@ import kotlin.reflect.KClass
 @Serializable object LibraryRoute
 @Serializable object SettingsRoute
 // `headline` marks a report opened from the pile of Today: it ends with "Headline 3 of 6" (v0.4).
-@Serializable data class ReportRoute(val id: Long, val block: Int = -1, val headline: Boolean = false)
+// `fromLink`: opened from a link another app sent; the visit counts once the reader touches it (17/11).
+@Serializable data class ReportRoute(val id: Long, val block: Int = -1, val headline: Boolean = false, val fromLink: Boolean = false)
 // page, block and query open the reader on a highlight or a search result (pdf/, T9).
 @Serializable data class PdfRoute(
     val url: String,
@@ -63,7 +64,7 @@ import kotlin.reflect.KClass
 )
 // `name` has a default so that the deep link relais://country/{id} works with the id alone.
 // `filter` names a PageFilter to open on (Most read from its screen); All otherwise.
-@Serializable data class CountryRoute(val id: Long, val name: String = "", val filter: String = "")
+@Serializable data class CountryRoute(val id: Long, val name: String = "", val filter: String = "", val fromLink: Boolean = false)
 @Serializable data class CrisisRoute(val id: Long, val name: String = "", val filter: String = "")
 // The overview of a country, opened from its page; `since` is the page's last visit, for the dots.
 @Serializable data class OverviewRoute(val id: Long, val name: String, val since: Long = Long.MAX_VALUE)
@@ -144,21 +145,33 @@ class Nav(private val controller: NavHostController) {
     fun licences() = controller.navigate(LicencesRoute) { launchSingleTop = true }
     fun tour() = controller.navigate(TourRoute) { launchSingleTop = true }
 
-    /** A link from another app; a second one while the first is still resolving takes its place. */
-    fun link(url: String) = controller.navigate(LinkRoute(url)) { launchSingleTop = true }
-
     /**
-     * The report or country of a link, in place of the link's screen, single top: the same link
-     * shared again does not stack a second copy of its report (17/11).
+     * A link from another app. The screen on top came from a link too (its screen, its report or
+     * its country): this one takes its place instead of piling up (review of PR 47).
      */
-    fun reportFromLink(id: Long) = controller.navigate(ReportRoute(id)) {
-        popUpTo<LinkRoute> { inclusive = true }
-        launchSingleTop = true
+    fun link(url: String) {
+        if (fromLinkOnTop()) controller.popBackStack()
+        controller.navigate(LinkRoute(url))
     }
 
-    fun countryFromLink(id: Long, name: String) = controller.navigate(CountryRoute(id, name)) {
+    private fun fromLinkOnTop(): Boolean {
+        val top = controller.currentBackStackEntry ?: return false
+        val destination = top.destination
+        return when {
+            destination.hasRoute(LinkRoute::class) -> true
+            destination.hasRoute(ReportRoute::class) -> top.toRoute<ReportRoute>().fromLink
+            destination.hasRoute(CountryRoute::class) -> top.toRoute<CountryRoute>().fromLink
+            else -> false
+        }
+    }
+
+    /** The report or country of a link, in place of the link's screen, marked as from a link. */
+    fun reportFromLink(id: Long) = controller.navigate(ReportRoute(id, fromLink = true)) {
         popUpTo<LinkRoute> { inclusive = true }
-        launchSingleTop = true
+    }
+
+    fun countryFromLink(id: Long, name: String) = controller.navigate(CountryRoute(id, name, fromLink = true)) {
+        popUpTo<LinkRoute> { inclusive = true }
     }
     fun overview(id: Long, name: String, since: Long) = controller.navigate(OverviewRoute(id, name, since))
     fun mostRead() = controller.navigate(MostReadRoute) { launchSingleTop = true }
@@ -218,9 +231,10 @@ fun MainScreen() {
     // A ReliefWeb link from another app (17/11). Collected here, on the main screen: a link shared
     // during the first launch waits for the setup and the tour to end.
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        container.linkRequest.collect { url ->
-            if (url == null) return@collect
-            nav.link(url)
+        container.linkRequest.collect { pending ->
+            if (pending == null) return@collect
+            // A link kept during the first launch opens if it is recent, not much later (review of PR 47).
+            if (pending.isFresh(System.currentTimeMillis())) nav.link(pending.url)
             container.linkRequest.value = null
         }
     }
@@ -261,7 +275,7 @@ fun MainScreen() {
                 // Deep links relais://report/{id} and relais://country/{id}, used by the Maestro flows.
                 composable<ReportRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<ReportRoute>(basePath = "relais://report")) else emptyList()) {
                     val route = it.toRoute<ReportRoute>()
-                    ReportScreen(route.id, route.block, nav, fromHeadline = route.headline)
+                    ReportScreen(route.id, route.block, nav, fromHeadline = route.headline, fromLink = route.fromLink)
                 }
                 composable<PdfRoute> {
                     val route = it.toRoute<PdfRoute>()

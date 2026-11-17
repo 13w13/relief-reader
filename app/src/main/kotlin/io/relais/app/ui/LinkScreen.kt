@@ -58,6 +58,12 @@ class LinkViewModel(private val opener: LinkOpener, private val url: String) : V
         _target.value = null
         viewModelScope.launch { _target.value = if (link == null) LinkTarget.NotAReport else opener.open(link) }
     }
+
+    /** On coming back to the screen: an answer that may have changed meanwhile is asked again. */
+    fun resolveAgainIfStuck() {
+        val t = _target.value
+        if (t == LinkTarget.NeedsAppname || t == LinkTarget.Offline || t == LinkTarget.TryLater || t is LinkTarget.Failed) resolve()
+    }
 }
 
 /**
@@ -70,6 +76,8 @@ fun LinkScreen(url: String, nav: Nav) {
     val context = LocalContext.current
     val vm = viewModel(key = url) { LinkViewModel(context.container.linkOpener, url) }
     val target by vm.target.collectAsStateWithLifecycle()
+    // Back from Settings with an appname, or with the network back: looked for again (review of PR 47).
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { vm.resolveAgainIfStuck() }
     LaunchedEffect(target) {
         when (val t = target) {
             is LinkTarget.Report -> nav.reportFromLink(t.id)
@@ -107,6 +115,7 @@ internal fun LinkMessage(target: LinkTarget?, onBrowser: () -> Unit, onAddAppnam
             LinkTarget.Offline -> stringResource(R.string.link_offline)
             LinkTarget.NotFound -> stringResource(R.string.link_not_found)
             LinkTarget.NotAReport -> stringResource(R.string.link_not_a_report)
+            LinkTarget.TryLater -> stringResource(R.string.link_try_later)
             is LinkTarget.Failed -> stringResource(R.string.link_failed, target.reason)
         }
         if (target == null || target is LinkTarget.Report || target is LinkTarget.Country) {
@@ -123,7 +132,7 @@ internal fun LinkMessage(target: LinkTarget?, onBrowser: () -> Unit, onAddAppnam
                 if (target == LinkTarget.NeedsAppname) {
                     Button(onClick = onAddAppname, modifier = Modifier.testTag("link_add_appname")) { Text(stringResource(R.string.link_add_appname)) }
                 }
-                if (target is LinkTarget.Failed || target == LinkTarget.Offline) {
+                if (target is LinkTarget.Failed || target == LinkTarget.Offline || target == LinkTarget.NeedsAppname || target == LinkTarget.TryLater) {
                     Button(onClick = onRetry, modifier = Modifier.testTag("link_retry")) { Text(stringResource(R.string.link_try_again)) }
                 }
                 OutlinedButton(onClick = onBrowser, modifier = Modifier.testTag("link_browser")) { Text(stringResource(R.string.action_open_browser)) }

@@ -7,7 +7,9 @@ import android.content.Intent
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.MutableStateFlow
+import io.relais.app.data.PendingLink
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -91,14 +93,15 @@ class LinkActivityTest {
     // --- MainActivity's intents -------------------------------------------------------------------
 
     private val open = MutableStateFlow<Long?>(null)
-    private val link = MutableStateFlow<String?>(null)
-    private val inbox = IntentInbox(open, link)
+    private val link = MutableStateFlow<PendingLink?>(null)
+    private var clock = 1_794_614_400_000L
+    private val inbox = IntentInbox(open, link, now = { clock })
 
     @Test
     fun theLinkIsTakenOnceAndNotAgainAfterARotation() {
         val intent = Intent().putExtra(MainActivity.EXTRA_LINK, report)
         inbox.take(intent, restored = false)
-        assertEquals(report, link.value)
+        assertEquals(PendingLink(report, clock), link.value)
         // Consumed by the main screen, then the activity is recreated with the same intent.
         link.value = null
         inbox.take(intent, restored = true)
@@ -113,7 +116,20 @@ class LinkActivityTest {
             assertNull(it, link.value)
         }
         inbox.take(Intent().putExtra(MainActivity.EXTRA_LINK, "$report?x=1"), restored = false)
-        assertEquals(report, link.value)
+        assertEquals(report, link.value?.url)
+    }
+
+    @Test
+    fun aLinkKeptDuringTheFirstLaunchOpensForTenMinutesOnly() {
+        // Shared during the setup: the main screen opens it if it comes within 10 minutes.
+        inbox.take(Intent().putExtra(MainActivity.EXTRA_LINK, report), restored = false)
+        val pending = link.value!!
+        assertTrue(pending.isFresh(clock))
+        assertTrue(pending.isFresh(clock + PendingLink.FRESH_FOR - 1))
+        assertFalse(pending.isFresh(clock + PendingLink.FRESH_FOR))
+        assertFalse(pending.isFresh(clock + 3 * 60 * 60 * 1000L))
+        // A clock put back is not "fresh" either.
+        assertFalse(pending.isFresh(clock - 1))
     }
 
     @Test

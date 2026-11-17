@@ -189,7 +189,7 @@ class AppContainer(private val context: Context) {
      * A ReliefWeb link given by another app (17/11), already checked (ReliefWebLinks): it waits
      * here until the main screen is shown, so the first launch setup and the tour come first.
      */
-    val linkRequest = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val linkRequest = kotlinx.coroutines.flow.MutableStateFlow<io.relais.app.data.PendingLink?>(null)
 
     /** From a ReliefWeb link to a screen (17/11). */
     val linkOpener = io.relais.app.data.LinkOpener(

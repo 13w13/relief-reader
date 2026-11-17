@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.relais.app.data.LinkOpener
 import io.relais.app.data.LinkTarget
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -60,11 +61,51 @@ class LinkScreenTest {
         target = LinkTarget.NeedsAppname
         show()
         compose.onNodeWithText("This report needs a ReliefWeb appname to open in Re.L.").assertIsDisplayed()
-        buttons("link_add_appname", "link_browser")
+        buttons("link_add_appname", "link_retry", "link_browser")
         compose.onNodeWithTag("link_add_appname").performClick()
         compose.onNodeWithTag("link_browser").performClick()
         assertEquals(listOf("appname", "browser"), taps)
     }
+
+    @Test
+    fun severalLinksInAFewMinutesWait() {
+        target = LinkTarget.TryLater
+        show()
+        compose.onNodeWithText(
+            "Re.L opened several links in a few minutes. Try again in a moment, or open this one in your browser.",
+        ).assertIsDisplayed()
+        buttons("link_retry", "link_browser")
+    }
+
+    @Test
+    fun backOnTheScreenAStuckLinkIsLookedForAgain() {
+        // No appname: the reader adds one in Settings, comes back, and the report opens.
+        var access = false
+        var requests = 0
+        val opener = LinkOpener(
+            onPhone = { null },
+            countryByIso3 = { null },
+            hasAccess = { access },
+            online = { true },
+            fetch = { requests++; 990000300 },
+        )
+        val vm = LinkViewModel(opener, "https://reliefweb.int/report/sudan/sudan-test-flash-update-990000300")
+        idle()
+        assertEquals(LinkTarget.NeedsAppname, vm.target.value)
+        vm.resolveAgainIfStuck()
+        idle()
+        assertEquals(LinkTarget.NeedsAppname, vm.target.value)
+        access = true
+        vm.resolveAgainIfStuck()
+        idle()
+        assertEquals(LinkTarget.Report(990000300), vm.target.value)
+        // Found: nothing is asked again.
+        vm.resolveAgainIfStuck()
+        idle()
+        assertEquals(1, requests)
+    }
+
+    private fun idle() = org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
 
     @Test
     fun offlineOrFailedCanTryAgain() {

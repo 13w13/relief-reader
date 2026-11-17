@@ -4,7 +4,9 @@ package io.relais.app.data
 
 import io.relais.app.data.ReliefWebLinks.Link
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** A ReliefWeb link from another app (17/11): only a page of reliefweb.int goes on. Made-up addresses. */
@@ -82,6 +84,47 @@ class ReliefWebLinksTest {
             "https://reliefweb.int/node/0",
             "https://reliefweb.int/node/abc",
         ).forEach { assertEquals(it, Link.Other::class, ReliefWebLinks.fromUrl(it)!!::class) }
+    }
+
+    /**
+     * What Repository.fetchReportForLink puts between quotes in `url_alias:"…"`: never a quote, a
+     * backslash, a space or a dot segment, whatever the link (review of PR 47). Freezes SAFE_PATH.
+     */
+    @Test
+    fun nothingThatCouldChangeTheQueryGetsThrough() {
+        val safe = Regex("""^https://reliefweb\.int(/[A-Za-z0-9._~%/-]*)?$""")
+        listOf(
+            "https://reliefweb.int/report/sudan/x\"y",
+            "https://reliefweb.int/report/sudan/x%22y",
+            "https://reliefweb.int/report/sudan/x\\y",
+            "https://reliefweb.int/report/sudan/x%5Cy",
+            "https://reliefweb.int/report/sudan/x y",
+            "https://reliefweb.int/report/sudan/x%20OR%20id%3A1",
+            "https://reliefweb.int/report/sudan/%2e%2e",
+            "https://reliefweb.int/report/sudan/%2E%2E/%2e%2e/node/1",
+            "https://reliefweb.int/report/%2e/sudan/x",
+            "https://reliefweb.int/report/sudan/../chad/x",
+        ).forEach { url ->
+            val link = ReliefWebLinks.fromUrl(url) ?: return@forEach
+            assertTrue("$url gave ${link.url}", safe.matches(link.url))
+            assertFalse("$url gave ${link.url}", link.url.contains("%2e", ignoreCase = true) || link.url.contains("/../") || link.url.endsWith("/.."))
+            // An encoded character is never part of a report's address: such a link is no report.
+            if ("%" in link.url) assertEquals(url, Link.Other::class, link::class)
+        }
+        // A quote or a backslash in a report's address: not a report.
+        assertFalse(ReliefWebLinks.fromUrl("https://reliefweb.int/report/sudan/x\"y") is Link.Report)
+        assertFalse(ReliefWebLinks.fromUrl("https://reliefweb.int/report/sudan/x%5Cy") is Link.Report)
+    }
+
+    @Test
+    fun aTrailingDotOrABackslashInTheHostIsRefused() {
+        listOf(
+            "https://reliefweb.int./report/sudan/x",
+            "https://reliefweb.int../report/sudan/x",
+            "https://reliefweb.int\\@example.org/report/sudan/x",
+            "https://example.org\\@reliefweb.int/report/sudan/x",
+            "https://example.org\\.reliefweb.int/report/sudan/x",
+        ).forEach { assertNull(it, ReliefWebLinks.fromUrl(it)) }
     }
 
     @Test

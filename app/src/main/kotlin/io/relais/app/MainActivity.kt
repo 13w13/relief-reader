@@ -96,20 +96,24 @@ class MainActivity : ComponentActivity() {
             val appearance by appearanceFlow.collectAsStateWithLifecycle()
             val dark = isDark(appearance)
             LaunchedEffect(dark) { applyWindow(dark) }
-            RelaisTheme(darkTheme = dark, display = DisplaySize.of(settings?.display)) {
-                // testTagsAsResourceId exposes the test tags as resource ids, for the Maestro flows in .maestro/.
-                Surface(
-                    Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
-                    color = MaterialTheme.colorScheme.background,
-                ) {
-                    when (io.relais.app.data.appScreen(settings, BuildConfig.RELIEFWEB_APPNAME)) {
-                        io.relais.app.data.AppScreen.LOADING -> Box(Modifier.fillMaxSize())
-                        io.relais.app.data.AppScreen.ONBOARDING -> OnboardingFlow()
-                        // The tour (issue 37): once, right after the first launch setup, before Today.
-                        io.relais.app.data.AppScreen.TOUR -> TourScreen(onDone = { container.scope.launch { runCatching { container.settings.setTourSeen() } } })
-                        io.relais.app.data.AppScreen.CONNECT -> ConnectScreen()
-                        // Takes notifications' reports and ReliefWeb links (container's requests).
-                        io.relais.app.data.AppScreen.MAIN -> MainScreen()
+            // Pages of reliefweb.int open in a browser, never back in Re.L (review of PR 47).
+            val uriHandler = androidx.compose.runtime.remember { io.relais.app.ui.RelaisUriHandler(this@MainActivity) }
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalUriHandler provides uriHandler) {
+                RelaisTheme(darkTheme = dark, display = DisplaySize.of(settings?.display)) {
+                    // testTagsAsResourceId exposes the test tags as resource ids, for the Maestro flows in .maestro/.
+                    Surface(
+                        Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
+                        color = MaterialTheme.colorScheme.background,
+                    ) {
+                        when (io.relais.app.data.appScreen(settings, BuildConfig.RELIEFWEB_APPNAME)) {
+                            io.relais.app.data.AppScreen.LOADING -> Box(Modifier.fillMaxSize())
+                            io.relais.app.data.AppScreen.ONBOARDING -> OnboardingFlow()
+                            // The tour (issue 37): once, right after the first launch setup, before Today.
+                            io.relais.app.data.AppScreen.TOUR -> TourScreen(onDone = { container.scope.launch { runCatching { container.settings.setTourSeen() } } })
+                            io.relais.app.data.AppScreen.CONNECT -> ConnectScreen()
+                            // Takes notifications' reports and ReliefWeb links (container's requests).
+                            io.relais.app.data.AppScreen.MAIN -> MainScreen()
+                        }
                     }
                 }
             }

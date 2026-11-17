@@ -49,8 +49,10 @@
         <!-- A ReliefWeb link from another app (17/11): Share > Re.L with a text holding a link, or a
              reliefweb.int report link opened with Re.L. LinkActivity shows nothing, keeps only a
              checked page of reliefweb.int and hands it to MainActivity. No autoVerify: Re.L does
-             not own reliefweb.int, so Android offers these links only once the reader turns
-             them on in the app's settings (Settings > Reading > Open ReliefWeb links in Re.L). -->
+             not own reliefweb.int. From Android 12, these links reach Re.L only once the reader
+             adds reliefweb.int in the app's "Open by default" settings (Settings > Reading > Open
+             ReliefWeb links in Re.L); before 12, Android asks at the link which app opens it.
+             Re.L's own "Open in browser" never comes back here (BrowserLinks). -->
         <activity
             android:name=".LinkActivity"
             android:exported="true"

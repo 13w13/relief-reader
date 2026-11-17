@@ -5,6 +5,18 @@ package io.relais.app.data
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
+ * A checked link waiting for the main screen (the first launch setup, the tour, Connect), with
+ * when it came: it opens within [FRESH_FOR], not hours later (review of PR 47).
+ */
+data class PendingLink(val url: String, val at: Long) {
+    fun isFresh(now: Long): Boolean = now - at in 0L until FRESH_FOR
+
+    companion object {
+        const val FRESH_FOR = 10 * 60 * 1000L
+    }
+}
+
+/**
  * A ReliefWeb link given to Re.L by another app (founder, 17/11): shared as text, or opened from a
  * link. This is an entry other apps can reach, so it is strict: only a page of reliefweb.int
  * itself, https on the standard port, no user info, no subdomain or look-alike host, a short
@@ -37,9 +49,16 @@ object ReliefWebLinks {
 
     private const val HOST = "reliefweb.int"
 
-    /** Letters, digits and the few marks of ReliefWeb's addresses; never a quote or a space. */
+    /**
+     * Letters, digits and the few marks of ReliefWeb's addresses; never a quote, a backslash or a
+     * space. This rule is what keeps the API query safe: Repository.fetchReportForLink builds
+     * `url_alias:"<address>"` by concatenation, so a quote let through here would let a link change
+     * the query (review of PR 47). Do not loosen it; ReliefWebLinksTest holds it.
+     */
     private val SAFE_PATH = Regex("^/[A-Za-z0-9._~%/-]*$")
-    private val SEGMENT = "[A-Za-z0-9._~%-]+"
+
+    /** A segment of a report's address: ReliefWeb's slugs, so not even an encoded character. */
+    private val SEGMENT = "[A-Za-z0-9._~-]+"
     private val REPORT = Regex("^/(report|map)/$SEGMENT/$SEGMENT$")
     private val NODE = Regex("^/node/(\\d{1,12})$")
     private val COUNTRY = Regex("^/country/([A-Za-z]{3})$")

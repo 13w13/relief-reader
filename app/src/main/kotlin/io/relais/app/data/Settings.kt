@@ -196,7 +196,14 @@ class UpdateDismissedMigration(private val now: () -> Long = System::currentTime
 @Serializable
 data class CountryPrefs(val tab: String? = null, val filter: CountryFilter = CountryFilter())
 
-class SettingsStore(private val context: Context) {
+/**
+ * The settings in DataStore. [store] is the app's one file, "settings"; a test passes its own, so
+ * that it never shares the process's single store with another test.
+ */
+class SettingsStore(
+    context: Context,
+    private val store: DataStore<Preferences> = context.dataStore,
+) {
     private object Keys {
         val onboardingDone = booleanPreferencesKey("onboarding_done")
         val tourPending = booleanPreferencesKey("tour_pending")
@@ -245,7 +252,7 @@ class SettingsStore(private val context: Context) {
         fun country(id: Long) = stringPreferencesKey("country_$id")
     }
 
-    val flow: Flow<Settings> = context.dataStore.data.map { p ->
+    val flow: Flow<Settings> = store.data.map { p ->
         Settings(
             onboardingDone = p[Keys.onboardingDone] ?: false,
             tourPending = p[Keys.tourPending] ?: false,
@@ -294,11 +301,11 @@ class SettingsStore(private val context: Context) {
         )
     }
 
-    fun countryPrefs(id: Long): Flow<CountryPrefs> = context.dataStore.data.map { p ->
+    fun countryPrefs(id: Long): Flow<CountryPrefs> = store.data.map { p ->
         p[Keys.country(id)]?.let { runCatching { RelaisJson.decodeFromString(CountryPrefs.serializer(), it) }.getOrNull() } ?: CountryPrefs()
     }
 
-    suspend fun setCountryPrefs(id: Long, prefs: CountryPrefs) = context.dataStore.edit {
+    suspend fun setCountryPrefs(id: Long, prefs: CountryPrefs) = store.edit {
         if (prefs == CountryPrefs()) it.remove(Keys.country(id))
         else it[Keys.country(id)] = RelaisJson.encodeToString(CountryPrefs.serializer(), prefs)
     }
@@ -306,76 +313,76 @@ class SettingsStore(private val context: Context) {
     suspend fun current(): Settings = flow.first()
 
     /** The end of the first launch setup: the tour comes next, once (issue 37). */
-    suspend fun setOnboardingDone() = context.dataStore.edit {
+    suspend fun setOnboardingDone() = store.edit {
         it[Keys.onboardingDone] = true
         it[Keys.connectAsked] = true
         it[Keys.tourPending] = true
     }
 
     /** "Skip" or "Start reading": the tour is seen, and only Settings opens it again. */
-    suspend fun setTourSeen() = context.dataStore.edit { it[Keys.tourPending] = false }
+    suspend fun setTourSeen() = store.edit { it[Keys.tourPending] = false }
 
-    suspend fun setConnectAsked() = context.dataStore.edit { it[Keys.connectAsked] = true }
+    suspend fun setConnectAsked() = store.edit { it[Keys.connectAsked] = true }
 
-    suspend fun setUserAppname(value: String?) = context.dataStore.edit {
+    suspend fun setUserAppname(value: String?) = store.edit {
         if (value.isNullOrBlank()) it.remove(Keys.userAppname) else it[Keys.userAppname] = value.trim()
         it[Keys.accessDenied] = false
         it[Keys.blockedUntil] = 0
     }
 
-    suspend fun setDigest(enabled: Boolean, hour: Int? = null, minute: Int? = null) = context.dataStore.edit {
+    suspend fun setDigest(enabled: Boolean, hour: Int? = null, minute: Int? = null) = store.edit {
         it[Keys.digestEnabled] = enabled
         if (hour != null) it[Keys.digestHour] = hour
         if (minute != null) it[Keys.digestMinute] = minute
     }
 
-    suspend fun setHistoryDays(days: Int) = context.dataStore.edit { it[Keys.historyDays] = days }
-    suspend fun setLastSyncAt(at: Long) = context.dataStore.edit { it[Keys.lastSyncAt] = at }
-    suspend fun setLastHeadlinesRefreshAt(at: Long) = context.dataStore.edit { it[Keys.lastHeadlinesRefreshAt] = at }
-    suspend fun setLastDigestAt(at: Long) = context.dataStore.edit { it[Keys.lastDigestAt] = at }
-    suspend fun setLastCleanupAt(at: Long) = context.dataStore.edit { it[Keys.lastCleanupAt] = at }
-    suspend fun setCountriesFetchedAt(at: Long) = context.dataStore.edit { it[Keys.countriesFetchedAt] = at }
-    suspend fun setBlockedUntil(at: Long) = context.dataStore.edit { it[Keys.blockedUntil] = at }
-    suspend fun setAccessDenied(denied: Boolean) = context.dataStore.edit { it[Keys.accessDenied] = denied }
-    suspend fun setRssBannerSeen() = context.dataStore.edit { it[Keys.rssBannerSeen] = true }
-    suspend fun setPdfTextBannerSeen() = context.dataStore.edit { it[Keys.pdfTextBannerSeen] = true }
-    suspend fun setLoadImages(mode: String) = context.dataStore.edit { it[Keys.loadImages] = mode }
-    suspend fun setReadingSize(index: Int) = context.dataStore.edit { it[Keys.readingStep] = readingName(index) }
+    suspend fun setHistoryDays(days: Int) = store.edit { it[Keys.historyDays] = days }
+    suspend fun setLastSyncAt(at: Long) = store.edit { it[Keys.lastSyncAt] = at }
+    suspend fun setLastHeadlinesRefreshAt(at: Long) = store.edit { it[Keys.lastHeadlinesRefreshAt] = at }
+    suspend fun setLastDigestAt(at: Long) = store.edit { it[Keys.lastDigestAt] = at }
+    suspend fun setLastCleanupAt(at: Long) = store.edit { it[Keys.lastCleanupAt] = at }
+    suspend fun setCountriesFetchedAt(at: Long) = store.edit { it[Keys.countriesFetchedAt] = at }
+    suspend fun setBlockedUntil(at: Long) = store.edit { it[Keys.blockedUntil] = at }
+    suspend fun setAccessDenied(denied: Boolean) = store.edit { it[Keys.accessDenied] = denied }
+    suspend fun setRssBannerSeen() = store.edit { it[Keys.rssBannerSeen] = true }
+    suspend fun setPdfTextBannerSeen() = store.edit { it[Keys.pdfTextBannerSeen] = true }
+    suspend fun setLoadImages(mode: String) = store.edit { it[Keys.loadImages] = mode }
+    suspend fun setReadingSize(index: Int) = store.edit { it[Keys.readingStep] = readingName(index) }
 
     /** A display level brings the report text to its starting step (12.6). */
-    suspend fun setDisplay(name: String, readingSize: Int) = context.dataStore.edit {
+    suspend fun setDisplay(name: String, readingSize: Int) = store.edit {
         it[Keys.display] = name
         it[Keys.readingStep] = readingName(readingSize)
     }
 
-    suspend fun setAppearance(appearance: Appearance) = context.dataStore.edit { it[Keys.appearance] = appearance.name }
+    suspend fun setAppearance(appearance: Appearance) = store.edit { it[Keys.appearance] = appearance.name }
 
-    suspend fun setFollowingVisitAt(at: Long) = context.dataStore.edit { it[Keys.followingVisitAt] = at }
+    suspend fun setFollowingVisitAt(at: Long) = store.edit { it[Keys.followingVisitAt] = at }
 
     /**
      * Today comes on screen (P14): after more than 30 minutes away, a new visit starts, and what
      * was posted since the end of the last one is new. Within a visit, new stays new.
      */
-    suspend fun startTodayVisit(now: Long, gap: Long) = context.dataStore.edit {
+    suspend fun startTodayVisit(now: Long, gap: Long) = store.edit {
         val seen = it[Keys.todaySeenAt] ?: 0L
         if (now - seen > gap) it[Keys.todaySince] = if (seen > 0) seen else now - 24 * 3_600_000L
         it[Keys.todaySeenAt] = now
     }
 
-    suspend fun setTodaySeenAt(at: Long) = context.dataStore.edit { it[Keys.todaySeenAt] = at }
+    suspend fun setTodaySeenAt(at: Long) = store.edit { it[Keys.todaySeenAt] = at }
 
-    suspend fun setWhatsNewSeen(versionCode: Int) = context.dataStore.edit { it[Keys.whatsNewSeen] = versionCode }
-    suspend fun countSelectionTip() = context.dataStore.edit { it[Keys.selectionTips] = (it[Keys.selectionTips] ?: 0) + 1 }
-    suspend fun setAlerts(on: Boolean) = context.dataStore.edit { it[Keys.alerts] = on }
-    suspend fun setPreloadPdfs(on: Boolean) = context.dataStore.edit { it[Keys.preloadPdfs] = on }
-    suspend fun setPdfCapMb(mb: Int) = context.dataStore.edit { it[Keys.pdfCapMb] = mb }
-    suspend fun setUpdateCheck(on: Boolean) = context.dataStore.edit { it[Keys.updateCheck] = on }
+    suspend fun setWhatsNewSeen(versionCode: Int) = store.edit { it[Keys.whatsNewSeen] = versionCode }
+    suspend fun countSelectionTip() = store.edit { it[Keys.selectionTips] = (it[Keys.selectionTips] ?: 0) + 1 }
+    suspend fun setAlerts(on: Boolean) = store.edit { it[Keys.alerts] = on }
+    suspend fun setPreloadPdfs(on: Boolean) = store.edit { it[Keys.preloadPdfs] = on }
+    suspend fun setPdfCapMb(mb: Int) = store.edit { it[Keys.pdfCapMb] = mb }
+    suspend fun setUpdateCheck(on: Boolean) = store.edit { it[Keys.updateCheck] = on }
 
     /**
      * A check of the latest release: its time always; the release only when one was read. Its APK
      * goes with it: a release without a valid one removes the address of the previous release.
      */
-    suspend fun recordUpdateCheck(at: Long, found: LatestRelease?) = context.dataStore.edit {
+    suspend fun recordUpdateCheck(at: Long, found: LatestRelease?) = store.edit {
         it[Keys.updateCheckedAt] = at
         if (found != null) {
             it[Keys.updateVersion] = found.version
@@ -389,40 +396,40 @@ class SettingsStore(private val context: Context) {
     }
 
     /** "Not now": this version, and when, so that its notice comes back 3 days later. */
-    suspend fun dismissUpdate(version: String, at: Long = System.currentTimeMillis()) = context.dataStore.edit {
+    suspend fun dismissUpdate(version: String, at: Long = System.currentTimeMillis()) = store.edit {
         it[Keys.updateDismissed] = version
         it[Keys.updateDismissedAt] = at
     }
 
-    suspend fun holdUpdateCheck(until: Long) = context.dataStore.edit { it[Keys.updateHeldUntil] = until }
+    suspend fun holdUpdateCheck(until: Long) = store.edit { it[Keys.updateHeldUntil] = until }
 
     /** "Not now" on the reminder that this version is old: back in 14 days. */
-    suspend fun dismissAged(at: Long = System.currentTimeMillis()) = context.dataStore.edit { it[Keys.agedDismissedAt] = at }
+    suspend fun dismissAged(at: Long = System.currentTimeMillis()) = store.edit { it[Keys.agedDismissedAt] = at }
 
     /** A Check now found a newer version: "Not now" no longer hides it (review of PR 44). */
-    suspend fun clearUpdateDismissed() = context.dataStore.edit {
+    suspend fun clearUpdateDismissed() = store.edit {
         it.remove(Keys.updateDismissed)
         it.remove(Keys.updateDismissedAt)
     }
 
     /** Keeps the 50 latest hidden pins: older ones have long left the 30-day window. */
-    suspend fun hidePin(reportId: Long) = context.dataStore.edit { p ->
+    suspend fun hidePin(reportId: Long) = store.edit { p ->
         p[Keys.hiddenPins] = (p[Keys.hiddenPins].orEmpty() + reportId.toString()).toList().takeLast(50).toSet()
     }
 
     /** Records the alerts sent today; a new day starts the count again. */
-    suspend fun recordAlerts(day: String, scopes: Set<String>, count: Int) = context.dataStore.edit { p ->
+    suspend fun recordAlerts(day: String, scopes: Set<String>, count: Int) = store.edit { p ->
         val sameDay = p[Keys.alertDay] == day
         p[Keys.alertDay] = day
         p[Keys.alertScopes] = (if (sameDay) p[Keys.alertScopes].orEmpty() else emptySet()) + scopes
         p[Keys.alertCount] = (if (sameDay) p[Keys.alertCount] ?: 0 else 0) + count
     }
 
-    suspend fun addRecentSearch(query: String) = context.dataStore.edit { p ->
+    suspend fun addRecentSearch(query: String) = store.edit { p ->
         val current = p[Keys.recentSearches]?.split('\n')?.filter { it.isNotBlank() } ?: emptyList()
         val updated = (listOf(query.trim()) + current.filter { !it.equals(query.trim(), ignoreCase = true) }).take(5)
         p[Keys.recentSearches] = updated.joinToString("\n")
     }
 
-    suspend fun clearRecentSearches() = context.dataStore.edit { it.remove(Keys.recentSearches) }
+    suspend fun clearRecentSearches() = store.edit { it.remove(Keys.recentSearches) }
 }

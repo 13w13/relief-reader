@@ -681,27 +681,30 @@ internal fun AppearanceChoice(
 }
 
 /**
- * "Open ReliefWeb links in Re.L" (17/11): Re.L does not own reliefweb.int, so Android opens its
- * links in Re.L only when the reader turns them on in the app's "Open by default" settings
- * (Android 12 and later); this opens that screen, or the app's settings before Android 12.
+ * "Open ReliefWeb links in Re.L" (17/11). Re.L does not own reliefweb.int. From Android 12, its
+ * links go to the browser until the reader adds reliefweb.int in Re.L's "Open by default"
+ * settings, which the button opens. Before Android 12, Android asks at the link which app opens
+ * it, with no setting to turn on: text only, no button (review of PR 47).
  */
 @Composable
-internal fun OpenLinksSetting() {
+internal fun OpenLinksSetting(sdk: Int = android.os.Build.VERSION.SDK_INT) {
     val context = LocalContext.current
-    TextButton(
-        onClick = { openLinkSettings(context) },
-        modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp).testTag("settings_open_links"),
-    ) { Text(stringResource(R.string.settings_open_links)) }
-    SettingText(stringResource(R.string.settings_open_links_help), secondary = true)
+    if (sdk >= android.os.Build.VERSION_CODES.S) {
+        TextButton(
+            onClick = { openLinkSettings(context) },
+            modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp).testTag("settings_open_links"),
+        ) { Text(stringResource(R.string.settings_open_links)) }
+        SettingText(stringResource(R.string.settings_open_links_help), secondary = true)
+    } else {
+        SettingText(stringResource(R.string.settings_open_links))
+        SettingText(stringResource(R.string.settings_open_links_help_before_12), secondary = true)
+    }
 }
 
+/** Android 12 and later: Re.L's "Open by default" screen, or its app info if that one is missing. */
 private fun openLinkSettings(context: android.content.Context) {
     val app = android.net.Uri.parse("package:" + context.packageName)
-    val byDefault = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-        android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, app)
-    } else {
-        android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, app)
-    }
+    val byDefault = android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, app)
     val details = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, app)
     runCatching { context.startActivity(byDefault) }.onFailure { runCatching { context.startActivity(details) } }
 }

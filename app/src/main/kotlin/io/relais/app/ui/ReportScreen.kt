@@ -33,6 +33,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.BorderColor
@@ -153,7 +156,21 @@ data class ReportState(
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-class ReportViewModel(private val c: AppContainer, private val id: Long, headline: Boolean = false) : ViewModel() {
+class ReportViewModel(private val c: AppContainer, private val id: Long, headline: Boolean = false, fromLink: Boolean = false) : ViewModel() {
+    /**
+     * Whether this visit counts: in History, read, its place kept. Opened from a link another app
+     * sent, only once the reader touches the report (review of PR 47): an app cannot fill a
+     * reader's History or mark titles read by sending links.
+     */
+    private var counted = !fromLink
+
+    /** The reader touched the report opened from a link: now it counts. */
+    fun interacted() {
+        if (counted) return
+        counted = true
+        viewModelScope.launch { c.repository.opened(id) }
+    }
+
     val readingSize: StateFlow<Int> = c.settings.flow.map { it.readingSize }
         .stateIn(viewModelScope, SharingStarted.Eagerly, io.relais.app.data.DEFAULT_READING_SIZE)
 
@@ -224,7 +241,7 @@ class ReportViewModel(private val c: AppContainer, private val id: Long, headlin
         viewModelScope.launch {
             loading.value = true
             error.value = null
-            c.repository.opened(id)
+            if (counted) c.repository.opened(id)
             try {
                 c.repository.ensureReport(id)
             } catch (e: ApiException.NotFound) {
@@ -244,8 +261,10 @@ class ReportViewModel(private val c: AppContainer, private val id: Long, headlin
 
     fun markUnread() = viewModelScope.launch { c.repository.setRead(id, false) }
 
-    fun savePosition(index: Int, offset: Int, percent: Int, finished: Boolean) =
+    fun savePosition(index: Int, offset: Int, percent: Int, finished: Boolean) {
+        if (!counted) return
         viewModelScope.launch { c.repository.savePosition(id, index, offset, percent, finished) }
+    }
 
     fun download(file: FileLite) = c.pdfs.start(file.url, id)
     fun cancel(file: FileLite) = c.pdfs.cancel(file.url)
@@ -294,9 +313,9 @@ private fun Block.text(): String? = when (this) {
 /** M6 Report. `jumpToBlock` opens the report on a highlighted passage. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = false) {
+fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = false, fromLink: Boolean = false) {
     val container = LocalContext.current.container
-    val vm = viewModel(key = "report-$id") { ReportViewModel(container, id, fromHeadline) }
+    val vm = viewModel(key = "report-$id") { ReportViewModel(container, id, fromHeadline, fromLink) }
     val state by vm.state.collectAsStateWithLifecycle()
     val place by vm.place.collectAsStateWithLifecycle()
     // Back on Today, the pile stands on the last headline read here.
@@ -506,7 +525,17 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surface)) {
+        Column(
+            Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surface)
+                // The first touch in the report, a tap or a scroll, counts the visit of a report
+                // opened from a link (ReportViewModel.counted); it takes nothing from the content.
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        vm.interacted()
+                    }
+                },
+        ) {
             if (state.loading && report?.bodyHtml == null && report?.fromRss != true) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             } else if (firstBody >= 0) {

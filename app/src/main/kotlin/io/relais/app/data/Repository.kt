@@ -729,18 +729,20 @@ class Repository(
     }
 
     /**
-     * One API request for the report of a link, as the reader asked (not throttled like Most
-     * read): saved, its id returned; null when ReliefWeb has no report there.
+     * One API request for the report of a link (LinkOpener bounds how many): by its id for a
+     * /node/<id> link only, else by its address. Only the report at exactly this address (ignoring
+     * capitals) or with exactly this id is kept and saved; anything else is "not found", never
+     * another report (review of PR 47: a cut link must not open the wrong one).
      */
     suspend fun fetchReportForLink(link: ReliefWebLinks.Link): Long? {
-        val response = api { it.reports(Requests.byUrls(listOf(link.url))) }
-        saveReports(response.data)
-        val items = response.data
-        return when (link) {
-            is ReliefWebLinks.Link.Node -> items.firstOrNull { it.id == link.id }?.id
-            // The exact address, else the only answer (the search may differ in case).
-            else -> (items.firstOrNull { it.fields.urlAlias == link.url } ?: items.singleOrNull())?.id
-        }
+        val term = if (link is ReliefWebLinks.Link.Node) "id:${link.id}" else "url_alias:\"${link.url}\""
+        val response = api { it.reports(Requests.byTerm(term)) }
+        val match = when (link) {
+            is ReliefWebLinks.Link.Node -> response.data.firstOrNull { it.id == link.id }
+            else -> response.data.firstOrNull { it.fields.urlAlias.equals(link.url, ignoreCase = true) }
+        } ?: return null
+        saveReports(listOf(match))
+        return match.id
     }
 
     /** "Most reports this week": counts by country and by disaster over 7 days, one request. */

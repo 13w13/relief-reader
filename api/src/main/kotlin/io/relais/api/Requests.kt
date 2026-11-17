@@ -305,6 +305,17 @@ object Requests {
 
     private const val DAY = 86_400L
 
+    /**
+     * The report of one link (app, 17/11): [term] is `id:<n>` or `url_alias:"<address>"`, built
+     * from a checked link whose path holds no quote. A few answers at most.
+     */
+    fun byTerm(term: String): ApiQuery = ApiQuery(
+        limit = 5,
+        sort = emptyList(),
+        query = term,
+        fields = Fields.REPORT_FULL,
+    )
+
     /** Reports by their ReliefWeb address, as the site resolves its "Most read" lists. */
     fun byUrls(urls: List<String>): ApiQuery = ApiQuery(
         limit = urls.size,
