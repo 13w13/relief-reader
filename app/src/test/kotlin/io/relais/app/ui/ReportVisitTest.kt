@@ -83,7 +83,7 @@ class ReportVisitTest {
     }
 
     /** What ReportViewModel is to ReportVisit: its holder, kept across a rotation. */
-    class Holder : ViewModel() {
+    internal class Holder : ViewModel() {
         lateinit var visit: ReportVisit
     }
 
