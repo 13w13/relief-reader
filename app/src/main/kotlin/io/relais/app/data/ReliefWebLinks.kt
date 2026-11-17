@@ -40,10 +40,10 @@ object ReliefWebLinks {
         /** /node/<id>: the page of a ReliefWeb node, a report when the API knows it as one. */
         data class Node(override val url: String, val id: Long) : Link
 
-        /** /country/<iso3>: the country's page. */
-        data class Country(override val url: String, val iso3: String) : Link
-
-        /** Another page of reliefweb.int (a crisis, an organization, a search, the home page). */
+        /**
+         * Another page of reliefweb.int (a country, a crisis, an organization, a search, the home
+         * page): no screen of Re.L opens for it, only the browser (review of PR 47).
+         */
         data class Other(override val url: String) : Link
     }
 
@@ -61,7 +61,6 @@ object ReliefWebLinks {
     private val SEGMENT = "[A-Za-z0-9._~-]+"
     private val REPORT = Regex("^/(report|map)/$SEGMENT/$SEGMENT$")
     private val NODE = Regex("^/node/(\\d{1,12})$")
-    private val COUNTRY = Regex("^/country/([A-Za-z]{3})$")
 
     /** An address in a text, up to a space or a mark that never ends a ReliefWeb address. */
     private val URL_IN_TEXT = Regex("""(?i)\bhttps?://[^\s<>"'()\[\]{}]+""")
@@ -88,10 +87,6 @@ object ReliefWebLinks {
         if (!SAFE_PATH.matches(path) || "//" in path) return null
         val clean = "https://$HOST" + (if (path == "/") "" else path)
         NODE.matchEntire(path)?.let { m -> m.groupValues[1].toLongOrNull()?.takeIf { it > 0 }?.let { return Link.Node(clean, it) } }
-        COUNTRY.matchEntire(path)?.let { m ->
-            val iso3 = m.groupValues[1].lowercase()
-            return Link.Country("https://$HOST/country/$iso3", iso3)
-        }
         if (REPORT.matches(path)) return Link.Report(clean)
         return Link.Other(clean)
     }

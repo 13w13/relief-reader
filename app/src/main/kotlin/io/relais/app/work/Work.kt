@@ -151,11 +151,10 @@ object Work {
     fun notifyAlerts(context: Context, plan: io.relais.app.data.AlertPlan) {
         if (!canNotify(context)) return
         val manager = NotificationManagerCompat.from(context)
-        // Each notification opens its own screen: the report, or Following for the grouped one.
+        // Each notification opens its own screen: the report, or Following for the grouped one,
+        // through AlertActivity, which no other app can start (review of PR 47).
         fun builder(id: Int, open: Long): NotificationCompat.Builder {
-            val intent = Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(MainActivity.EXTRA_OPEN, open)
+            val intent = io.relais.app.AlertActivity.intent(context, open)
             val pending = PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             return NotificationCompat.Builder(context, ALERT_CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_rel)
@@ -165,7 +164,7 @@ object Work {
         }
         if (plan.grouped > 0) {
             val text = context.resources.getQuantityString(R.plurals.alert_grouped, plan.grouped, plan.grouped)
-            manager.notify(ALERT_GROUPED_ID, builder(ALERT_GROUPED_ID, MainActivity.OPEN_FOLLOWING).setContentTitle(text).build())
+            manager.notify(ALERT_GROUPED_ID, builder(ALERT_GROUPED_ID, io.relais.app.AlertActivity.OPEN_FOLLOWING).setContentTitle(text).build())
             return
         }
         plan.single.forEach { item ->

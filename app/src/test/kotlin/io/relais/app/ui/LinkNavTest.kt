@@ -22,7 +22,8 @@ import org.robolectric.annotation.Config
 
 /**
  * Links from other apps and the back stack (review of PR 47, point 4): a new link takes the place
- * of the screen the last link opened, instead of piling up. Made-up addresses and ids.
+ * of the screen the last link opened (its link screen or its report), instead of piling up.
+ * Made-up addresses and ids.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35], application = Application::class)
@@ -44,7 +45,6 @@ class LinkNavTest {
                 NavHost(controller, startDestination = TodayRoute) {
                     composable<TodayRoute> { Text("Today") }
                     composable<ReportRoute> { Text("Report") }
-                    composable<CountryRoute> { Text("Country") }
                     composable<LinkRoute> { Text("Link") }
                 }
             }
@@ -70,10 +70,10 @@ class LinkNavTest {
         compose.runOnIdle {
             assertEquals(LinkRoute(b), top().toRoute<LinkRoute>())
             assertTrue(below().isToday())
-            nav.countryFromLink(990, "Noravia")
+            nav.reportFromLink(2)
         }
         compose.runOnIdle {
-            assertEquals(CountryRoute(990, "Noravia", fromLink = true), top().toRoute<CountryRoute>())
+            assertEquals(ReportRoute(2, fromLink = true), top().toRoute<ReportRoute>())
             assertTrue(below().isToday())
             // Two links before either opens: the second takes the first one's place.
             nav.link(a)

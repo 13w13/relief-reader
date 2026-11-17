@@ -7,8 +7,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.ui.platform.UriHandler
 import io.relais.app.LinkActivity
+import io.relais.app.R
 import io.relais.app.data.TrustedUrls
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
@@ -62,14 +64,26 @@ object BrowserLinks {
 /**
  * The app's UriHandler (MainActivity): a page of reliefweb.int goes to a browser ([BrowserLinks]),
  * anything else as before. safeOpen goes through it, so every "Open in browser" and "Open on
- * ReliefWeb" of the app does.
+ * ReliefWeb" of the app does. When nothing on the phone can open the link, a short message says
+ * so, then IllegalArgumentException, as Compose's own handler throws.
  */
 class RelaisUriHandler(private val context: Context) : UriHandler {
     override fun openUri(uri: String) {
-        if (BrowserLinks.isReliefWeb(uri)) {
-            if (!BrowserLinks.open(context, uri)) throw ActivityNotFoundException("No browser for $uri")
+        val opened = if (BrowserLinks.isReliefWeb(uri)) {
+            BrowserLinks.open(context, uri)
         } else {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                true
+            } catch (e: ActivityNotFoundException) {
+                false
+            } catch (e: SecurityException) {
+                false
+            }
+        }
+        if (!opened) {
+            Toast.makeText(context, R.string.link_no_app, Toast.LENGTH_SHORT).show()
+            throw IllegalArgumentException("No app can open this link.")
         }
     }
 }

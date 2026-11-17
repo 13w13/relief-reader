@@ -194,7 +194,6 @@ class AppContainer(private val context: Context) {
     /** From a ReliefWeb link to a screen (17/11). */
     val linkOpener = io.relais.app.data.LinkOpener(
         onPhone = repository::reportOnPhone,
-        countryByIso3 = { dao.countryByIso3(it) },
         hasAccess = { repository.hasAccess },
         online = { network.isOnline() },
         fetch = repository::fetchReportForLink,

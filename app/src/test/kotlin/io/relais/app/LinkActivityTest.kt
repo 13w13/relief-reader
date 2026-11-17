@@ -92,10 +92,9 @@ class LinkActivityTest {
 
     // --- MainActivity's intents -------------------------------------------------------------------
 
-    private val open = MutableStateFlow<Long?>(null)
     private val link = MutableStateFlow<PendingLink?>(null)
     private var clock = 1_794_614_400_000L
-    private val inbox = IntentInbox(open, link, now = { clock })
+    private val inbox = IntentInbox(link, now = { clock })
 
     @Test
     fun theLinkIsTakenOnceAndNotAgainAfterARotation() {
@@ -133,9 +132,9 @@ class LinkActivityTest {
     }
 
     @Test
-    fun aNotificationStillOpensItsReport() {
-        inbox.take(Intent().putExtra(MainActivity.EXTRA_OPEN, 42L), restored = false)
-        assertEquals(42L, open.value)
+    fun aReportIdSentStraightToMainActivityIsIgnored() {
+        // Only Re.L's alerts open a report by its id, through AlertActivity (AlertActivityTest).
+        inbox.take(Intent().putExtra(AlertActivity.EXTRA_OPEN, 42L), restored = false)
         assertNull(link.value)
     }
 

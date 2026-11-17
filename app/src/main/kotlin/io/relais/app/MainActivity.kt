@@ -33,10 +33,6 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     companion object {
-        /** A report to open (an alert), or [OPEN_FOLLOWING] for Following (the grouped alert). */
-        const val EXTRA_OPEN = "io.relais.app.open"
-        const val OPEN_FOLLOWING = -1L
-
         /** A ReliefWeb link from LinkActivity, as a string (17/11). */
         const val EXTRA_LINK = "io.relais.app.link"
 
@@ -49,8 +45,8 @@ class MainActivity : ComponentActivity() {
         private const val DARK_WINDOW = 0xFF121316.toInt()
     }
 
-    /** The extras of each intent, once (IntentInbox): a notification's report, a ReliefWeb link. */
-    private val inbox by lazy { IntentInbox(container.openRequest, container.linkRequest) }
+    /** The ReliefWeb link of each intent, once (IntentInbox). An alert's report comes through AlertActivity. */
+    private val inbox by lazy { IntentInbox(container.linkRequest) }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

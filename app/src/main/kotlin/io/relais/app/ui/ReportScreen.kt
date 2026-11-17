@@ -33,9 +33,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.BorderColor
@@ -157,19 +154,16 @@ data class ReportState(
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ReportViewModel(private val c: AppContainer, private val id: Long, headline: Boolean = false, fromLink: Boolean = false) : ViewModel() {
-    /**
-     * Whether this visit counts: in History, read, its place kept. Opened from a link another app
-     * sent, only once the reader touches the report (review of PR 47): an app cannot fill a
-     * reader's History or mark titles read by sending links.
-     */
-    private var counted = !fromLink
+    /** Whether this visit counts (History, read, place): from a link, only once the reader acts. */
+    private val visit = ReportVisit(
+        fromLink = fromLink,
+        scope = viewModelScope,
+        opened = { c.repository.opened(id) },
+        save = { p -> c.repository.savePosition(id, p.index, p.offset, p.percent, p.finished) },
+    )
 
-    /** The reader touched the report opened from a link: now it counts. */
-    fun interacted() {
-        if (counted) return
-        counted = true
-        viewModelScope.launch { c.repository.opened(id) }
-    }
+    /** The reader's first touch, key or scroll in a report opened from a link. */
+    fun interacted() = visit.interacted()
 
     val readingSize: StateFlow<Int> = c.settings.flow.map { it.readingSize }
         .stateIn(viewModelScope, SharingStarted.Eagerly, io.relais.app.data.DEFAULT_READING_SIZE)
@@ -241,7 +235,7 @@ class ReportViewModel(private val c: AppContainer, private val id: Long, headlin
         viewModelScope.launch {
             loading.value = true
             error.value = null
-            if (counted) c.repository.opened(id)
+            visit.loaded()
             try {
                 c.repository.ensureReport(id)
             } catch (e: ApiException.NotFound) {
@@ -261,10 +255,8 @@ class ReportViewModel(private val c: AppContainer, private val id: Long, headlin
 
     fun markUnread() = viewModelScope.launch { c.repository.setRead(id, false) }
 
-    fun savePosition(index: Int, offset: Int, percent: Int, finished: Boolean) {
-        if (!counted) return
-        viewModelScope.launch { c.repository.savePosition(id, index, offset, percent, finished) }
-    }
+    fun savePosition(index: Int, offset: Int, percent: Int, finished: Boolean) =
+        visit.reached(ReportVisit.Place(index, offset, percent, finished))
 
     fun download(file: FileLite) = c.pdfs.start(file.url, id)
     fun cancel(file: FileLite) = c.pdfs.cancel(file.url)
@@ -328,6 +320,8 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
     val snackbar = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     var restored by rememberSaveable { mutableStateOf(false) }
+    // The app's own first scroll is done (above): a rotation keeps it.
+    var positioned by rememberSaveable { mutableStateOf(false) }
     var confirmFile by remember { mutableStateOf<FileLite?>(null) }
     var pendingOpen by remember { mutableStateOf<String?>(null) }
     var highlightMode by rememberSaveable { mutableStateOf(false) }
@@ -423,19 +417,30 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
         }
     }
 
-    // Open on a highlighted passage, or go back to the saved reading position, once.
+    // Open on a highlighted passage, or go back to the saved reading position, once. Then, and
+    // after one frame, the list is "positioned": any later move is the reader's (OnReaderScroll).
     LaunchedEffect(firstBody, state.reading?.itemIndex) {
         if (restored || firstBody < 0) return@LaunchedEffect
         val reading = state.reading
         restored = true
-        if (jumpToBlock >= 0) {
-            listState.scrollToItem(firstBody + jumpToBlock.coerceIn(0, lastBody - firstBody))
-        } else if (reading != null && reading.itemIndex > firstBody && reading.finishedAt == null) {
-            listState.scrollToItem(reading.itemIndex.coerceAtMost(rows.lastIndex), reading.itemOffset)
+        val resume = jumpToBlock < 0 && reading != null && reading.itemIndex > firstBody && reading.finishedAt == null
+        try {
+            if (jumpToBlock >= 0) {
+                listState.scrollToItem(firstBody + jumpToBlock.coerceIn(0, lastBody - firstBody))
+            } else if (resume && reading != null) {
+                listState.scrollToItem(reading.itemIndex.coerceAtMost(rows.lastIndex), reading.itemOffset)
+            }
+            androidx.compose.runtime.withFrameNanos { }
+        } finally {
+            positioned = true
+        }
+        if (resume) {
             val result = snackbar.showSnackbar(resumedMsg, backToTopLabel)
             if (result == SnackbarResult.ActionPerformed) listState.scrollToItem(0)
         }
     }
+    // A report opened from a link counts from the reader's first scroll, touch or key (review of PR 47).
+    OnReaderScroll(listState, positioned, vm::interacted)
 
     // Save the reading position continuously.
     LaunchedEffect(firstBody, lastBody) {
@@ -527,14 +532,9 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
     ) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surface)
-                // The first touch in the report, a tap or a scroll, counts the visit of a report
-                // opened from a link (ReportViewModel.counted); it takes nothing from the content.
-                .pointerInput(Unit) {
-                    awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                        vm.interacted()
-                    }
-                },
+                // The first touch or key in the report counts the visit of a report opened from a
+                // link (ReportVisit); it takes nothing from the content.
+                .readerInput(vm::interacted),
         ) {
             if (state.loading && report?.bodyHtml == null && report?.fromRss != true) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())

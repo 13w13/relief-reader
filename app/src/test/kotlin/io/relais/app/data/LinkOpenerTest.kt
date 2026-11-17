@@ -23,7 +23,6 @@ class LinkOpenerTest {
         var clock = 1_794_614_400_000L
         val opener = LinkOpener(
             onPhone = { onPhone },
-            countryByIso3 = { iso3 -> if (iso3 == "sdn") CountryEntity(-249, "Sudan", null, "SDN", "ongoing") else null },
             hasAccess = { access },
             online = { online },
             fetch = { requests++; answer() },
@@ -132,17 +131,15 @@ class LinkOpenerTest {
     }
 
     @Test
-    fun aCountryPageOpensFromTheCountriesOnThePhone() {
-        val phone = Phone()
-        assertEquals(LinkTarget.Country(-249, "Sudan"), phone.open(Link.Country("https://reliefweb.int/country/sdn", "sdn")))
-        assertEquals(LinkTarget.NotAReport, phone.open(Link.Country("https://reliefweb.int/country/zzz", "zzz")))
-        assertEquals(0, phone.requests)
-    }
-
-    @Test
     fun otherPagesGoToTheBrowserWithoutARequest() {
+        // A country's page too: a link from outside opens no screen of Re.L but a report (review of PR 47).
         val phone = Phone()
-        listOf("https://reliefweb.int", "https://reliefweb.int/disaster/fl-2026-000001-sdn", "https://reliefweb.int/organization/ern").forEach {
+        listOf(
+            "https://reliefweb.int",
+            "https://reliefweb.int/country/sdn",
+            "https://reliefweb.int/disaster/fl-2026-000001-sdn",
+            "https://reliefweb.int/organization/ern",
+        ).forEach {
             assertEquals(it, LinkTarget.NotAReport, phone.open(Link.Other(it)))
         }
         assertEquals(0, phone.requests)

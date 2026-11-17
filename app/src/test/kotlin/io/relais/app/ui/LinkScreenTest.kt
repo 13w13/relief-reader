@@ -77,32 +77,55 @@ class LinkScreenTest {
         buttons("link_retry", "link_browser")
     }
 
+    private val address = "https://reliefweb.int/report/sudan/sudan-test-flash-update-990000300"
+
     @Test
-    fun backOnTheScreenAStuckLinkIsLookedForAgain() {
+    fun backFromSettingsWithAnAppnameTheReportOpens() {
         // No appname: the reader adds one in Settings, comes back, and the report opens.
         var access = false
         var requests = 0
-        val opener = LinkOpener(
-            onPhone = { null },
-            countryByIso3 = { null },
-            hasAccess = { access },
-            online = { true },
-            fetch = { requests++; 990000300 },
-        )
-        val vm = LinkViewModel(opener, "https://reliefweb.int/report/sudan/sudan-test-flash-update-990000300")
+        val opener = LinkOpener(onPhone = { null }, hasAccess = { access }, online = { true }, fetch = { requests++; 990000300 })
+        val vm = LinkViewModel(opener, address)
         idle()
         assertEquals(LinkTarget.NeedsAppname, vm.target.value)
-        vm.resolveAgainIfStuck()
+        vm.resolveAgainOnReturn()
         idle()
         assertEquals(LinkTarget.NeedsAppname, vm.target.value)
+        assertEquals(0, requests)
         access = true
-        vm.resolveAgainIfStuck()
+        vm.resolveAgainOnReturn()
         idle()
         assertEquals(LinkTarget.Report(990000300), vm.target.value)
         // Found: nothing is asked again.
-        vm.resolveAgainIfStuck()
+        vm.resolveAgainOnReturn()
         idle()
         assertEquals(1, requests)
+    }
+
+    @Test
+    fun backFromTheBrowserAFailureWaitsForTryAgain() {
+        // Coming back spends no request and opens nothing unasked (review of PR 47).
+        var requests = 0
+        var fail = true
+        val opener = LinkOpener(
+            onPhone = { null },
+            hasAccess = { true },
+            online = { true },
+            fetch = { requests++; if (fail) throw io.relais.api.ApiException.Server(500, "x") else 990000300 },
+        )
+        val vm = LinkViewModel(opener, address)
+        idle()
+        assertEquals(LinkTarget.Failed("HTTP 500"), vm.target.value)
+        fail = false
+        vm.resolveAgainOnReturn()
+        idle()
+        assertEquals(LinkTarget.Failed("HTTP 500"), vm.target.value)
+        assertEquals(1, requests)
+        // "Try again" asks.
+        vm.resolve()
+        idle()
+        assertEquals(LinkTarget.Report(990000300), vm.target.value)
+        assertEquals(2, requests)
     }
 
     private fun idle() = org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()

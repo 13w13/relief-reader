@@ -73,9 +73,11 @@ class ReliefWebLinksTest {
     fun eachKindOfPage() {
         assertEquals(Link.Report("https://reliefweb.int/map/sudan/sudan-test-map"), ReliefWebLinks.fromUrl("https://reliefweb.int/map/sudan/sudan-test-map"))
         assertEquals(Link.Node("https://reliefweb.int/node/990000300", 990000300), ReliefWebLinks.fromUrl("https://reliefweb.int/node/990000300"))
-        assertEquals(Link.Country("https://reliefweb.int/country/sdn", "sdn"), ReliefWebLinks.fromUrl("https://reliefweb.int/country/SDN"))
         listOf(
             "https://reliefweb.int",
+            // A country's page opens in the browser, like a crisis's (review of PR 47).
+            "https://reliefweb.int/country/sdn",
+            "https://reliefweb.int/country/SDN",
             "https://reliefweb.int/",
             "https://reliefweb.int/disaster/fl-2026-000001-sdn",
             "https://reliefweb.int/organization/ern",
@@ -93,27 +95,28 @@ class ReliefWebLinksTest {
     @Test
     fun nothingThatCouldChangeTheQueryGetsThrough() {
         val safe = Regex("""^https://reliefweb\.int(/[A-Za-z0-9._~%/-]*)?$""")
-        listOf(
-            "https://reliefweb.int/report/sudan/x\"y",
-            "https://reliefweb.int/report/sudan/x%22y",
-            "https://reliefweb.int/report/sudan/x\\y",
-            "https://reliefweb.int/report/sudan/x%5Cy",
-            "https://reliefweb.int/report/sudan/x y",
-            "https://reliefweb.int/report/sudan/x%20OR%20id%3A1",
-            "https://reliefweb.int/report/sudan/%2e%2e",
-            "https://reliefweb.int/report/sudan/%2E%2E/%2e%2e/node/1",
-            "https://reliefweb.int/report/%2e/sudan/x",
-            "https://reliefweb.int/report/sudan/../chad/x",
-        ).forEach { url ->
-            val link = ReliefWebLinks.fromUrl(url) ?: return@forEach
-            assertTrue("$url gave ${link.url}", safe.matches(link.url))
-            assertFalse("$url gave ${link.url}", link.url.contains("%2e", ignoreCase = true) || link.url.contains("/../") || link.url.endsWith("/.."))
-            // An encoded character is never part of a report's address: such a link is no report.
-            if ("%" in link.url) assertEquals(url, Link.Other::class, link::class)
+        val page = "https://reliefweb.int/report/sudan"
+        // Each case and what it gives, exactly: a missing or other result fails.
+        mapOf(
+            // A quote or a backslash, raw or encoded: encoded in the page, which is then no report.
+            "$page/x\"y" to Link.Other("$page/x%22y"),
+            "$page/x%22y" to Link.Other("$page/x%22y"),
+            "$page/x%5Cy" to Link.Other("$page/x%5Cy"),
+            // A raw backslash is a "/", as in a browser.
+            "$page/x\\y" to Link.Other("$page/x/y"),
+            "$page/x y" to Link.Other("$page/x%20y"),
+            "$page/x%20OR%20id%3A1" to Link.Other("$page/x%20OR%20id%3A1"),
+            // Dot segments, plain or encoded, are resolved before anything else.
+            "$page/%2e%2e" to Link.Other("https://reliefweb.int/report"),
+            "$page/%2E%2E/%2e%2e/node/1" to Link.Node("https://reliefweb.int/node/1", 1),
+            "https://reliefweb.int/report/%2e/sudan/x" to Link.Report("$page/x"),
+            "$page/../chad/x" to Link.Report("https://reliefweb.int/report/chad/x"),
+        ).forEach { (url, expected) ->
+            val link = ReliefWebLinks.fromUrl(url)
+            assertEquals(url, expected, link)
+            assertTrue("$url gave ${link!!.url}", safe.matches(link.url))
+            assertFalse("$url gave ${link.url}", link.url.contains("%2e", ignoreCase = true) || "/." in link.url)
         }
-        // A quote or a backslash in a report's address: not a report.
-        assertFalse(ReliefWebLinks.fromUrl("https://reliefweb.int/report/sudan/x\"y") is Link.Report)
-        assertFalse(ReliefWebLinks.fromUrl("https://reliefweb.int/report/sudan/x%5Cy") is Link.Report)
     }
 
     @Test

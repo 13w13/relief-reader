@@ -15,12 +15,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowToast
 
 /**
  * "Open in browser" and "Open on ReliefWeb" for a reliefweb.int page (review of PR 47): once the
@@ -114,5 +116,20 @@ class BrowserLinksTest {
         assertEquals("https://example.org/page", other.dataString)
         assertNull(other.selector)
         assertFalse(BrowserLinks.isReliefWeb("https://reliefweb.int.example.org/x"))
+    }
+
+    @Test
+    fun aLinkNoAppCanOpenSaysSo() {
+        // As Compose's own handler: IllegalArgumentException; and a message, not silence.
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
+        shadowOf(app).checkActivities(true)
+        try {
+            RelaisUriHandler(activity).openUri("mailto:office@example.org")
+            fail("expected IllegalArgumentException")
+        } catch (e: IllegalArgumentException) {
+            assertEquals("No app on this phone can open this link.", ShadowToast.getTextOfLatestToast())
+        }
+        // safeOpen, which every button of the app uses, says it did not open.
+        assertFalse(safeOpen(RelaisUriHandler(activity), "mailto:office@example.org"))
     }
 }

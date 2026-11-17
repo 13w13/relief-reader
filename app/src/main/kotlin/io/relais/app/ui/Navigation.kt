@@ -64,7 +64,7 @@ import kotlin.reflect.KClass
 )
 // `name` has a default so that the deep link relais://country/{id} works with the id alone.
 // `filter` names a PageFilter to open on (Most read from its screen); All otherwise.
-@Serializable data class CountryRoute(val id: Long, val name: String = "", val filter: String = "", val fromLink: Boolean = false)
+@Serializable data class CountryRoute(val id: Long, val name: String = "", val filter: String = "")
 @Serializable data class CrisisRoute(val id: Long, val name: String = "", val filter: String = "")
 // The overview of a country, opened from its page; `since` is the page's last visit, for the dots.
 @Serializable data class OverviewRoute(val id: Long, val name: String, val since: Long = Long.MAX_VALUE)
@@ -146,8 +146,8 @@ class Nav(private val controller: NavHostController) {
     fun tour() = controller.navigate(TourRoute) { launchSingleTop = true }
 
     /**
-     * A link from another app. The screen on top came from a link too (its screen, its report or
-     * its country): this one takes its place instead of piling up (review of PR 47).
+     * A link from another app. The screen on top came from a link too (its screen or its report):
+     * this one takes its place instead of piling up (review of PR 47).
      */
     fun link(url: String) {
         if (fromLinkOnTop()) controller.popBackStack()
@@ -160,17 +160,12 @@ class Nav(private val controller: NavHostController) {
         return when {
             destination.hasRoute(LinkRoute::class) -> true
             destination.hasRoute(ReportRoute::class) -> top.toRoute<ReportRoute>().fromLink
-            destination.hasRoute(CountryRoute::class) -> top.toRoute<CountryRoute>().fromLink
             else -> false
         }
     }
 
-    /** The report or country of a link, in place of the link's screen, marked as from a link. */
+    /** The report of a link, in place of the link's screen, marked as from a link. */
     fun reportFromLink(id: Long) = controller.navigate(ReportRoute(id, fromLink = true)) {
-        popUpTo<LinkRoute> { inclusive = true }
-    }
-
-    fun countryFromLink(id: Long, name: String) = controller.navigate(CountryRoute(id, name, fromLink = true)) {
         popUpTo<LinkRoute> { inclusive = true }
     }
     fun overview(id: Long, name: String, since: Long) = controller.navigate(OverviewRoute(id, name, since))
@@ -224,7 +219,7 @@ fun MainScreen() {
     androidx.compose.runtime.LaunchedEffect(Unit) {
         container.openRequest.collect { open ->
             if (open == null) return@collect
-            if (open == io.relais.app.MainActivity.OPEN_FOLLOWING) nav.tab(FollowingRoute) else nav.report(open)
+            if (open == io.relais.app.AlertActivity.OPEN_FOLLOWING) nav.tab(FollowingRoute) else nav.report(open)
             container.openRequest.value = null
         }
     }

@@ -59,29 +59,32 @@ class LinkViewModel(private val opener: LinkOpener, private val url: String) : V
         viewModelScope.launch { _target.value = if (link == null) LinkTarget.NotAReport else opener.open(link) }
     }
 
-    /** On coming back to the screen: an answer that may have changed meanwhile is asked again. */
-    fun resolveAgainIfStuck() {
-        val t = _target.value
-        if (t == LinkTarget.NeedsAppname || t == LinkTarget.Offline || t == LinkTarget.TryLater || t is LinkTarget.Failed) resolve()
+    /**
+     * On coming back to the screen, "needs an appname" only is looked for again: the reader went
+     * to Settings for it. Anything else waits for "Try again", so coming back from the browser
+     * never spends a request or opens the report unasked (review of PR 47).
+     */
+    fun resolveAgainOnReturn() {
+        if (_target.value == LinkTarget.NeedsAppname) resolve()
     }
 }
 
 /**
- * A ReliefWeb link given by another app (17/11): the report opens in place of this screen, or a
- * country page; otherwise a short message, "Open in browser" always, and "Add an appname" or
- * "Try again" when they help. The link was checked twice before it came here.
+ * A ReliefWeb link given by another app (17/11): the report opens in place of this screen;
+ * otherwise a short message, "Open in browser" always, and "Add an appname" or "Try again" when
+ * they help. Any other page of reliefweb.int, a country's included, opens no screen of Re.L.
+ * The link was checked twice before it came here.
  */
 @Composable
 fun LinkScreen(url: String, nav: Nav) {
     val context = LocalContext.current
     val vm = viewModel(key = url) { LinkViewModel(context.container.linkOpener, url) }
     val target by vm.target.collectAsStateWithLifecycle()
-    // Back from Settings with an appname, or with the network back: looked for again (review of PR 47).
-    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { vm.resolveAgainIfStuck() }
+    // Back from Settings with an appname: looked for again (review of PR 47).
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { vm.resolveAgainOnReturn() }
     LaunchedEffect(target) {
         when (val t = target) {
             is LinkTarget.Report -> nav.reportFromLink(t.id)
-            is LinkTarget.Country -> nav.countryFromLink(t.id, t.name)
             else -> Unit
         }
     }
@@ -110,7 +113,7 @@ internal fun LinkMessage(target: LinkTarget?, onBrowser: () -> Unit, onAddAppnam
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         val text = when (target) {
-            null, is LinkTarget.Report, is LinkTarget.Country -> stringResource(R.string.link_opening)
+            null, is LinkTarget.Report -> stringResource(R.string.link_opening)
             LinkTarget.NeedsAppname -> stringResource(R.string.link_needs_appname)
             LinkTarget.Offline -> stringResource(R.string.link_offline)
             LinkTarget.NotFound -> stringResource(R.string.link_not_found)
@@ -118,7 +121,7 @@ internal fun LinkMessage(target: LinkTarget?, onBrowser: () -> Unit, onAddAppnam
             LinkTarget.TryLater -> stringResource(R.string.link_try_later)
             is LinkTarget.Failed -> stringResource(R.string.link_failed, target.reason)
         }
-        if (target == null || target is LinkTarget.Report || target is LinkTarget.Country) {
+        if (target == null || target is LinkTarget.Report) {
             CircularProgressIndicator(Modifier.testTag("link_progress"))
         }
         Text(
@@ -126,7 +129,7 @@ internal fun LinkMessage(target: LinkTarget?, onBrowser: () -> Unit, onAddAppnam
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("link_text"),
         )
-        val done = target != null && target !is LinkTarget.Report && target !is LinkTarget.Country
+        val done = target != null && target !is LinkTarget.Report
         if (done) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (target == LinkTarget.NeedsAppname) {

@@ -46,6 +46,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Where an alert's notification leads (review of PR 47). Not exported: only Re.L's own
+             notifications start it, and it alone reads the report to open. It shows nothing and
+             brings MainActivity forward. -->
+        <activity
+            android:name=".AlertActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
+
         <!-- A ReliefWeb link from another app (17/11): Share > Re.L with a text holding a link, or a
              reliefweb.int report link opened with Re.L. LinkActivity shows nothing, keeps only a
              checked page of reliefweb.int and hands it to MainActivity. No autoVerify: Re.L does
