@@ -369,6 +369,17 @@ fun TodayScreen(nav: Nav) {
                             container.libraryRequest.value = LibraryView.HISTORY.ordinal
                             nav.tab(LibraryRoute)
                         },
+                        onUnsave = { id ->
+                            // As in a report and the Library: said, with Undo, when it was in a folder.
+                            scope.launch {
+                                val removed = vm.unsave(id)
+                                val n = removed.folders.size
+                                if (n > 0) {
+                                    val msg = context.resources.getQuantityString(R.plurals.library_remove_saved_folders, n, n)
+                                    if (snackbar.showSnackbar(msg, context.getString(R.string.action_undo)) == SnackbarResult.ActionPerformed) vm.undoUnsave(removed)
+                                }
+                            }
+                        },
                     )
                 }
             }
@@ -452,6 +463,7 @@ private fun LazyListScope.todayPage(
     pileReady: Boolean,
     prefetchNext: () -> Boolean,
     onSeeHistory: () -> Unit,
+    onUnsave: (Long) -> Unit,
 ) {
     item(key = "date") { TodayDateLine(state.lastRefreshAt) }
 
@@ -485,19 +497,7 @@ private fun LazyListScope.todayPage(
                 onOpen = { nav.headline(it.id) },
                 onOlder = onOlder,
                 prefetchNext = prefetchNext,
-                menu = { report, close ->
-                    HeadlineMenu(report, state, vm, close, onUnsave = { id ->
-                        // As in a report and the Library: said, with Undo, when it was in a folder.
-                        scope.launch {
-                            val removed = vm.unsave(id)
-                            val n = removed.folders.size
-                            if (n > 0) {
-                                val msg = context.resources.getQuantityString(R.plurals.library_remove_saved_folders, n, n)
-                                if (snackbar.showSnackbar(msg, context.getString(R.string.action_undo)) == SnackbarResult.ActionPerformed) vm.undoUnsave(removed)
-                            }
-                        }
-                    })
-                },
+                menu = { report, close -> HeadlineMenu(report, state, vm, close, onUnsave) },
             )
         }
     }
