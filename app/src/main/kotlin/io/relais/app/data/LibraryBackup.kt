@@ -74,6 +74,12 @@ data class BackupHighlight(
 
 @Serializable data class BackupSource(val id: Long, val shortname: String, val name: String, val reportsOnly: Boolean = false)
 
+/**
+ * A folder (version 2, 17/11): its name and the saved reports in it. Restored by name: an
+ * existing folder of the same name, ignoring capitals, gets the union of the reports.
+ */
+@Serializable data class BackupFolder(val name: String, val createdAt: Long = 0, val reportIds: List<Long> = emptyList())
+
 /** A followed regional crisis (topic): its lists travel with it, translated when read. */
 @Serializable data class BackupTopic(val id: Long, val title: String = "", val urlAlias: String? = null, val rivers: List<io.relais.api.TopicRiver> = emptyList())
 
@@ -89,9 +95,11 @@ data class LibraryBackup(
     val crises: List<BackupCrisis> = emptyList(),
     val sources: List<BackupSource> = emptyList(),
     val topics: List<BackupTopic> = emptyList(),
+    /** Absent from a version 1 file (0.5 to 0.7): no folder. */
+    val folders: List<BackupFolder> = emptyList(),
 ) {
-    /** What the confirmation names: "12 saved, 140 in history, 40 highlights and 6 followed." */
-    data class Counts(val saved: Int, val history: Int, val highlights: Int, val followed: Int)
+    /** What the confirmation names: "12 saved, 140 in history, 40 highlights, 6 followed and 3 folders." */
+    data class Counts(val saved: Int, val history: Int, val highlights: Int, val followed: Int, val folders: Int = 0)
 
     /**
      * The counts of what a restore brings, with the phone's "Keep history for" ([historyDays],
@@ -102,6 +110,7 @@ data class LibraryBackup(
         readings.count { it.inHistory && keptInHistory(it, now, historyDays) },
         highlights.size,
         countries.size + crises.size + sources.size + topics.size,
+        folders.size,
     )
 }
 
@@ -112,7 +121,13 @@ internal fun keptInHistory(r: BackupReading, now: Long, historyDays: Int): Boole
 object LibraryBackupFormat {
     const val APP = "Re.L"
     const val KIND = "library-backup"
-    const val VERSION = 1
+
+    /**
+     * 2 since the folders (17/11): an app of 0.5 to 0.7 refuses such a file with its message
+     * ("from a newer version of Re.L") instead of dropping the folders without a word. This app
+     * reads versions 1 and 2.
+     */
+    const val VERSION = 2
 
     /** Files from far larger libraries than expected are refused before reading them. */
     const val MAX_BYTES = 20L * 1024 * 1024
@@ -155,7 +170,7 @@ object LibraryBackupFormat {
     /** Most rows of each kind a file may hold; more is refused before anything is read into it. */
     val MAX_ROWS = mapOf(
         "readings" to 20_000, "highlights" to 20_000,
-        "countries" to 1_000, "crises" to 1_000, "sources" to 2_000, "topics" to 500,
+        "countries" to 1_000, "crises" to 1_000, "sources" to 2_000, "topics" to 500, "folders" to 500,
     )
     const val MAX_CARD_SOURCES = 50
     const val MAX_RIVERS = 50
@@ -228,6 +243,7 @@ object LibraryBackupFormat {
             countries = b.countries.filter { it.id.valid() }.map { it.copy(name = it.name.cut()) },
             crises = b.crises.filter { it.id.valid() }.map { it.copy(name = it.name.cut(), glide = it.glide.cutOrNull()) },
             sources = b.sources.filter { it.id.valid() }.map { it.copy(shortname = it.shortname.cut(), name = it.name.cut()) },
+            folders = folders(b),
             topics = b.topics.filter { it.id.valid() }.map { t ->
                 t.copy(
                     title = t.title.cut(),
@@ -238,6 +254,31 @@ object LibraryBackupFormat {
                 )
             },
         )
+    }
+
+    /**
+     * The folders a restore keeps (17/11): a name cleaned and cut like one typed in the app, never
+     * empty; two folders of the same name, ignoring capitals, made one; and in each only reports
+     * saved in this same file (rule 3: a report in a folder is saved), with valid ids, as many at
+     * most as the file has readings.
+     */
+    private fun folders(b: LibraryBackup): List<BackupFolder> {
+        fun Long.validReport() = this in 1..MAX_ID || (this < 0 && this != Long.MIN_VALUE)
+        val saved = b.readings.filter { it.savedAt != null && it.reportId.validReport() }.map { it.reportId }.toSet()
+        val byName = linkedMapOf<String, BackupFolder>()
+        for (f in b.folders) {
+            val name = Folders.clean(f.name)
+            if (name.isEmpty()) continue
+            val ids = f.reportIds.asSequence().filter { it.validReport() && it in saved }.distinct().take(b.readings.size).toList()
+            val key = name.lowercase()
+            val known = byName[key]
+            byName[key] = if (known == null) {
+                BackupFolder(name, f.createdAt.coerceAtLeast(0), ids)
+            } else {
+                known.copy(reportIds = (known.reportIds + ids).distinct().take(b.readings.size))
+            }
+        }
+        return byName.values.toList()
     }
 
     /** "rel-library-2026-11-14.json". */
@@ -261,6 +302,9 @@ class LibraryBackupStore(
             crises = dao.followedDisasters().map { BackupCrisis(it.disasterId, it.name, it.glide) },
             sources = dao.followedSources().map { BackupSource(it.sourceId, it.shortname, it.name, it.reportsOnly) },
             topics = dao.followedTopics().map { BackupTopic(it.topicId, it.title, it.urlAlias, it.rivers) },
+            folders = dao.allFolderReports().groupBy { it.folderId }.let { members ->
+                dao.allFolders().map { f -> BackupFolder(f.name, f.createdAt, members[f.id].orEmpty().map { it.reportId }) }
+            },
         )
     }
 
@@ -311,6 +355,18 @@ class LibraryBackupStore(
                 if (dao.followedSource(it.id) == null) {
                     dao.upsertFollowedSource(FollowedSourceEntity(it.id, it.shortname, it.name, reportsOnly = it.reportsOnly, followedAt = now, lastVisitAt = since))
                 }
+            }
+            // Folders by name, ignoring capitals: the union of the reports for one the phone has,
+            // a new folder otherwise. Only reports saved on the phone once merged (rule 3); a
+            // report missing from it is left out.
+            val existing = dao.allFolders().associateBy { it.name.lowercase() }
+            backup.folders.forEach { f ->
+                val name = Folders.clean(f.name)
+                if (name.isEmpty()) return@forEach
+                val ids = f.reportIds.filter { dao.reading(it)?.savedAt != null }
+                val folderId = existing[name.lowercase()]?.id
+                    ?: dao.insertFolder(FolderEntity(name = name, createdAt = f.createdAt.takeIf { it > 0 } ?: now, updatedAt = now))
+                dao.insertFolderReports(ids.map { FolderReportEntity(folderId, it, now) })
             }
         }
     }

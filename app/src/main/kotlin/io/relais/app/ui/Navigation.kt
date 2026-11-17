@@ -81,6 +81,9 @@ import kotlin.reflect.KClass
 @Serializable object OlderHeadlinesRoute
 /** The first launch tour again, from Settings > About (issue 37). */
 @Serializable object TourRoute
+/** A folder of the Library, and "Add reports" to it (17/11). */
+@Serializable data class FolderRoute(val id: Long)
+@Serializable data class AddReportsRoute(val folderId: Long)
 
 /** [tag] is the test tag of the bottom bar item, read by the Maestro flows in .maestro/. */
 private data class Tab(val route: Any, val routeClass: KClass<*>, val label: Int, val icon: ImageVector, val tag: String)
@@ -141,6 +144,8 @@ class Nav(private val controller: NavHostController) {
     fun pickSources() = controller.navigate(PickSourcesRoute) { launchSingleTop = true }
     fun licences() = controller.navigate(LicencesRoute) { launchSingleTop = true }
     fun tour() = controller.navigate(TourRoute) { launchSingleTop = true }
+    fun folder(id: Long) = controller.navigate(FolderRoute(id)) { launchSingleTop = true }
+    fun addReports(folderId: Long) = controller.navigate(AddReportsRoute(folderId)) { launchSingleTop = true }
     fun overview(id: Long, name: String, since: Long) = controller.navigate(OverviewRoute(id, name, since))
     fun mostRead() = controller.navigate(MostReadRoute) { launchSingleTop = true }
     fun manageFollowing() = controller.navigate(ManageFollowingRoute) { launchSingleTop = true }
@@ -261,6 +266,8 @@ fun MainScreen() {
                 composable<LicencesRoute> { LicencesScreen(nav) }
                 // Back to Settings at the end, by Skip, Start reading or Back on the first page.
                 composable<TourRoute> { TourScreen(onDone = { nav.back() }) }
+                composable<FolderRoute> { FolderScreen(it.toRoute<FolderRoute>().id, nav) }
+                composable<AddReportsRoute> { AddReportsScreen(it.toRoute<AddReportsRoute>().folderId, nav) }
                 composable<ManageFollowingRoute> { ManageFollowingScreen(nav) }
                 composable<CrisisRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<CrisisRoute>(basePath = "relais://crisis")) else emptyList()) {
                     val route = it.toRoute<CrisisRoute>()

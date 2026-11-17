@@ -83,4 +83,58 @@ class HighlightExportTest {
         assertEquals("central-eastern-africa-ebola-outbreak-ma", HighlightExport.slug("Central/Eastern Africa: Ebola Outbreak - May 2026"))
         assertEquals("all", HighlightExport.slug(null))
     }
+
+    // --- Export folder (17/11) ----------------------------------------------------------------------
+
+    private val older = report.copy(id = 4237000, title = "Sudan: Older flash update", dateCreated = nov4 - 3 * day, dateOriginal = nov4 - 4 * day, urlAlias = null)
+
+    @Test
+    fun aFolderListsEveryReportTheLatestFirstWithOrWithoutHighlights() {
+        val h = highlight(1, "75 per cent of the patients", nov4 + 3 * day)
+        val result = HighlightExport.buildFolder("Chad 2027", listOf(older, report), listOf(h), now = nov4 + 4 * day, zone = ZoneOffset.UTC)
+        assertEquals("rel-folder-chad-2027-2026-11-08.md", result.fileName)
+        assertEquals(2, result.reports)
+        assertEquals(1, result.highlights)
+        assertEquals(
+            """
+            # Chad 2027
+
+            Exported from Re.L on 8 Nov 2026: 2 reports, 1 highlight.
+            Reports belong to the organizations that published them. Links go to ReliefWeb.
+
+            ## $title
+
+            - Organization: Médecins Sans Frontières
+            - Country: Sudan
+            - Format: Analysis
+            - Published: 4 Nov 2026. Posted on ReliefWeb: 5 Nov 2026.
+            - Link: $url
+
+            > 75 per cent of the patients
+
+            Highlighted on 7 Nov 2026.
+
+            ## Sudan: Older flash update
+
+            - Organization: Médecins Sans Frontières
+            - Country: Sudan
+            - Format: Analysis
+            - Published: 31 Oct 2026. Posted on ReliefWeb: 1 Nov 2026.
+            - Link: https://reliefweb.int/node/4237000
+
+            No highlights.
+
+            """.trimIndent(),
+            result.markdown,
+        )
+    }
+
+    @Test
+    fun theFolderNameIsEscapedInTheDocument() {
+        val result = HighlightExport.buildFolder("# [ECHO](x) *2027* <b>", listOf(report), emptyList(), now = nov4, zone = ZoneOffset.UTC)
+        assertTrue(result.markdown, result.markdown.startsWith("# \\# \\[ECHO\\]\\(x\\) \\*2027\\* \\<b\\>\n"))
+        assertEquals("rel-folder-echo-x-2027-b-2026-11-04.md", result.fileName)
+        // On one line, whatever the reader typed.
+        assertEquals("A B", HighlightExport.markdownText(" A\n\nB "))
+    }
 }

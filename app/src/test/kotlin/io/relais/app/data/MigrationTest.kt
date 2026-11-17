@@ -132,6 +132,78 @@ class MigrationTest {
                 dao.insertReportTopics(listOf(ReportTopicEntity(2, 7)))
                 // A report brought by the topic joins the feed of Following.
                 assertTrue(dao.observeFollowingFeed(true, listOf(-1L), false, 100).first().any { it.id == 2L })
+
+                // The tables of version 5 (folders, 17/11) are there and writable.
+                assertTrue(dao.observeFolders().first().isEmpty())
+                val folder = dao.insertFolder(FolderEntity(name = "Sudan 2027", createdAt = 1, updatedAt = 1))
+                dao.insertFolderReports(listOf(FolderReportEntity(folder, 4237046, 1)))
+                assertEquals(1, dao.observeFolders().first().single().reports)
+            }
+        } finally {
+            db.close()
+        }
+    }
+
+    /**
+     * Version 4 (v0.7.0, the published app) to 5 (folders, 17/11): Saved, History and Highlights,
+     * with a highlight of a PDF and a followed regional crisis, come out intact; the two new
+     * tables are empty and writable.
+     */
+    @Test
+    fun userDataOfVersion4SurvivesTheFolders() {
+        val name4 = "migration-test-4.db"
+        helper.createDatabase(name4, 4).use { db ->
+            db.execSQL(
+                "INSERT INTO report (id, title, dateCreated, primaryCountryId, primaryCountryName, countries, sources, " +
+                    "formatId, formatName, themes, languages, files, bodyHtml, isHeadline, fromRss, fetchedAt, disasters) VALUES " +
+                    "(4300001, 'Chad: Cholera Outbreak - Situation Report No. 4', 1763337600000, 42, 'Chad', " +
+                    "'[{\"id\":42,\"name\":\"Chad\"}]', '[{\"id\":1503,\"shortname\":\"OCHA\",\"name\":\"Office for the Coordination of Humanitarian Affairs\"}]', " +
+                    "10, 'Situation Report', '[]', '[\"English\"]', '[]', '<p>1 240 suspected cases</p>', 0, 0, 1763340000000, '[]')",
+            )
+            db.execSQL(
+                "INSERT INTO reading (reportId, firstOpenedAt, lastOpenedAt, itemIndex, itemOffset, percent, savedAt, pdfPage, " +
+                    "inHistory, hiddenFromContinue) VALUES (4300001, 1000, 2000, 3, 0, 60, 1500, 2, 1, 0)",
+            )
+            db.execSQL(
+                "INSERT INTO highlight (id, reportId, reportTitle, countryName, sourceName, formatName, reportDate, createdAt, " +
+                    "text, note, blockIndex, start, end, pdfPage) VALUES (1, 4300001, 'Chad: Cholera Outbreak - Situation Report No. 4', " +
+                    "'Chad', 'OCHA', 'Situation Report', 1763337600000, 1763400000000, '1 240 suspected cases in Ouaddai', " +
+                    "'for the sitrep', 0, 0, 32, 3)",
+            )
+            db.execSQL(
+                "INSERT INTO followed_topic (topicId, title, urlAlias, rivers, followedAt, lastVisitAt) VALUES " +
+                    "(7, 'Sudan Regional Crisis', NULL, '[]', 1, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(name4, 5, true, MIGRATION_4_5).close()
+
+        val db = Room.databaseBuilder(ApplicationProvider.getApplicationContext<Context>(), RelaisDatabase::class.java, name4)
+            .addMigrations(*MIGRATIONS)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            runBlocking {
+                val dao = db.dao()
+                val saved = dao.observeSaved().first().single()
+                assertEquals(4300001L, saved.reading.reportId)
+                assertEquals(60, saved.reading.percent)
+                assertEquals(2, saved.reading.pdfPage)
+                assertEquals("<p>1 240 suspected cases</p>", saved.report?.bodyHtml)
+                assertEquals(listOf(4300001L), dao.observeHistory().first().map { it.reading.reportId })
+                val highlight = dao.observeAllHighlights().first().single()
+                assertEquals("for the sitrep", highlight.note)
+                assertEquals(3, highlight.pdfPage)
+                assertEquals("Sudan Regional Crisis", dao.followedTopic(7)!!.title)
+
+                // The folders: none yet, then one with the saved report.
+                assertTrue(dao.observeFolders().first().isEmpty())
+                val folder = dao.insertFolder(FolderEntity(name = "Chad 2027", createdAt = 1, updatedAt = 1))
+                dao.insertFolderReports(listOf(FolderReportEntity(folder, 4300001, 2)))
+                val row = dao.observeFolders().first().single()
+                assertEquals(1, row.reports)
+                assertEquals(1, row.highlights)
+                assertEquals(listOf(4300001L), dao.observeFolderReadings(folder).first().map { it.reading.reportId })
             }
         } finally {
             db.close()

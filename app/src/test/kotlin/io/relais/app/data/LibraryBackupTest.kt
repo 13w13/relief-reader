@@ -7,6 +7,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -93,7 +94,7 @@ class LibraryBackupTest {
         fillOldPhone()
         val backup = LibraryBackupStore(old.dao()).export(now)
         val json = LibraryBackupFormat.encode(backup)
-        assertTrue(json, json.contains("\"app\":\"Re.L\"") && json.contains("\"kind\":\"library-backup\"") && json.contains("\"version\":1"))
+        assertTrue(json, json.contains("\"app\":\"Re.L\"") && json.contains("\"kind\":\"library-backup\"") && json.contains("\"version\":2"))
         // Saved and History only: report 3, merely read, stays out.
         assertEquals(listOf(1L, 2L, 4L), backup.readings.map { it.reportId }.sorted())
         assertEquals(LibraryBackup.Counts(saved = 1, history = 2, highlights = 1, followed = 3), backup.counts(now, historyDays = -1))
@@ -165,7 +166,7 @@ class LibraryBackupTest {
         assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":{"n":1}}"""))
         assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":1,"exportedAt":0,"readings":"x"}"""))
         assertEquals(LibraryBackupFormat.Parsed.NotBackup, LibraryBackupFormat.parse("""{"app":"Other","kind":"library-backup","version":1,"exportedAt":0}"""))
-        assertEquals(LibraryBackupFormat.Parsed.Newer, LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":0}"""))
+        assertEquals(LibraryBackupFormat.Parsed.Newer, LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":3,"exportedAt":0}"""))
         // An unknown field of the same version is ignored.
         val ok = LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":1,"exportedAt":5,"bookmarks":[{"id":1}]}""")
         assertEquals(5L, (ok as LibraryBackupFormat.Parsed.Ok).backup.exportedAt)
@@ -184,5 +185,75 @@ class LibraryBackupTest {
     @Test
     fun theFileIsNamedAfterItsDay() {
         assertEquals("rel-library-2026-11-14.json", LibraryBackupFormat.fileName(now, java.time.ZoneOffset.UTC))
+    }
+
+    // --- Folders, version 2 of the file (17/11) ------------------------------------------------------
+
+    private fun folders(db: RelaisDatabase) = Folders(db.dao(), transaction = { block -> block() }, now = { now })
+
+    @Test
+    fun foldersTravelWithTheLibraryAndMergeByName() = runBlocking {
+        fillOldPhone()
+        val chad = (folders(old).create("Chad 2027") as Folders.NameCheck.Created).id
+        folders(old).add(chad, listOf(1))
+        val file = LibraryBackupFormat.encode(LibraryBackupStore(old.dao()).export(now))
+        assertTrue(file, file.contains("\"version\":2"))
+        val backup = (LibraryBackupFormat.parse(file) as LibraryBackupFormat.Parsed.Ok).backup
+        assertEquals(listOf(BackupFolder("Chad 2027", now, listOf(1L))), backup.folders)
+        assertEquals(1, backup.counts(now, historyDays = -1).folders)
+
+        // The new phone has "CHAD 2027" with a report of its own: one folder, the union.
+        val dao = new.dao()
+        dao.upsertReports(listOf(report(2, "Noravia: Situation Report No. 2")))
+        dao.upsertReading(ReadingEntity(reportId = 2, savedAt = now))
+        val mine = (folders(new).create("CHAD 2027") as Folders.NameCheck.Created).id
+        folders(new).add(mine, listOf(2))
+        LibraryBackupStore(dao).restore(backup, now)
+        val rows = dao.observeFolders().first()
+        assertEquals("CHAD 2027", rows.single().name)
+        assertEquals(setOf(1L, 2L), dao.observeFolderReadings(mine).first().map { it.reading.reportId }.toSet())
+        // Restored again: nothing doubled, nothing deleted.
+        LibraryBackupStore(dao).restore(backup, now)
+        assertEquals(2, dao.observeFolders().first().single().reports)
+    }
+
+    @Test
+    fun aNewFolderIsCreatedWithOnlyTheReportsSavedOnThePhone() = runBlocking {
+        val file = """{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":5,""" +
+            """"readings":[{"reportId":1,"savedAt":5,"card":{"title":"Noravia: Situation Report No. 1","dateCreated":5}}],""" +
+            """"folders":[{"name":"ECHO proposal","createdAt":7,"reportIds":[1]}]}"""
+        val backup = (LibraryBackupFormat.parse(file) as LibraryBackupFormat.Parsed.Ok).backup
+        LibraryBackupStore(new.dao()).restore(backup, now)
+        val folder = new.dao().observeFolders().first().single()
+        assertEquals("ECHO proposal", folder.name)
+        assertEquals(7L, folder.createdAt)
+        assertEquals(1, folder.reports)
+    }
+
+    @Test
+    fun aVersion1FileHasNoFolders() {
+        val ok = LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":1,"exportedAt":5}""") as LibraryBackupFormat.Parsed.Ok
+        assertTrue(ok.backup.folders.isEmpty())
+        assertEquals(0, ok.backup.counts(now, -1).folders)
+    }
+
+    @Test
+    fun theFoldersOfAFileAreBounded() {
+        val readings = """[{"reportId":1,"savedAt":5},{"reportId":-42,"savedAt":5},{"reportId":2,"inHistory":true,"lastOpenedAt":5}]"""
+        val names = """[{"name":"  Chad   2027 ","reportIds":[1,2,3,-42,0,1,9999999999999]},{"name":"chad 2027","reportIds":[-42]},""" +
+            """{"name":"   ","reportIds":[1]},{"name":"${"y".repeat(100)}","reportIds":[1]}]"""
+        val ok = LibraryBackupFormat.parse(
+            """{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":5,"readings":$readings,"folders":$names}""",
+        ) as LibraryBackupFormat.Parsed.Ok
+        // Cleaned and cut names, the empty one left out, two of the same name made one.
+        assertEquals(listOf("Chad 2027", "y".repeat(Folders.MAX_NAME)), ok.backup.folders.map { it.name })
+        // Only reports saved in the file, valid ids (a report of the feed included), each once.
+        assertEquals(listOf(1L, -42L), ok.backup.folders.first().reportIds)
+        // More than 500 folders: refused before it is read.
+        val many = (1..501).joinToString(",") { """{"name":"f$it"}""" }
+        assertEquals(
+            LibraryBackupFormat.Parsed.TooLarge,
+            LibraryBackupFormat.parse("""{"app":"Re.L","kind":"library-backup","version":2,"exportedAt":5,"folders":[$many]}"""),
+        )
     }
 }

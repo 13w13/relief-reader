@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.BorderColor
+import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.PictureAsPdf
@@ -242,6 +243,18 @@ class ReportViewModel(private val c: AppContainer, private val id: Long, headlin
         c.pdfs.relocate(id, keep = saved)
     }
 
+    /** Removed from Saved and from its folders (17/11); [undoUnsave] puts back both. */
+    suspend fun unsave(): io.relais.app.data.Folders.Unsaved {
+        val removed = c.folders.unsave(id)
+        c.pdfs.relocate(id, keep = false)
+        return removed
+    }
+
+    fun undoUnsave(removed: io.relais.app.data.Folders.Unsaved) = viewModelScope.launch {
+        c.folders.undo(removed)
+        c.pdfs.relocate(id, keep = true)
+    }
+
     fun markUnread() = viewModelScope.launch { c.repository.setRead(id, false) }
 
     fun savePosition(index: Int, offset: Int, percent: Int, finished: Boolean) =
@@ -303,6 +316,7 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
     if (fromHeadline) LaunchedEffect(id) { container.headlineFocus.value = id }
     val readingSize by vm.readingSize.collectAsStateWithLifecycle()
     var showTextSize by remember { mutableStateOf(false) }
+    var folderSheet by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
@@ -446,7 +460,15 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
             if (report != null && !report.fromRss) {
                 IconButton(onClick = {
                     if (saved) {
-                        vm.setSaved(false)
+                        // Out of Saved, and out of its folders: said, with Undo, when it was in one.
+                        scope.launch {
+                            val removed = vm.unsave()
+                            val n = removed.folders.size
+                            if (n > 0) {
+                                val msg = context.resources.getQuantityString(R.plurals.library_remove_saved_folders, n, n)
+                                if (snackbar.showSnackbar(msg, undoLabel) == SnackbarResult.ActionPerformed) vm.undoUnsave(removed)
+                            }
+                        }
                     } else {
                         vm.setSaved(true)
                         scope.launch {
@@ -490,6 +512,15 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
                                 }
                             },
                             modifier = Modifier.testTag("highlighter"),
+                        )
+                    }
+                    // A report of the feed cannot be saved, so it is not put in a folder either (17/11).
+                    if (!report.fromRss) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.folder_add)) },
+                            leadingIcon = { Icon(Icons.Rounded.CreateNewFolder, contentDescription = null) },
+                            onClick = { close(); folderSheet = true },
+                            modifier = Modifier.testTag("add_to_folder"),
                         )
                     }
                     DropdownMenuItem(
@@ -649,6 +680,11 @@ fun ReportScreen(id: Long, jumpToBlock: Int, nav: Nav, fromHeadline: Boolean = f
             }
             }
         }
+    }
+
+    val folderReport = report
+    if (folderSheet && folderReport != null) {
+        AddToFolderSheet(folderReport.id, onDismiss = { folderSheet = false }, onMessage = { msg -> scope.launch { snackbar.showSnackbar(msg) } })
     }
 
     if (showTextSize) {

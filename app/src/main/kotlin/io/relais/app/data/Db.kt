@@ -188,6 +188,32 @@ data class ReadingEntity(
     val hiddenFromContinue: Boolean = false,
 )
 
+/**
+ * A folder of the Library (17/11, equipe/produit/fiche-dossiers-library.md): a name the reader
+ * chose, put on saved reports. Version 5.
+ */
+@Entity(tableName = "folder")
+data class FolderEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+/** A saved report in a folder; a report may be in several. Version 5. */
+@Entity(tableName = "folder_report", primaryKeys = ["folderId", "reportId"], indices = [Index("reportId")])
+data class FolderReportEntity(val folderId: Long, val reportId: Long, val addedAt: Long)
+
+/** A folder in the Library's list: its counts of reports and of their highlights. */
+data class FolderRow(
+    val id: Long,
+    val name: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val reports: Int,
+    val highlights: Int,
+)
+
 @Entity(tableName = "pdf")
 data class PdfEntity(
     @PrimaryKey val url: String,
@@ -739,12 +765,76 @@ interface RelaisDao {
 
     @Query(
         "DELETE FROM report WHERE fetchedAt < :cutoff AND id NOT IN (SELECT reportId FROM reading) " +
-            "AND id NOT IN (SELECT reportId FROM feed_item) AND id NOT IN (SELECT reportId FROM highlight)",
+            "AND id NOT IN (SELECT reportId FROM feed_item) AND id NOT IN (SELECT reportId FROM highlight) " +
+            // A report in a folder is saved, so it has a reading; spared here too, whatever happens.
+            "AND id NOT IN (SELECT reportId FROM folder_report)",
     )
     suspend fun deleteOldReports(cutoff: Long)
 
     @Query("DELETE FROM report_fts WHERE rowid NOT IN (SELECT id FROM report)")
     suspend fun deleteOrphanFts()
+
+    // Folders (version 5, 17/11)
+    @Query(
+        "SELECT f.id, f.name, f.createdAt, f.updatedAt, " +
+            "(SELECT COUNT(*) FROM folder_report fr WHERE fr.folderId = f.id) AS reports, " +
+            "(SELECT COUNT(*) FROM highlight h WHERE h.reportId IN (SELECT fr2.reportId FROM folder_report fr2 WHERE fr2.folderId = f.id)) AS highlights " +
+            "FROM folder f ORDER BY f.updatedAt DESC, f.id DESC",
+    )
+    fun observeFolders(): Flow<List<FolderRow>>
+
+    @Query("SELECT * FROM folder ORDER BY updatedAt DESC, id DESC")
+    suspend fun allFolders(): List<FolderEntity>
+
+    @Query("SELECT * FROM folder WHERE id = :id")
+    fun observeFolder(id: Long): Flow<FolderEntity?>
+
+    @Query("SELECT * FROM folder WHERE id = :id")
+    suspend fun folder(id: Long): FolderEntity?
+
+    @Insert
+    suspend fun insertFolder(folder: FolderEntity): Long
+
+    @Query("UPDATE folder SET name = :name, updatedAt = :at WHERE id = :id")
+    suspend fun renameFolder(id: Long, name: String, at: Long)
+
+    @Query("UPDATE folder SET updatedAt = :at WHERE id = :id")
+    suspend fun touchFolder(id: Long, at: Long)
+
+    @Query("DELETE FROM folder WHERE id = :id")
+    suspend fun deleteFolderRow(id: Long)
+
+    @Query("DELETE FROM folder_report WHERE folderId = :folderId")
+    suspend fun deleteFolderReports(folderId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertFolderReports(rows: List<FolderReportEntity>)
+
+    @Query("DELETE FROM folder_report WHERE folderId = :folderId AND reportId = :reportId")
+    suspend fun deleteFolderReport(folderId: Long, reportId: Long)
+
+    @Query("SELECT * FROM folder_report WHERE reportId = :reportId")
+    suspend fun foldersOfReport(reportId: Long): List<FolderReportEntity>
+
+    @Query("SELECT folderId FROM folder_report WHERE reportId = :reportId")
+    fun observeFolderIdsOfReport(reportId: Long): Flow<List<Long>>
+
+    @Query("DELETE FROM folder_report WHERE reportId = :reportId")
+    suspend fun deleteReportFromFolders(reportId: Long)
+
+    @Query("SELECT * FROM folder_report ORDER BY addedAt")
+    suspend fun allFolderReports(): List<FolderReportEntity>
+
+    /** A folder's reports with their reading, the last added first. */
+    @Transaction
+    @Query("SELECT reading.* FROM reading JOIN folder_report fr ON fr.reportId = reading.reportId WHERE fr.folderId = :folderId ORDER BY fr.addedAt DESC")
+    fun observeFolderReadings(folderId: Long): Flow<List<ReadingWithReport>>
+
+    @Query("SELECT * FROM highlight WHERE reportId IN (SELECT reportId FROM folder_report WHERE folderId = :folderId)")
+    suspend fun folderHighlights(folderId: Long): List<HighlightEntity>
+
+    @Query("SELECT * FROM report WHERE id IN (SELECT reportId FROM folder_report WHERE folderId = :folderId)")
+    suspend fun folderReports(folderId: Long): List<ReportEntity>
 }
 
 /** JSON codecs for list columns. Kept outside [Converters] with explicit types, so that KSP can read them. */
@@ -781,6 +871,7 @@ class Converters {
         FollowedCountryEntity::class, ReadingEntity::class, PdfEntity::class, ApiUsageEntity::class,
         ReportFtsEntity::class, HighlightEntity::class, HighlightFtsEntity::class, FollowedDisasterEntity::class,
         FollowedSourceEntity::class, FollowedTopicEntity::class, ReportTopicEntity::class,
+        FolderEntity::class, FolderReportEntity::class,
     ],
     version = DB_VERSION,
     exportSchema = true,
@@ -846,7 +937,22 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
-val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+/** Version 5 (17/11): folders of the Library. Two tables added, nothing else touched. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `folder` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `folder_report` (`folderId` INTEGER NOT NULL, `reportId` INTEGER NOT NULL, " +
+                "`addedAt` INTEGER NOT NULL, PRIMARY KEY(`folderId`, `reportId`))",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_folder_report_reportId` ON `folder_report` (`reportId`)")
+    }
+}
+
+val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 
 /** Version of the schema; app/schemas holds one JSON file per version. */
-const val DB_VERSION = 4
+const val DB_VERSION = 5

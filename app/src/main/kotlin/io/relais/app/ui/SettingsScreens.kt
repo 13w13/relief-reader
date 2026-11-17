@@ -515,7 +515,15 @@ fun SettingsScreen(nav: Nav) {
         AlertDialog(
             onDismissRequest = { pendingRestore = null },
             title = { Text(stringResource(R.string.restore_title)) },
-            text = { Text(stringResource(R.string.restore_text, n.saved, n.history, n.highlights, n.followed)) },
+            text = {
+                Text(
+                    if (n.folders > 0) {
+                        stringResource(R.string.restore_text_folders, n.saved, n.history, n.highlights, n.followed, n.folders)
+                    } else {
+                        stringResource(R.string.restore_text, n.saved, n.history, n.highlights, n.followed)
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     pendingRestore = null
