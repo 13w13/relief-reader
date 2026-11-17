@@ -279,6 +279,21 @@ class ScreenshotTest {
         TodayWith({ io.relais.app.ui.AgedLine(io.relais.app.data.VersionNotice.Aged(2), onCheckNow = {}, onNotNow = {}) }, reports("headlines.json").take(6))
     }
 
+    /** A ReliefWeb link shared to Re.L without an appname (17/11). */
+    private fun linkNeedsAppname(name: String, dark: Boolean) = shoot(name, dark = dark) {
+        io.relais.app.ui.ScreenScaffold(title = "ReliefWeb link", onBack = {}) { padding ->
+            Column(Modifier.padding(padding)) {
+                io.relais.app.ui.LinkMessage(io.relais.app.data.LinkTarget.NeedsAppname, onBrowser = {}, onAddAppname = {}, onRetry = {})
+            }
+        }
+    }
+
+    @Test
+    fun linkNeedsAppname() = linkNeedsAppname("link-needs-appname", dark = false)
+
+    @Test
+    fun linkNeedsAppnameDark() = linkNeedsAppname("link-needs-appname-dark", dark = true)
+
     /** Settings > About with the result of "Check now" under its button (founder, 16/11). */
     private fun aboutChecked(name: String, state: io.relais.app.data.ManualCheck) = shoot(name) {
         Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {

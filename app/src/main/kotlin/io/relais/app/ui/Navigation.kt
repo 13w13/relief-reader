@@ -50,7 +50,8 @@ import kotlin.reflect.KClass
 @Serializable object LibraryRoute
 @Serializable object SettingsRoute
 // `headline` marks a report opened from the pile of Today: it ends with "Headline 3 of 6" (v0.4).
-@Serializable data class ReportRoute(val id: Long, val block: Int = -1, val headline: Boolean = false)
+// `fromLink`: opened from a link another app sent; the visit counts once the reader touches it (17/11).
+@Serializable data class ReportRoute(val id: Long, val block: Int = -1, val headline: Boolean = false, val fromLink: Boolean = false)
 // page, block and query open the reader on a highlight or a search result (pdf/, T9).
 @Serializable data class PdfRoute(
     val url: String,
@@ -81,6 +82,8 @@ import kotlin.reflect.KClass
 @Serializable object OlderHeadlinesRoute
 /** The first launch tour again, from Settings > About (issue 37). */
 @Serializable object TourRoute
+/** A ReliefWeb link from another app, already checked (17/11): resolved, then replaced by its screen. */
+@Serializable data class LinkRoute(val url: String)
 
 /** [tag] is the test tag of the bottom bar item, read by the Maestro flows in .maestro/. */
 private data class Tab(val route: Any, val routeClass: KClass<*>, val label: Int, val icon: ImageVector, val tag: String)
@@ -141,6 +144,30 @@ class Nav(private val controller: NavHostController) {
     fun pickSources() = controller.navigate(PickSourcesRoute) { launchSingleTop = true }
     fun licences() = controller.navigate(LicencesRoute) { launchSingleTop = true }
     fun tour() = controller.navigate(TourRoute) { launchSingleTop = true }
+
+    /**
+     * A link from another app. The screen on top came from a link too (its screen or its report):
+     * this one takes its place instead of piling up (review of PR 47).
+     */
+    fun link(url: String) {
+        if (fromLinkOnTop()) controller.popBackStack()
+        controller.navigate(LinkRoute(url))
+    }
+
+    private fun fromLinkOnTop(): Boolean {
+        val top = controller.currentBackStackEntry ?: return false
+        val destination = top.destination
+        return when {
+            destination.hasRoute(LinkRoute::class) -> true
+            destination.hasRoute(ReportRoute::class) -> top.toRoute<ReportRoute>().fromLink
+            else -> false
+        }
+    }
+
+    /** The report of a link, in place of the link's screen, marked as from a link. */
+    fun reportFromLink(id: Long) = controller.navigate(ReportRoute(id, fromLink = true)) {
+        popUpTo<LinkRoute> { inclusive = true }
+    }
     fun overview(id: Long, name: String, since: Long) = controller.navigate(OverviewRoute(id, name, since))
     fun mostRead() = controller.navigate(MostReadRoute) { launchSingleTop = true }
     fun manageFollowing() = controller.navigate(ManageFollowingRoute) { launchSingleTop = true }
@@ -192,8 +219,18 @@ fun MainScreen() {
     androidx.compose.runtime.LaunchedEffect(Unit) {
         container.openRequest.collect { open ->
             if (open == null) return@collect
-            if (open == io.relais.app.MainActivity.OPEN_FOLLOWING) nav.tab(FollowingRoute) else nav.report(open)
+            if (open == io.relais.app.AlertActivity.OPEN_FOLLOWING) nav.tab(FollowingRoute) else nav.report(open)
             container.openRequest.value = null
+        }
+    }
+    // A ReliefWeb link from another app (17/11). Collected here, on the main screen: a link shared
+    // during the first launch waits for the setup and the tour to end.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        container.linkRequest.collect { pending ->
+            if (pending == null) return@collect
+            // A link kept during the first launch opens if it is recent, not much later (review of PR 47).
+            if (pending.isFresh(System.currentTimeMillis())) nav.link(pending.url)
+            container.linkRequest.value = null
         }
     }
 
@@ -233,7 +270,7 @@ fun MainScreen() {
                 // Deep links relais://report/{id} and relais://country/{id}, used by the Maestro flows.
                 composable<ReportRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<ReportRoute>(basePath = "relais://report")) else emptyList()) {
                     val route = it.toRoute<ReportRoute>()
-                    ReportScreen(route.id, route.block, nav, fromHeadline = route.headline)
+                    ReportScreen(route.id, route.block, nav, fromHeadline = route.headline, fromLink = route.fromLink)
                 }
                 composable<PdfRoute> {
                     val route = it.toRoute<PdfRoute>()
@@ -261,6 +298,7 @@ fun MainScreen() {
                 composable<LicencesRoute> { LicencesScreen(nav) }
                 // Back to Settings at the end, by Skip, Start reading or Back on the first page.
                 composable<TourRoute> { TourScreen(onDone = { nav.back() }) }
+                composable<LinkRoute> { LinkScreen(it.toRoute<LinkRoute>().url, nav) }
                 composable<ManageFollowingRoute> { ManageFollowingScreen(nav) }
                 composable<CrisisRoute>(deepLinks = if (BuildConfig.DEBUG) listOf(navDeepLink<CrisisRoute>(basePath = "relais://crisis")) else emptyList()) {
                     val route = it.toRoute<CrisisRoute>()

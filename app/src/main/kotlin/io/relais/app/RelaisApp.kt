@@ -185,6 +185,20 @@ class AppContainer(private val context: Context) {
     /** A screen to open from a notification: a report id, or -1 for Following (theme-compose.md 10.15). */
     val openRequest = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
 
+    /**
+     * A ReliefWeb link given by another app (17/11), already checked (ReliefWebLinks): it waits
+     * here until the main screen is shown, so the first launch setup and the tour come first.
+     */
+    val linkRequest = kotlinx.coroutines.flow.MutableStateFlow<io.relais.app.data.PendingLink?>(null)
+
+    /** From a ReliefWeb link to a screen (17/11). */
+    val linkOpener = io.relais.app.data.LinkOpener(
+        onPhone = repository::reportOnPhone,
+        hasAccess = { repository.hasAccess },
+        online = { network.isOnline() },
+        fetch = repository::fetchReportForLink,
+    )
+
     /** The last headline read from the pile: Today stands on its card when the reader comes back (v0.4). */
     val headlineFocus = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
 

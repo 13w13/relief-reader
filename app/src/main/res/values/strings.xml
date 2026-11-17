@@ -564,6 +564,22 @@
     <string name="tour_sample_sentence_2">Most families are staying with relatives.</string>
     <string name="tour_sample_citation">Example Relief Network, Situation Report</string>
     <string name="settings_show_tour">Show the tour again</string>
+    <!-- A ReliefWeb link from another app (17/11). -->
+    <string name="link_title">ReliefWeb link</string>
+    <string name="link_opening">Opening the report…</string>
+    <string name="link_needs_appname">This report needs a ReliefWeb appname to open in Re.L.</string>
+    <string name="link_offline">You\'re offline, and this report isn\'t on your phone.</string>
+    <string name="link_not_found">ReliefWeb has no report at this address.</string>
+    <string name="link_not_a_report">Re.L can\'t show this ReliefWeb page.</string>
+    <string name="link_try_later">Re.L opened several links in a few minutes. Try again in a moment, or open this one in your browser.</string>
+    <string name="link_failed">Couldn\'t open the report (%1$s).</string>
+    <string name="link_add_appname">Add an appname</string>
+    <string name="link_try_again">Try again</string>
+    <string name="link_refused">Re.L opens links to reliefweb.int only.</string>
+    <string name="link_no_app">No app on this phone can open this link.</string>
+    <string name="settings_open_links">Open ReliefWeb links in Re.L</string>
+    <string name="settings_open_links_help">In the settings that open, turn on Open supported links, tap Add link and choose reliefweb.int. Sharing a link to Re.L works without it.</string>
+    <string name="settings_open_links_help_before_12">When you tap a reliefweb.int link, Android asks which app should open it. Choose Re.L. Sharing a link to Re.L also works.</string>
     <!-- "Check now" in Settings > About (founder, 16/11): results under the button, never a dialog. -->
     <string name="update_check_now">Check now</string>
     <string name="update_checking">Checking…</string>
